@@ -328,6 +328,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 
 			// newly uploaded package version file archive inspection routes
 			//
+			Route::get('packages/versions/new/root', 'Packages\PackageVersionsController@getNewRoot');
 			Route::get('packages/versions/new/contains', 'Packages\PackageVersionsController@getNewContains');
 			Route::get('packages/versions/new/file-types', 'Packages\PackageVersionsController@getNewFileTypes');
 			Route::get('packages/versions/new/file-list', 'Packages\PackageVersionsController@getNewFileInfoList');
@@ -343,6 +344,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 
 			// package version file archive inspection routes
 			//
+			Route::get('packages/versions/{package_version_uuid}/root', 'Packages\PackageVersionsController@getRoot');	
 			Route::get('packages/versions/{package_version_uuid}/contains', 'Packages\PackageVersionsController@getContains');	
 			Route::get('packages/versions/{package_version_uuid}/file-types', 'Packages\PackageVersionsController@getFileTypes');
 			Route::get('packages/versions/{package_version_uuid}/file-list', 'Packages\PackageVersionsController@getFileInfoList');

@@ -141,6 +141,19 @@ class PackageVersionsController extends BaseController {
 	// newly uploaded package version file archive inspection methods
 	//
 
+	// get name of root directory
+	//
+	public function getNewRoot() {
+
+		// create package appropriate to package type
+		//
+		$packageVersion = new PackageVersion(array(
+			'package_path' => Input::get('package_path')
+		));
+
+		return $packageVersion->getRoot();
+	}
+
 	// check contents
 	//
 	public function getNewContains() {
@@ -259,6 +272,17 @@ class PackageVersionsController extends BaseController {
 	//
 	// package version file archive inspection methods
 	//
+
+	// get name of root directory
+	//
+	public function getRoot($packageVersionUuid) {
+
+		// find package version
+		//
+		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+
+		return $packageVersion->getRoot();
+	}
 
 	// check contents
 	//

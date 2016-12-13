@@ -19,11 +19,11 @@
 namespace App\Http\Controllers\Utilities;
 
 use App\Http\Controllers\BaseController;
-use App\Services\SWAMPStatus;
 
 class StatusController extends BaseController {
 	public function getCurrent() {
-		$ra = SWAMPStatus::getCurrent();
-		return $ra;
+		return array(
+			'status' => 'ok'
+		);
 	}
 }

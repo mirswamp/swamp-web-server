@@ -1,36 +1,27 @@
-#Welcome to SWAMP-in-a-Box! (Software Assurance Marketplace in a box)
+## Laravel PHP Framework
 
-This release of SWAMP-in-a-Box is an open-beta version.  We welcome your feedback and contributions at swampinabox@continuousassurance.org or +1 (317)-274-3942.  To get updates on SWAMP-in-a-Box and be part of the user community, please join our [mailing list](https://lists.cosalab.org/mailman/listinfo/swampinabox "SWAMP Mailing List")!
+[![Build Status](https://travis-ci.org/laravel/framework.svg)](https://travis-ci.org/laravel/framework)
+[![Total Downloads](https://poser.pugx.org/laravel/framework/d/total.svg)](https://packagist.org/packages/laravel/framework)
+[![Latest Stable Version](https://poser.pugx.org/laravel/framework/v/stable.svg)](https://packagist.org/packages/laravel/framework)
+[![Latest Unstable Version](https://poser.pugx.org/laravel/framework/v/unstable.svg)](https://packagist.org/packages/laravel/framework)
+[![License](https://poser.pugx.org/laravel/framework/license.svg)](https://packagist.org/packages/laravel/framework)
 
-The SWAMP code is contained in the following repositories:
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable, creative experience to be truly fulfilling. Laravel attempts to take the pain out of development by easing common tasks used in the majority of web projects, such as authentication, routing, sessions, queueing, and caching.
 
-- db
-- deployment
-- services
-- swamp-web-server (contains customized Laravel Framework code)
-- www-front-end
+Laravel is accessible, yet powerful, providing powerful tools needed for large, robust applications. A superb inversion of control container, expressive migration system, and tightly integrated unit testing support give you the tools you need to build any application with which you are tasked.
 
-To download the SWAMP-in-a-Box install files and install instructions, copy **download-latest-swampinabox.bash** to the location you want the files and run it.
+## Official Documentation
 
-The script **download-latest-swampinabox.bash** can be found at:
+Documentation for the framework can be found on the [Laravel website](http://laravel.com/docs).
 
-<https://github.com/mirswamp/dependency/tree/master/swamponabox/distribution/util>
+## Contributing
 
-Or you can get the install files from <http://platform.mir.swamp.org/siab-latest-release>
+Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](http://laravel.com/docs/contributions).
 
-Documentation can be found at <https://github.com/mirswamp/dependency/tree/master/swamponabox/distribution/doc>
+## Security Vulnerabilities
 
-This includes instructions for: 
+If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell at taylor@laravel.com. All security vulnerabilities will be promptly addressed.
 
-- Building your server
-- Installing SWAMP-in-a-Box (README-INSTALL) 
-- Installing Code Dx 
-- Configuring SSL certifications
-- Setting-up email notifications
-- Upgrade instructions
- 
----
+### License
 
-###SWAMP Background
-
-The Software Assurance Marketplace is a joint effort of four research institutions – the Morgridge Institute for Research, Indiana University, the University of Illinois at Urbana-Champaign, and the University of Wisconsin-Madison – to advance the capabilities and to increase the adoption of software assurance technologies through an open continuous assurance facility. The SWAMP project is funded by the Department of Homeland Security Science and Technology Directorate and went live in February 2014 at <https://www.mir-swamp.org>.  
+The Laravel framework is open-sourced software licensed under the [MIT license](http://opensource.org/licenses/MIT)

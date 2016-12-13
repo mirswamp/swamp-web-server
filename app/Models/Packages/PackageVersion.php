@@ -177,6 +177,11 @@ class PackageVersion extends UserStamped {
 	 * querying methods
 	 */
 
+	function getRoot() {
+		$archive = new Archive($this->getPackagePath());
+		return $archive->getRoot();
+	}
+
 	function getFileContents($filename, $dirname) {
 		$zip = new ZipArchive();
 		if ($zip->open($this->getPackagePath()) === TRUE) {
@@ -196,10 +201,7 @@ class PackageVersion extends UserStamped {
 
 			// formulate path to file
 			//
-			if ($dirname == '.') {
-				$dirname = './';
-			}
-			if ($dirname == './') {
+			if ($dirname == '.' || $dirname == './') {
 				$dirname = '';
 			}
 

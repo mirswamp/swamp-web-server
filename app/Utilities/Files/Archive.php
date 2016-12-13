@@ -23,6 +23,7 @@
 namespace App\Utilities\Files;
 
 use ZipArchive;
+use Illuminate\Support\Facades\Log;
 use App\Utilities\Strings\StringUtils;
 
 class Archive {
@@ -109,6 +110,12 @@ class Archive {
 	// public methods
 	//
 
+	public function getRoot() {
+		$list = $this->getFileInfoList();
+		$names = self::infoListToNames($list);
+		return self::getRootDirectoryName($names);
+	}
+
 	public function getExtension() {
 		return pathinfo($this->path, PATHINFO_EXTENSION);
 	}
@@ -144,76 +151,60 @@ class Archive {
 		return sizeof($this->getFileInfoList($dirname, $filter, true)) != 0;
 	}
 
-	public function getFileInfoList($dirname, $filter, $recursive = false) {
+	public function getFileInfoList($dirname = './', $filter = null, $recursive = false) {
 		switch ($this->getExtension()) {
 
 			// zip files
 			//
 			case 'zip':
 			case 'whl':
-				$fileInfoList = $this->getZipFileInfoList($dirname, $filter, $recursive);
-				break;
+				return $this->getZipFileInfoList($dirname, $filter, $recursive);
 
 			// jar files
 			//
 			case 'jar':
 			case 'war':
 			case 'ear':
-				$fileInfoList = $this->getJarFileInfoList($dirname, $filter, $recursive);
-				break;
+				return $this->getJarFileInfoList($dirname, $filter, $recursive);
 
 			// tar files
 			//
 			default:
-				$fileInfoList = $this->getTarFileInfoList($dirname, $filter, $recursive);
+				return $this->getTarFileInfoList($dirname, $filter, $recursive);
 		}
-
-		return $fileInfoList;
 	}
 
-	public function getDirectoryInfoList($dirname, $filter, $recursive = false) {
+	public function getDirectoryInfoList($dirname = './', $filter = null, $recursive = false) {
 		switch ($this->getExtension()) {
 
 			// zip files
 			//
 			case 'zip':
 			case 'whl':
-				$directoryInfoList = $this->getZipDirectoryInfoList($dirname, $filter, $recursive);
-				break;
+				return $this->getZipDirectoryInfoList($dirname, $filter, $recursive);
 
 			// jar files
 			//
 			case 'jar':
 			case 'war':
 			case 'ear':
-				$directoryInfoList = $this->getJarDirectoryInfoList($dirname, $filter, $recursive);
-				break;
+				return $this->getJarDirectoryInfoList($dirname, $filter, $recursive);
 
 			// tar files
 			//
 			default:
-				$directoryInfoList = $this->getTarDirectoryInfoList($dirname, $filter, $recursive);
+				return $this->getTarDirectoryInfoList($dirname, $filter, $recursive);
 		}
-
-		return $directoryInfoList;
 	}
 
 	public function getFileInfoTree($dirname, $filter) {
 		$list = $this->getFileInfoList($dirname, $filter);
-		if ($dirname) {
-			return $list;
-		} else {
-			return self::directoryInfoListToTree($list);
-		}
+		return self::directoryInfoListToTree($list);
 	}
 
 	public function getDirectoryInfoTree($dirname, $filter) {
 		$list = $this->getDirectoryInfoList($dirname, $filter);
-		if ($dirname) {
-			return $list;
-		} else {
-			return self::directoryInfoListToTree($list);
-		}
+		return self::directoryInfoListToTree($list);
 	}
 
 	public function getFileTypes($dirname) {
@@ -255,6 +246,10 @@ class Archive {
 
 	private static function getRootDirectoryName($array) {
 
+		if (sizeof($array) == 0) {
+			return './';
+		}
+
 		// take the first item as initial prefix
 		//
 		$prefix = $array[0];  
@@ -272,6 +267,10 @@ class Archive {
 			}
 		}
 
+		if (!$prefix) {
+			$prefix = './';
+		}
+
 		return $prefix;
 	}
 
@@ -285,7 +284,7 @@ class Archive {
 			// add directory of name
 			//
 			$dirname = dirname($name);
-			if ($dirname != '.') {
+			if ($dirname != '.' && $dirname != './') {
 				self::addName($dirname.'/', $dirnames);
 			}
 
@@ -353,6 +352,12 @@ class Archive {
 	//
 
 	private static function getNamesInDirectory($names, $dirname, $recursive = false) {
+
+		// make sure that dirname ends with a slash
+		//
+		if (!StringUtils::endsWith($dirname, '/')) {
+			$dirname = $dirname.'/';
+		}
 
 		// return all if no dirname
 		//
@@ -507,11 +512,37 @@ class Archive {
 	// private zip archive methods
 	//
 
+	private static function addPath($path, &$names) {
+		if ($path && $path != '.' && $path != '/' && !in_array($path, $names)) {
+
+			// add parent dirname
+			//
+			$dirname = dirname($path);
+			if ($dirname && $dirname != '.' && $dirname != '/') {
+				self::addPath($dirname.'/', $names);
+			}
+
+			// add path
+			//
+			array_push($names, $path);
+		}
+	}
+
 	private static function getZipArchiveFilenames($zipArchive) {
 		$names = array();
 		for ($i = 0; $i < $zipArchive->numFiles; $i++) {
 			$stat = $zipArchive->statIndex($i);
 			$name = $stat['name'];
+
+			// make sure that directory name for path exists
+			//
+			$dirname = dirname($name);
+			if ($dirname && $dirname != '.' && $dirname != '/') {
+				self::addPath($dirname.'/', $names);
+			}
+
+			// add name
+			//
 			array_push($names, $name);
 		}
 		return $names;
@@ -544,6 +575,8 @@ class Archive {
 						//
 						$path .= $directory.'/'; 
 
+						Log::info("adding path: $path");
+
 						// add new paths to list
 						//
 						if (!in_array($path, $names)) {
@@ -572,20 +605,10 @@ class Archive {
 		//
 		$names = self::getZipArchiveFilenames($zipArchive);
 
-		// infer directory names for zip files with no directory info
-		//
-		if (!self::containsDirectoryNames($names)) {
-			$names = self::inferDirectoryNames($names);
-		}
-
 		// get root directory name
 		//
-		if ($dirname == '.') {
+		if (!$dirname || $dirname == './') {
 			$dirname = self::getRootDirectoryName($names);
-
-			if (!$dirname) {
-				$dirname = './';
-			}
 		}
 
 		// filter for directory names
@@ -600,13 +623,9 @@ class Archive {
 			$names = self::getFilteredNames($names, $filter);
 		}
 
-		// return info
+		// return names converted to info
 		//
-		if ($dirname == './' && sizeof($names) == 1) {
-			return self::nameToInfo($names[0]);
-		} else {
-			return self::namesToInfoArray($names);
-		}
+		return self::namesToInfoArray($names);
 	}
 
 	private function getZipDirectoryInfoList($dirname, $filter, $recursive = false) {
@@ -618,8 +637,8 @@ class Archive {
 
 		// get root directory name
 		//
-		if ($dirname == '.') {
-			$dirname = './';
+		if ($dirname == '.' || $dirname == './') {
+			$dirname = '';
 		}
 
 		// get directory info array from zip archive
@@ -655,11 +674,7 @@ class Archive {
 			}
 		}
 
-		if ($dirname == '/' && $directories.length == 1) {
-			return $directories[1];
-		} else {
-			return $directories;
-		}
+		return $directories;
 	}
 
 	private function getZipFileTypes($dirname) {
@@ -671,7 +686,7 @@ class Archive {
 
 		// get root directory name
 		//
-		if ($dirname == '.') {
+		if ($dirname == '.' || $dirname == './') {
 			$dirname = '';
 		}
 
@@ -710,6 +725,7 @@ class Archive {
 				}
 			}
 		}
+		
 		return $fileTypes;
 	}
 
@@ -730,12 +746,6 @@ class Archive {
 		exec($script, $names);
 		$names = self::getFileAndDirectoryNames($names);
 
-		// get root directory name
-		//
-		if ($dirname == '.') {
-			$dirname = './';
-		}
-
 		// get names that are part of directory
 		//
 		if ($dirname) {
@@ -748,13 +758,9 @@ class Archive {
 			$names = self::getFilteredNames($names, $filter);
 		}
 
-		// return info
+		// return names converted to info
 		//
-		if ($dirname == './' && sizeof($names) == 1) {
-			return self::nameToInfo($names[0]);
-		} else {
-			return self::namesToInfoArray($names);
-		}
+		return self::namesToInfoArray($names);
 	}
 
 	private function getTarDirectoryInfoList($dirname, $filter, $recursive = false) {
@@ -779,13 +785,9 @@ class Archive {
 			$names = self::getFilteredNames($names, $filter);
 		}
 
-		// return info
+		// return names converted to info
 		//
-		if ($dirname == './' && sizeof($names) == 1) {
-			return self::nameToInfo($names[0]);
-		} else {
-			return self::namesToInfoArray($names);
-		}
+		return self::namesToInfoArray($names);
 	}
 
 	private function getTarFileTypes($dirname) {
@@ -804,15 +806,9 @@ class Archive {
 		//
 		$names = self::getFileNames($names);
 
-		// get root directory name
-		//
-		if ($dirname == '.') {
-			$dirname = '';
-		}
-
 		// get names that are part of directory
 		//
-		if ($dirname) {
+		if ($dirname && $dirname != '.' && $dirname != './') {
 			$names = self::getNamesNestedInDirectory($names, $dirname);
 		}
 
@@ -834,12 +830,6 @@ class Archive {
 		exec($script, $names);
 		$names = self::getFileAndDirectoryNames($names);
 
-		// get root directory name
-		//
-		if ($dirname == '.') {
-			$dirname = './';
-		}
-
 		// get names that are part of directory
 		//
 		if ($dirname) {
@@ -852,13 +842,9 @@ class Archive {
 			$names = self::getFilteredNames($names, $filter);
 		}
 
-		// return info
+		// return names converted to info
 		//
-		if ($dirname == './' && sizeof($names) == 1) {
-			return self::nameToInfo($names[0]);
-		} else {
-			return self::namesToInfoArray($names);
-		}
+		return self::namesToInfoArray($names);
 	}
 
 	private function getJarDirectoryInfoList($dirname, $filter, $recursive = false) {
@@ -879,13 +865,9 @@ class Archive {
 			$names = self::getFilteredNames($names, $filter);
 		}
 
-		// return info
+		// return names converted to info
 		//
-		if ($dirname == './' && sizeof($names) == 1) {
-			return self::nameToInfo($names[0]);
-		} else {
-			return self::namesToInfoArray($names);
-		}
+		return self::namesToInfoArray($names);
 	}
 
 	private function getJarFileTypes($dirname) {
@@ -900,15 +882,9 @@ class Archive {
 		//
 		$names = self::getFileNames($names);
 
-		// get root directory name
-		//
-		if ($dirname == '.') {
-			$dirname = '';
-		}
-
 		// get names that are part of directory
 		//
-		if ($dirname) {
+		if ($dirname && $dirname != '.' && $dirname != './') {
 			$names = self::getNamesNestedInDirectory($names, $dirname);
 		}
 
@@ -920,6 +896,14 @@ class Archive {
 	//
 	// private directory list to tree conversion methods
 	//
+
+	private static function infoListToNames($list) {
+		$names = array();
+		for ($i = 0; $i < sizeof($list); $i++) {
+			array_push($names, $list[$i]['name']);
+		}
+		return $names;
+	}
 
 	private static function directoryInfoListToTree($list) {
 		$tree = array();
@@ -945,11 +929,11 @@ class Archive {
 			// search for item in tree
 			//
 			$dirname = dirname($item['name']);
-			$leaf = &findLeaf($tree, $dirname.'/');
+			$leaf = &findLeaf($tree, $dirname != '/'? $dirname.'/' : $dirname);
 
 			if ($leaf != null) {
 
-				// create diretory contents
+				// create directory contents
 				//
 				if (!array_key_exists('contents', $leaf)) {
 					$leaf['contents'] = array();
@@ -964,6 +948,26 @@ class Archive {
 				//
 				array_push($tree, $item);
 			}
+		}
+
+		if (!array_key_exists('contents', $tree)) {
+
+			// find root name
+			//
+			$names = self::infoListToNames($tree);
+			if (sizeof($names) > 0) {
+				$name = self::getRootDirectoryName($names);
+				if ($name == '') {
+					$name = './';
+				}
+			} else {
+				$name = './';
+			}
+
+			$tree = array(
+				'name' => $name,
+				'contents' => $tree
+			);
 		}
 
 		return $tree;
