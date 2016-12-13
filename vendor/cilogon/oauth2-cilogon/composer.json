@@ -1,0 +1,39 @@
+{
+    "name": "cilogon/oauth2-cilogon",
+    "description": "CILogon OAuth 2.0 Client Provider for The PHP League OAuth2-Client",
+    "license": "NCSA",
+    "authors": [
+        {
+            "name": "Terry Fleury",
+            "email": "tfleury@cilogon.org",
+            "homepage": "http://www.cilogon.org"
+        }
+    ],
+    "keywords": [
+        "oauth",
+        "oauth2",
+        "client",
+        "authorization",
+        "authentication",
+        "cilogon"
+    ],
+    "require": {
+        "php": ">=5.5.0",
+        "league/oauth2-client": "~1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~4.0",
+        "mockery/mockery": "~0.9",
+        "squizlabs/php_codesniffer": "~2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CILogon\\OAuth2\\Client\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CILogon\\OAuth2\\Client\\Test\\": "test/src/"
+        }
+    }
+}

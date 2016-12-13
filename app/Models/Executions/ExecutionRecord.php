@@ -57,7 +57,6 @@ class ExecutionRecord extends CreateStamped {
 		'queued_duration',
 		'execution_duration',
 		'execute_node_architecture_id',
-		'lines_of_code',
 		'cpu_utilization',
 		'vm_hostname'
 	);
@@ -76,7 +75,6 @@ class ExecutionRecord extends CreateStamped {
 		'queued_duration',
 		'execution_duration',
 		'execute_node_architecture_id',
-		'lines_of_code',
 		'cpu_utilization',
 		'vm_hostname',
 
@@ -152,7 +150,8 @@ class ExecutionRecord extends CreateStamped {
 				($assessmentResult? $assessmentResult->tool_version : ''),
 			'tool_uuid' => $tool? $tool->tool_uuid : '',
 			'tool_version_uuid' => $toolVersion? $toolVersion->tool_version_uuid : '',
-			'viewer_names' => $tool? $tool->viewer_names : ''
+			'viewer_names' => $tool? $tool->viewer_names : '',
+			'is_restricted' => $tool? $tool->is_restricted : ''
 		);
 	}
 

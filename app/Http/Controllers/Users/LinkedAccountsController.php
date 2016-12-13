@@ -26,14 +26,15 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
-use App\Utilities\Uuids\Guid;
+use App\Http\Controllers\BaseController;
 use App\Models\Users\User;
 use App\Models\Users\UserAccount;
 use App\Models\Users\UserPermission;
 use App\Models\Users\LinkedAccount;
 use App\Models\Users\Permission;
 use App\Models\Users\UserEvent;
-use App\Http\Controllers\BaseController;
+use App\Utilities\Uuids\Guid;
+use App\Utilities\Identity\IdentityProvider;
 
 class LinkedAccountsController extends BaseController {
 
@@ -49,11 +50,12 @@ class LinkedAccountsController extends BaseController {
 		$account 		= LinkedAccount::where('linked_account_id', '=', $linkedAccountId)->first();
 		$user 			= User::getIndex($account->user_uid);
 		if( ( $user->user_uid == $active_user->user_uid ) || $active_user->isAdmin() ){
+			$idp = new IdentityProvider();
 			$userEvent = new UserEvent(array(
 				'user_uid' => $user->user_uid,
 				'event_type' => 'linkedAccountDeleted',
 				'value' => json_encode(array( 
-					'linked_account_provider_code' 	=> 'github', 
+					'linked_account_provider_code' 	=> $idp->linked_provider, 
 					'user_external_id' 				=> $account->user_external_id, 
 					'user_ip' 						=> $_SERVER['REMOTE_ADDR']
 				))
@@ -74,11 +76,12 @@ class LinkedAccountsController extends BaseController {
 		if( ( $user->user_uid == $active_user->user_uid ) || $active_user->isAdmin() ){
 			$account->enabled_flag = $value ? 1 : 0;
 			$account->save();
+			$idp = new IdentityProvider();
 			$userEvent = new UserEvent(array(
 				'user_uid' => $user->user_uid,
 				'event_type' => 'linkedAccountToggled',
 				'value' => json_encode(array( 
-					'linked_account_provider_code' 	=> 'github', 
+					'linked_account_provider_code' 	=> $idp->linked_provider, 
 					'user_external_id' 				=> $account->user_external_id, 
 					'user_ip' 						=> $_SERVER['REMOTE_ADDR'],
 					'enabled'						=> $account->enabled_flag

@@ -230,6 +230,7 @@ class PSR0Locator implements ResourceLocatorInterface
      */
     public function createResource($classname)
     {
+        $classname = ltrim($classname, '\\');
         $this->validatePsr0Classname($classname);
 
         $classname = str_replace('/', '\\', $classname);
@@ -282,7 +283,7 @@ class PSR0Locator implements ResourceLocatorInterface
 
     /**
      * @param $path
-     * 
+     *
      * @return null|string
      */
     private function findSpecClassname($path)
@@ -327,7 +328,7 @@ class PSR0Locator implements ResourceLocatorInterface
         $classname = $this->findSpecClassname($path);
 
         if (null === $classname) {
-            throw new \RuntimeException('Spec file does not contains any class definition.');
+            throw new \RuntimeException(sprintf('Spec file "%s" does not contains any class definition.', $path));
         }
 
         // Remove spec namespace from the begining of the classname.

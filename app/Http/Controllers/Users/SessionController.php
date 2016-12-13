@@ -37,8 +37,9 @@ use App\Models\Users\UserEvent;
 use App\Models\Users\EmailVerification;
 use App\Models\Users\PasswordReset;
 use App\Http\Controllers\BaseController;
-
-/* require_once app_path().'/lib/httpful.phar'; */
+use App\Utilities\Identity\IdentityProvider;
+use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
+use ErrorException;
 
 class SessionController extends BaseController {
 
@@ -75,10 +76,10 @@ class SessionController extends BaseController {
 							//
 							$userAccount->penultimate_login_date = $userAccount->ultimate_login_date;
 							$userAccount->ultimate_login_date = gmdate('Y-m-d H:i:s');
+							$userAccount->save();
 
 							// log in user
 							//
-							$userAccount->save();
 							$response = response()->json(array('user_uid' => $user->user_uid));
 							Session::set('timestamp', time());
 							Session::set('user_uid', $user->user_uid);
@@ -103,10 +104,6 @@ class SessionController extends BaseController {
 	//
 	public function postLogout() {
 
-		// update last url visited
-		//
-		//$this->postUpdate();
-
 		// destroy session cookies
 		//
 		Session::flush();
@@ -115,63 +112,38 @@ class SessionController extends BaseController {
 		//Auth::logout();
 	}
 
-	// GitHub OAuth Callbacks
+	// OAuth 2.0 Callbacks
 	//
-	public function github() {
+	public function oauth2() {
 
-		if (!Session::has('github_state')) {
-			return response('Unauthorized GitHub access.', 401);
+		if (!Session::has('oauth2_state')) {
+			return response('Unauthorized OAuth2 access.', 401);
 		}
 
-		$state = Session::get('github_state');
-		$receivedState = Input::get('state'); // The state returned from github
+		$state = Session::get('oauth2_state');
+		$receivedState = Input::get('state'); // The state returned from OAuth server
 		if (0 != strcasecmp($state, $receivedState)) { 
-			$code = Input::get('code');
-            if (empty($code)) {
-                Log::notice("redirect from entering github");
-                return Redirect::to(Config::get('app.url').'/github?code='.$code.'&state='.$receivedState);
-            }
+			return response('Mismatched state. Unauthorized OAuth2 access.', 401);
 		}
 
-		// get access token from github
+		// get access token from OAuth server
 		//
-		$ch = curl_init('https://github.com/login/oauth/access_token');
-		curl_setopt($ch, CURLOPT_POSTFIELDS, array(
-			'client_id' =>  Config::get('github.client_id'),
-			'client_secret' => Config::get('github.client_secret'),
-			'code' => Input::get('code')
-		));
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-		curl_setopt($ch, CURLOPT_USERAGENT, 'SWAMP');
-		$response = curl_exec($ch);
+		$idp = new IdentityProvider();
+		try {
+			$token = $idp->provider->getAccessToken('authorization_code', [
+				'code' => Input::get('code')
+			]);
 
-		$status = array();
-		parse_str($response, $status);
-
-		// a GitHub access_token has been granted
-		//
-		if (array_key_exists('access_token', $status)) {
-			Session::set('github_access_token', $status["access_token"]);
-			Session::set('github_access_time', gmdate('U'));
+			Session::set('oauth2_access_token', $token);
+			Session::set('oauth2_access_time', gmdate('U'));
 			Session::save();
 
-			// get github user data
-			//
-			$ch = curl_init('https://api.github.com/user');
-			curl_setopt($ch, CURLOPT_HTTPHEADER, array( "Authorization: token $status[access_token]" ));
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-			curl_setopt($ch, CURLOPT_USERAGENT, 'SWAMP');
-			$response = curl_exec($ch);
-			$github_user = json_decode($response);
-			$account = LinkedAccount::where('user_external_id', '=', $github_user->id)->where('linked_account_provider_code','=','github')->first();
+			$oauth2_user = $idp->provider->getResourceOwner($token);
+			$account = LinkedAccount::where('user_external_id','=',$oauth2_user->getID())->where('linked_account_provider_code','=',$idp->linked_provider)->first();
 
-			// linked account record exists for this github user
-			//
-			if ($account) {
+			if ($account) { // linked account record exists for this oauth2 user
 
-				// a SWAMP user account for the github user exists
+				// a SWAMP user account for the oauth2 user exists
 				//
 				$user = User::getIndex($account->user_uid);
 
@@ -192,279 +164,287 @@ class SessionController extends BaseController {
 							Session::set('user_uid', $user->user_uid);
 							Session::save();
 
-							// github linked account disabled?
+							// oauth2 linked account disabled?
 							//
-							if (LinkedAccountProvider::where('linked_account_provider_code','=','github')->first()->enabled_flag != '1') {
-								return Redirect::to( Config::get('app.cors_url') . '/#github/error/github-auth-disabled' );
+							if (LinkedAccountProvider::where('linked_account_provider_code','=',$idp->linked_provider)->first()->enabled_flag != '1') {
+								return Redirect::to(Config::get('app.cors_url').'/#linked-account/error/oauth2-auth-disabled');
 							}
 
-							// github authentication disabled?
+							// oauth2 authentication disabled?
 							//
 							if ($account->enabled_flag != '1') {
-								return Redirect::to( Config::get('app.cors_url') . '/#github/error/github-account-disabled' );
+								return Redirect::to(Config::get('app.cors_url').'/#linked-account/error/oauth2-account-disabled');
 							}
 
-							return Redirect::to( Config::get('app.cors_url') );
+							return Redirect::to(Config::get('app.cors_url'));
 
 						} else {
-							return Redirect::to( Config::get('app.cors_url') . '/#github/error/not-enabled' );
+							return Redirect::to(Config::get('app.cors_url').'/#linked-account/error/not-enabled');
 						}
 					} else {
-						return Redirect::to( Config::get('app.cors_url') . '/#github/error/not-verified' );
+						return Redirect::to(Config::get('app.cors_url').'/#linked-account/error/not-verified');
 					}
 				} else {
 
 					// SWAMP user not found for existing linked account.
 					//
-					LinkedAccount::where('user_external_id','=',$github_user->id)->where('linked_account_provider_code','=','github')->delete();
-					return Redirect::to( Config::get('app.cors_url') . "/#github/prompt" );
+					LinkedAccount::where('user_external_id','=',$oauth2_user->getId())->where('linked_account_provider_code','=',$idp->linked_provider)->delete();
+					return Redirect::to( Config::get('app.cors_url').'/#linked-account/prompt');
 				}
 			} else {
 				Session::save();
-				return Redirect::to( Config::get('app.cors_url') . "/#github/prompt" );
+				return Redirect::to( Config::get('app.cors_url').'/#linked-account/prompt');
 			}
 
-		// a GitHub access_token has not been granted
-		//
-		} else {
-			return response('Unable to authenticate with GitHub.', 401);
+		} catch (IdentityProviderException $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Exception $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Error $err) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
 		}
 	}
 
-	// retrieves and returns information about the currently logged in github user
+	// retrieves and returns information about the currently logged in oauth2 user
 	//
-	public function githubUser() {
+	public function oauth2User() {
 
-		if (!Session::has('github_access_token')) {
-			// get acces token from github
-			//
-			return response('Unauthorized GitHub access.', 401); 
+		if (!Session::has('oauth2_access_token')) {
+			return response('Unauthorized OAuth2 access.', 401); 
 		}
 
-		// get user info from github
-		//
-		$token = Session::get('github_access_token');
-		$ch = curl_init('https://api.github.com/user');
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array( "Authorization: token $token" ));
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-		curl_setopt($ch, CURLOPT_USERAGENT, 'SWAMP');
-		$response = curl_exec($ch);
-		$github_user = json_decode($response, true);
-		$github_user['email'] = array_key_exists( 'email', $github_user ) ? $github_user['email'] : '';
-		$user = array(
-			'user_external_id' 	=> $github_user['id'],
-			'username' 			=> $github_user['login'],
-			'email'    			=> $github_user['email']
-		);
-
-		return $user;
+		$idp = new IdentityProvider();
+		$token = Session::get('oauth2_access_token');
+		try {
+			$oauth2_user = $idp->provider->getResourceOwner($token);
+			$user = array(
+				'user_external_id' => $oauth2_user->getId(),
+				'username'         => $this->getUsername($oauth2_user),
+				'email'            => $oauth2_user->getEmail(),
+			);
+			return $user;
+		} catch (IdentityProviderException $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Exception $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Error $err) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		}
 	}
 
-	public function registerGithubUser() {
+	public function registerOAuth2User() {
 
-		if (!Session::has('github_access_token')) {
-			return response('Unauthorized GitHub access.', 401);
+		if (!Session::has('oauth2_access_token')) {
+			return response('Unauthorized OAuth2 access.', 401);
 		}
 
-		// get user info from github
-		//
-		$token = Session::get('github_access_token');
-		$ch = curl_init('https://api.github.com/user');
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array( "Authorization: token $token" ));
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-		curl_setopt($ch, CURLOPT_USERAGENT, 'SWAMP');
-		$response = curl_exec($ch);
-		$github_user = json_decode( $response, true );
+		$idp = new IdentityProvider();
+		$token = Session::get('oauth2_access_token');
+		try {
+			// Get user info
+			$oauth2_user = $idp->provider->getResourceOwner($token);
 
-		// Append email information
-		//
-		$ch = curl_init('https://api.github.com/user/emails');
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array( "Authorization: token $token" ));
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-		curl_setopt($ch, CURLOPT_USERAGENT, 'SWAMP');
-		$response = curl_exec($ch);
+			$oauth2_email = '';
+			$primary_verified = false;
+			if ($idp->linked_provider == 'github') {
+				// Get verified email info from GitHub
+				$request = $idp->provider->getAuthenticatedRequest(
+					'GET',
+					'https://api.github.com/user/emails',
+					$token
+				);
+				$github_emails = $idp->provider->getResponse($request);
 
-		$github_emails = json_decode( $response );
-
-		$github_user['email'] = '';
-		$primary_verified = false;
-		foreach( $github_emails as $email ){
-			if( ( $email->primary == '1' ) && ( $email->verified == '1' ) ){
+				foreach ($github_emails as $email) {
+				  if (($email['primary'] == '1') && ($email['verified'] == '1')) {
+						$primary_verified = true;
+						$oauth2_email = $email['email'];
+						break;
+					}
+					elseif ($email['primary'] == '1') {
+						$oauth2_email = $email['email'];
+						break;
+					}
+				}
+			} else { // For Google and CILogon, use the primary email address
+				$oauth2_email = $oauth2_user->getEmail();
+				// For now, assume Google/CILogon email addresses are verified.
 				$primary_verified = true;
-				$github_user['email'] = $email->email;
-			}
-			else if( $email->primary == '1' ){
-				$github_user['email'] = $email->email;
-			}
-		}
-
-		$names = array_key_exists('name', $github_user) ? explode(' ', $github_user['name']) : array('','');
-
-		$user = new User(array(
-			'first_name' => array_key_exists( 0, $names ) ? $names[0] : '',
-			'last_name' => array_key_exists( 1, $names ) ? $names[1] : '',
-			'preferred_name' => array_key_exists( 'name', $github_user ) ? $github_user['name'] : '',
-			'username' => $github_user['login'],
-			'password' => md5(uniqid()).strtoupper(md5(uniqid())),
-			'user_uid' => Guid::create(),
-			'email' => $github_user['email'],
-			'address' => array_key_exists( 'location', $github_user ) ? $github_user['location'] : ''
-		));
-
-		// attempt username permutations
-		//
-		for ($i = 1; $i < 21; $i++) {
-			$errors = array();
-			if ($user->isValid($errors, true)) {
-				break;
-			}
-			if ( $i == 20 ) {
-				return response('Unable to generate SWAMP GitHub user:<br/><br/>'.implode( '<br/>', $errors ), 401);
-			}
-			$user->username = $github_user['login'].$i;
-		}
-
-		$user->add();
-
-		// create linked account record
-		//
-		$linkedAccount = new LinkedAccount(array(
-			'user_uid' => $user->user_uid,
-			'user_external_id' => $github_user['id'],
-			'linked_account_provider_code' => 'github',
-			'enabled_flag' => 1
-		));
-		$linkedAccount->save();
-
-		if ($primary_verified) {
-
-			// mark user account email verified flag
-			//
-			$userAccount = $user->getUserAccount();
-			$userAccount->email_verified_flag = 1;
-			$userAccount->save();
-
-			// send welcome email
-			//
-			if (Config::get('mail.enabled')) {
-				Mail::send('emails.welcome', array(
-					'user'		=> $user,
-					'logo'		=> Config::get('app.cors_url') . '/images/logos/swamp-logo-small.png',
-					'manual'	=> Config::get('app.cors_url') . '/documentation/SWAMP-UserManual.pdf',
-				), function($message) use ($user) {
-					$message->to($user->email, $user->getFullName());
-					$message->subject('Welcome to the Software Assurance Marketplace');
-				});
 			}
 
-			return response()->json(array(
-				'primary_verified' => true,
-				'user' => $user
+			list($firstname,$lastname,$fullname) = $this->getNames($oauth2_user);
+			$username = $this->getUsername($oauth2_user);
+			$oauth2_user_array = $oauth2_user->toArray();
+
+			$user = new User(array(
+				'first_name'     => $firstname,
+				'last_name'      => $lastname,
+				'preferred_name' => $fullname,
+				'username'       => $username,
+				'password'       => md5(uniqid()).strtoupper(md5(uniqid())),
+				'user_uid'       => Guid::create(),
+				'email'          => $oauth2_email,
+				'address'        => array_key_exists('location', $oauth2_user_array) ? $oauth2_user_array['location'] : ''
 			));
-		} else {
 
-			// create email verification record
+			// Attempt username permutations
 			//
-			$emailVerification = new EmailVerification(array(
+			$maxusernames = 500; // Maximum number of usernames to try
+			for ($i = 1; $i <= $maxusernames; $i++) {
+				$errors = array();
+				// If user is valid, then everything is okay to proceed
+				if ($user->isValid($errors, true)) {
+					break;
+				}
+
+				$errorstr = implode('<br/>', $errors);
+				// Check for 'email address already in use' message.
+				// No need to check any more usernames; user should 'link' instead.
+				if (preg_match('/The email address .* is already in use/',$errorstr)) {
+					$i = $maxusernames;
+				}
+				
+				// If we have tried the max number of usernames, give up.
+				if ($i == $maxusernames) {
+					return response('Unable to generate SWAMP user:<br/><br/>'.$errorstr, 401);
+				}
+				$user->username = $username . $i;
+			}
+
+			$user->add();
+
+			// create linked account record
+			//
+			$linkedAccount = new LinkedAccount(array(
 				'user_uid' => $user->user_uid,
-				'verification_key' => Guid::create(),
-				'email' => $user->email
+				'user_external_id' => $oauth2_user->getId(),
+				'linked_account_provider_code' => $idp->linked_provider,
+				'enabled_flag' => 1
 			));
-			$emailVerification->save();
+			$linkedAccount->save();
 
-			// send email verification
-			//
-			$emailVerification->send('#register/verify-email');
+			if ($primary_verified) {
 
-			return response()->json(array(
-				'primary_verified' => false,
-				'user' => $user
-			));
+				// mark user account email verified flag
+				//
+				$userAccount = $user->getUserAccount();
+				$userAccount->email_verified_flag = 1;
+				$userAccount->save();
+
+				// send welcome email
+				//
+				if (Config::get('mail.enabled')) {
+					Mail::send('emails.welcome', array(
+						'user'		=> $user,
+						'logo'		=> Config::get('app.cors_url') . '/images/logos/swamp-logo-small.png',
+						'manual'	=> Config::get('app.cors_url') . '/documentation/SWAMP-UserManual.pdf',
+					), function($message) use ($user) {
+						$message->to($user->email, $user->getFullName());
+						$message->subject('Welcome to the Software Assurance Marketplace');
+					});
+				}
+
+				return response()->json(array(
+					'primary_verified' => true,
+					'user' => $user
+				));
+			} else {
+
+				// create email verification record
+				//
+				$emailVerification = new EmailVerification(array(
+					'user_uid' => $user->user_uid,
+					'verification_key' => Guid::create(),
+					'email' => $user->email
+				));
+				$emailVerification->save();
+
+				// send email verification
+				//
+				$emailVerification->send('#register/verify-email');
+
+				return response()->json(array(
+					'primary_verified' => false,
+					'user' => $user
+				));
+			}
+		} catch (IdentityProviderException $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Exception $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Error $err) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
 		}
 	}
 
-	public function githubRedirect() {
-		$path = '/github';
-		$redirectUri = urlencode(Config::get('app.url').$path);
-		$gitHubClientId = Config::get('github.client_id');
-
-		// create an unguessable state value that must be stored and later checked
-		//
-		$state = hash('sha256', substr(str_shuffle('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 32));
-		Session::set('github_state', $state);
-		Session::save();
-		
-		// redirect to github
-		//
-		$redirectUri = urlencode(Config::get('app.url').$path);
-		$gitHubClientId = Config::get('github.client_id');
-		return Redirect::to('https://github.com/login/oauth/authorize?redirect_uri=' . $redirectUri . 
-			'&client_id=' . $gitHubClientId . 
-			'&scope=user:email' .
-			'&state=' . $state);
+	public function oauth2Redirect() {
+		$entityid = Input::get('entityid');
+		$idp = new IdentityProvider($entityid);
+		if (is_null($idp->provider)) {
+			return response('Invalid Identity Provider "' . $entityid . '".', 401);
+		} else {
+			$authUrl = $idp->provider->getAuthorizationUrl($idp->authzUrlOpts);
+			Session::set('oauth2_state', $idp->provider->getState());
+			Session::save();
+			return Redirect::to($authUrl);
+		}
 	}
 
-	private function linkGitHubAccount($user) {
+	private function linkOAuth2Account($user) {
 
-		// Attempt to load the github account the user is currently logged in as.
+		// Attempt to load the oauth2 account the user is currently logged in as.
 		//
-		if ((!Session::has('github_access_token')) || (!Session::has('github_access_time'))) {
-			return response('Unauthorized GitHub access.', 401);
+		if ((!Session::has('oauth2_access_token')) || (!Session::has('oauth2_access_time'))) {
+			return response('Unauthorized Oauth2 access.', 401);
 		}
 
-		// check for expired github access
+		// check for expired oauth2 access
 		//
-		Log::notice("git hub access time " . Session::get('github_access_time'));
+		Log::notice("oauth2 access time " . Session::get('oauth2_access_time'));
 		Log::notice("gm date U " . gmdate('U'));
 
-		// if (gmdate('U') - Session::get('github_access_time') > (1 * 60)) {
-		// 	Log::notice("entered if statement.");
-		// 	return response('GitHub access has expired.  If you would like to link a GitHub account to an existing SWAMP account, please click "Sign In" and select "Sign in With GitHub."', 401);
-		// }
-
-		// check github access token via github
+		// check oauth2 access token via oauth2
 		//
-		$token = Session::get('github_access_token');
-		$ch = curl_init('https://api.github.com/user');
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array( "Authorization: token $token" ));
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-		curl_setopt($ch, CURLOPT_USERAGENT, 'SWAMP');
-		$response = curl_exec($ch);
-		$github_user = json_decode($response);
-		if (!property_exists( $github_user, 'id')) {
-			return response('Unable to authenticate with GitHub.', 401);
+		$idp = new IdentityProvider();
+		$token = Session::get('oauth2_access_token');
+		try {
+			$oauth2_user = $idp->provider->getResourceOwner($token);
+			$oauth2_id = $oauth2_user->getId();
+			$oauth2_login = $this->getUsername($oauth2_user);
+		} catch (IdentityProviderException $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Exception $e) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
+		} catch (Error $err) {
+			return response('Unable to authenticate with your identity provider.  Your session may have timed out.  Please try again.', 401);
 		}
 
 		// make sure they don't already have an account
 		//
-		$account = LinkedAccount::where('user_uid','=',$user->user_uid)->where('linked_account_provider_code','=','github')->first();
-		if( $account && ! ( Input::has('confirmed') && Input::get('confirmed') === 'true' ) ){
+		$account = LinkedAccount::where('user_uid','=',$user->user_uid)->where('linked_account_provider_code','=',$idp->linked_provider)->first();
+		if ($account && !(Input::has('confirmed') && Input::get('confirmed') === 'true' )) {
 			return response()->json(array(
 				'error' => 'EXISTING_ACCOUNT',
 				'username' => $user->username,
-				'login' => $github_user->login
+				'login' => $oauth2_login
 			), 401);
 		}
 
 		// verify they are logged in as the account they are attempting to link to.
 		//
-		if ($github_user->id != Input::get('github_id')) {
-			return response('Unauthorized GitHub access.', 401);
+		if ($oauth2_id != Input::get('oauth2_id')) {
+			return response('Unauthorized OAuth2 access.', 401);
 		}
 
 		// remove any old entries
 		//
-		LinkedAccount::where('user_uid','=',$user->user_uid)->where('linked_account_provider_code','=','github')->delete();
+		LinkedAccount::where('user_uid','=',$user->user_uid)->where('linked_account_provider_code','=',$idp->linked_provider)->delete();
 
 		// link the accounts
 		//
 		$linkedAccount = new LinkedAccount(array(
-			'linked_account_provider_code' => 'github',
-			'user_external_id' => Input::get('github_id'),
+			'linked_account_provider_code' => $idp->linked_provider,
+			'user_external_id' => Input::get('oauth2_id'),
 			'enabled_flag' => 1,
 			'user_uid' => $user->user_uid,
 			'create_date' => gmdate('Y-m-d H:i:s')
@@ -474,20 +454,19 @@ class SessionController extends BaseController {
 			'user_uid' => $user->user_uid,
 			'event_type' => 'linkedAccountCreated',
 			'value' => json_encode(array(
-				'linked_account_provider_code' 	=> 'github',
-				'user_external_id' 				=> $linkedAccount->user_external_id,
-				'user_ip' 						=> $_SERVER['REMOTE_ADDR']
+				'linked_account_provider_code' => $idp->linked_provider,
+				'user_external_id' => $linkedAccount->user_external_id,
+				'user_ip' => $_SERVER['REMOTE_ADDR']
 			))
 		));
 		$userEvent->save();
-		response('User account linked!');
+		return response('User account linked!');
 	}
 
-	public function githubLink() {
+	public function oauth2Link() {
 
-		if (gmdate('U') - Session::get('github_access_time') > (15 * 60)) {
-			Log::notice("entered if statement.");
-			return response('GitHub access has expired.  If you would like to link a GitHub account to an existing SWAMP account, please click "Sign In" and select "Sign in With GitHub."', 401);
+		if (gmdate('U') - Session::get('oauth2_access_time') > (15 * 60)) {
+			return response('OAuth2 access has expired.  If you would like to link an external account to an existing SWAMP account, please click "Sign In" and select an external Identity Provider.', 401);
 		}
 
 		// get input parameters
@@ -516,9 +495,9 @@ class SessionController extends BaseController {
 							return $this->resetPassword($user);
 						} else {
 
-							// link user's github account
+							// link user's oauth2 account
 							//
-							return $this->linkGitHubAccount($user);
+							return $this->linkOAuth2Account($user);
 						}
 					} else {
 						return response('User has not been approved.', 401);
@@ -534,14 +513,17 @@ class SessionController extends BaseController {
 		}
 	}
 
-	public function githubLogin() {
+	public function oauth2Login() {
 
-		// Attempt to load the github account the user is currently logged in as.
-		//
-		if( ! Session::has('github_access_token') )
-			return response('Unauthorized GitHub access.', 401);
+		if (!Session::has('oauth2_access_token')) {
+			return response('Unauthorized OAuth2 access.', 401);
+		}
 
-		$token = Session::get('github_access_token');
+		$idp = new IdentityProvider();
+		if (strlen($idp->linked_provider) == 0) {
+			return response('Invalid Identity Provider.', 401);
+		}
+		$token = Session::get('oauth2_access_token');
 
 		$user = User::getIndex(Session::get('user_uid'));
 		$account = LinkedAccount::where('user_uid', '=', $user->user_uid)->first();
@@ -562,7 +544,7 @@ class SessionController extends BaseController {
 						'user_uid' 		=> $user->user_uid,
 						'event_type' 	=> 'linkedAccountSignIn',
 						'value' => json_encode(array(
-							'linked_account_provider_code' 	=> 'github',
+							'linked_account_provider_code' 	=> $idp->linked_provider,
 							'user_external_id' 				=> $account->user_external_id,
 							'user_ip' 						=> $_SERVER['REMOTE_ADDR']
 						))
@@ -642,5 +624,93 @@ class SessionController extends BaseController {
 		//
 		$contactEmail = Config::get('mail.contact.address');
 		return response("As part of our operations procedures, we request that you select a new password for your account. SWAMP has sent a message containing a password reset link to your registered email address. Contact support@continuousassurance.org if you do not receive the message.", 409);
+	}
+
+	/**
+	 * This utility function calculates a 'username' for the OAuth2
+	 * user. For GitHub logins, simply use the 'login' value returned
+	 * as getNickname(). For Google/CILogon logins, use the first
+	 * part of the email address before the '@'. 
+	 */
+	private function getUsername($oauth2_user) {
+		$login = '';
+		if (method_exists($oauth2_user,'getNickname')) {
+			try {
+				$login = $oauth2_user->getNickname();
+			} catch (\Exception $e) {
+			} catch (Error $err) {
+			}
+		}
+		if (strlen($login) > 0) { // For GitHub, use the 'login'
+			return $login;
+		} else { // For Google/CILogon, use email address before '@'
+			return strtolower(explode('@',$oauth2_user->getEmail())[0]);
+		}
+	}
+
+	/**
+	 * This utility function returns the first, last, and full names of
+	 * the passed in $oauth2_user object. For GitHub, there is just a
+	 * single "full name", so break that up into first and last names
+	 * by splitting on a space character. For Google and CILogon, 
+	 * first, last, and full names may be available. 
+	 * 
+	 * The names are returned in an array, so call as:
+	 *   list($first,$last,$full) = $this->getNames($oauth2_user);
+	 */
+	private function getNames($oauth2_user) {
+		$firstname = '';
+		$lastname  = '';
+		$fullname  = '';
+
+		if ($oauth2_user) {
+
+			// See if we can get full name from CILogon/Google/GitHub
+			//
+			if (method_exists($oauth2_user, 'getName')) {
+				try {
+					$fullname = $oauth2_user->getName();
+				} catch (Exception $e) {
+				} catch (Error $err) {
+				}
+			}
+
+			// See if we can get first name from CILogon/Google
+			//
+			if (method_exists($oauth2_user, 'getFirstName')) {
+				try {
+					$firstname = $oauth2_user->getFirstName();
+				} catch (Exception $e) {
+				} catch (Error $err) {
+				}
+			}
+
+			// See if we can get last name from CILogon/Google
+			//
+			if (method_exists($oauth2_user, 'getLastName')) {
+				try { 
+					$lastname = $oauth2_user->getLastName();
+				} catch (Exception $e) {
+				} catch (Error $err) {
+				}
+			}
+		}
+
+		// If we got full name, check if first or last name was missing
+		// and fill in by splitting full name on 'space char'.
+		if (strlen($fullname) > 0) {
+			$names = preg_split('/\s+/',$fullname,2);
+			if (strlen($firstname) == 0) {
+				$firstname = @$names[0];
+			}
+			if (strlen($lastname) == 0) {
+				$lastname =  @$names[1];
+			}
+		} else { // If full name is missing, concat first and last name
+			$fullname = $firstname . ' ' . $lastname;
+		}
+
+		// Return names as an array (i.e., use list($first,last,$full)=...)
+		return array($firstname,$lastname,$fullname);
 	}
 }

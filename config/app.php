@@ -41,17 +41,6 @@ return [
 
 	/*
 	|--------------------------------------------------------------------------
-	| Federated Authentication
-	|--------------------------------------------------------------------------
-	|
-	| This is whether or not to display and use federated authentication.
-	|
-	*/
-
-	'federated_authentication_enabled' => env('FEDERATED_AUTHENTICATION_ENABLED', false),
-
-	/*
-	|--------------------------------------------------------------------------
 	| GitHub Authentication
 	|--------------------------------------------------------------------------
 	|
@@ -63,7 +52,7 @@ return [
 
 	/*
 	|--------------------------------------------------------------------------
-	| GitHub Authentication
+	| Google Authentication
 	|--------------------------------------------------------------------------
 	|
 	| This is whether or not to display and use GitHub authentication.
@@ -71,6 +60,17 @@ return [
 	*/
 
 	'google_authentication_enabled' => env('GOOGLE_ENABLED', false),
+
+	/*
+	|--------------------------------------------------------------------------
+	| CI Logon Authentication
+	|--------------------------------------------------------------------------
+	|
+	| This is whether or not to display and use federated authentication.
+	|
+	*/
+
+	'ci_logon_authentication_enabled' => env('CILOGON_ENABLED', false),
 
 	/*
 	|--------------------------------------------------------------------------

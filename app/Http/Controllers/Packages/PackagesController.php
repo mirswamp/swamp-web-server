@@ -55,10 +55,6 @@ class PackagesController extends BaseController {
 			}
 		}
 
-		if (!Session::get('user_uid')) {
-
-		}
-
 		$package = new Package(array(
 			'package_uuid' => Guid::create(),
 			'name' => Input::get('name'),

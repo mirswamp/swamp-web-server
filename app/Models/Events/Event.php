@@ -20,7 +20,7 @@ namespace App\Models\Events;
 
 use App\Models\BaseModel;
 
-abstract class Event extends BaseModel {
+class Event extends BaseModel {
 
 	/**
 	 * mass assignment policy

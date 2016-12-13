@@ -36,6 +36,7 @@ use App\Models\Policies\Policy;
 use App\Models\Viewers\Viewer;
 
 class Tool extends UserStamped {
+	const ALLOW_PROJECT_OWNER_PERMISSION = false;
 
 	/**
 	 * database attributes
@@ -71,6 +72,7 @@ class Tool extends UserStamped {
 		'viewer_names',
 		'tool_sharing_status',
 		'is_owned',
+		'is_restricted',
 		'policy_code',
 		'policy'
 	);
@@ -83,7 +85,8 @@ class Tool extends UserStamped {
 		'version_strings',
 		'platform_names',
 		'viewer_names',
-		'is_owned'
+		'is_owned',
+		'is_restricted'
 	);
 
 	/**
@@ -294,23 +297,32 @@ class Tool extends UserStamped {
 	}
 
 	public function getPermission($package, $project, $user) {
+		if (self::ALLOW_PROJECT_OWNER_PERMISSION) {
 
-		// no project provided
-		//
-		if (!$project) {
-			return 'no_project';
-		}
-
-		if ($project->isOwnedBy($user)) {
-
-			// user is the project owner
+			// no project provided
 			//
-			return $this->getProjectOwnerPermission($package, $project, $user);
+			if (!$project) {
+				return 'no_project';
+			}
+
+			if ($project->isOwnedBy($user)) {
+
+				// user is the project owner
+				//
+				return $this->getProjectOwnerPermission($package, $project, $user);
+			} else {
+
+				// user is not the project owner
+				//
+				return $this->getProjectMemberPermission($package, $project, $user);
+			}
 		} else {
 
-			// user is not the project owner
+			// return user policy permission
 			//
-			return $this->getProjectMemberPermission($package, $project, $user);
+			$permissionCode = $this->getPermissionCode();
+			$ownerPermission = null;
+			return $user->getPolicyPermission($permissionCode, $ownerPermission);
 		}
 	}
 
@@ -320,7 +332,7 @@ class Tool extends UserStamped {
 			return response('Error - no permission code.', 500);
 		}
 
-		// get permission from permission code
+		// get user permission from permission code
 		//
 		$userPermission = $user->getPermission($permissionCode);
 
@@ -387,25 +399,46 @@ class Tool extends UserStamped {
 	}
 
 	public function getPermissionStatus($package, $project, $user) {
+		if (self::ALLOW_PROJECT_OWNER_PERMISSION) {
 
-		// no project provided
-		//
-		if (!$project) {
-			return response()->json(array(
-				'status' => 'no_project'
-			), 404);
-		}
-
-		if ($project->isOwnedBy($user)) {
-
-			// user is the project owner
+			// no project provided
 			//
-			return $this->getProjectOwnerPermissionStatus($package, $project, $user);
+			if (!$project) {
+				return response()->json(array(
+					'status' => 'no_project'
+				), 404);
+			}
+
+			if ($project->isOwnedBy($user)) {
+
+				// user is the project owner
+				//
+				return $this->getProjectOwnerPermissionStatus($package, $project, $user);
+			} else {
+
+				// user is not the project owner
+				//
+				return $this->getProjectMemberPermissionStatus($package, $project, $user);
+			}
 		} else {
-
-			// user is not the project owner
+			
+			// get user permission from permission code
 			//
-			return $this->getProjectMemberPermissionStatus($package, $project, $user);
+			$permissionCode = $this->getPermissionCode();
+			$userPermission = $user->getPermission($permissionCode);
+
+			// check user permission
+			//
+			if (!$userPermission || ($userPermission->status !== 'granted')) {
+				return response()->json(array(
+					'status' => 'no_permission'
+				), 401);
+			}
+
+			// return user policy permission status
+			//
+			$ownerPermission = null;
+			return $user->getPolicyPermissionStatus($permissionCode, $ownerPermission);
 		}
 	}
 
@@ -484,5 +517,9 @@ class Tool extends UserStamped {
 
 	public function getIsOwnedAttribute() {
 		return Session::get('user_uid') == $this->tool_owner_uuid;
+	}
+
+	public function getIsRestrictedAttribute() {
+		return $this->isRestricted();
 	}
 }

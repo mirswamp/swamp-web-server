@@ -123,6 +123,7 @@ class RunRequestsController extends BaseController {
 
 			// if the permission doesn't exist or isn't valid, return error
 			//
+			/*
 			if ($tool->isRestrictedByProjectOwner()) {
 				$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $projectOwner['user_uid'])->first();
 				if (!$userPermission) {
@@ -140,9 +141,11 @@ class RunRequestsController extends BaseController {
 					), 401);
 				}
 			}
+			*/
 
 			// if the project hasn't been designated, return error
 			//
+			/*
 			if ($tool->isRestrictedByProject()) {
 				$userPermissionProject = UserPermissionProject::where('user_permission_uid','=',$userPermission->user_permission_uid)->where('project_uid','=',$project->project_uid)->first();
 				if (!$userPermissionProject) {
@@ -152,6 +155,25 @@ class RunRequestsController extends BaseController {
 						'tool_name' => $tool->name
 					), 404);
 				}
+			}
+			*/
+
+			// check user permission
+			//
+			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $user['user_uid'])->first();
+			if (!$userPermission) {
+				return response()->json(array(
+					'status' => 'tool_no_permission',
+					'project_name' => $project->full_name,
+					'tool_name' => $tool->name
+				), 404);
+			}
+			if ($userPermission->status !== 'granted') {
+				return response()->json(array(
+					'status' => 'tool_no_permission',
+					'project_name' => $project->full_name,
+					'tool_name' => $tool->name
+				), 401);
 			}
 
 			// if the policy hasn't been accepted, return error

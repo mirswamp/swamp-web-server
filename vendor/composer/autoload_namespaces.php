@@ -8,6 +8,8 @@ $baseDir = dirname($vendorDir);
 return array(
     'phpDocumentor' => array($vendorDir . '/phpdocumentor/reflection-docblock/src'),
     'Whoops' => array($vendorDir . '/filp/whoops/src'),
+    'SecurityLib' => array($vendorDir . '/ircmaxell/security-lib/lib'),
+    'RandomLib' => array($vendorDir . '/ircmaxell/random-lib/lib'),
     'Psr\\Log\\' => array($vendorDir . '/psr/log'),
     'Prophecy\\' => array($vendorDir . '/phpspec/prophecy/src'),
     'PhpSpec' => array($vendorDir . '/phpspec/phpspec/src'),

@@ -29,7 +29,6 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
-use App\Utilities\Ldap\Ldap;
 use App\Models\BaseModel;
 use App\Models\TimeStamps\TimeStamped;
 use App\Models\Users\EmailVerification;
@@ -41,6 +40,8 @@ use App\Models\Users\LinkedAccount;
 use App\Models\Admin\RestrictedDomain;
 use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
+use App\Utilities\Identity\IdentityProvider;
+use App\Utilities\Ldap\Ldap;
 
 class User extends TimeStamped {
 
@@ -171,7 +172,7 @@ class User extends TimeStamped {
 					$registered_user->email = $values[1] . $values[3];
 				}
 				if (strtolower($email) == strtolower( $registered_user->email)) {
-					$errors[] = 'The email address "'.$this->email.'" is already in use.';
+					$errors[] = 'The email address "'.$this->email.'" is already in use. Try linking to the account instead.';
 					break;
 				}
 			}
@@ -343,8 +344,8 @@ class User extends TimeStamped {
 	 * permission methods
 	 */
 
-	public function getPolicy($permission) {
-		return UserPolicy::where('user_uid', '=', $this->user_uid)->where('policy_code', '=', $permission->policy_code)->where('accept_flag', '=', 1)->first();
+	public function getPolicy($policyCode) {
+		return UserPolicy::where('user_uid', '=', $this->user_uid)->where('policy_code', '=', $policyCode)->where('accept_flag', '=', 1)->first();
 	}
 
 	public function getPermission($permissionCode) {
@@ -352,14 +353,22 @@ class User extends TimeStamped {
 	}
 
 	public function getPolicyPermission($permissionCode) {
-		$permission = Permission::where('permission_code', '=', $permissionCode)->first();
-		
-		// check for user policy
-		//
-		if ($this->getPolicy($permission)) {
-			return 'granted';
+		$userPermission = $this->getPermission($permissionCode);
+
+		if (!$userPermission) {
+			return 'no_permission';
 		} else {
-			return 'no_user_policy';
+			// get permission from permission code
+			//
+			$permission = Permission::where('permission_code', '=', $permissionCode)->first();
+
+			// check for user policy
+			//
+			if ($this->getPolicy($permission->policy_code)) {
+				return $userPermission->getStatus();
+			} else {
+				return 'no_user_policy';
+			}
 		}
 	}
 
@@ -368,7 +377,7 @@ class User extends TimeStamped {
 
 		// check for user policy
 		//
-		if ($this->getPolicy($permission)) {
+		if ($this->getPolicy($permission->policy_code)) {
 			if ($userPermission) {
 				return response()->json(array(
 					'status' => 'granted',
@@ -693,11 +702,12 @@ class User extends TimeStamped {
 				'create_date' => gmdate('Y-m-d H:i:s')
 			));
 			$linkedAccount->save();
+			$idp = new IdentityProvider();
 			$userEvent = new UserEvent(array(
 				'user_uid' => $this->user_uid,
 				'event_type' => 'linkedAccountCreated',
 				'value' => json_encode(array( 
-					'linked_account_provider_code' => 'github', 
+					'linked_account_provider_code' => $idp->linked_provider, 
 					'user_external_id' => $linkedAccount->user_external_id, 
 					'user_ip' => $_SERVER['REMOTE_ADDR']
 				))

@@ -50,6 +50,10 @@ Route::group(['middleware' => 'verify.config'], function () {
 	Route::get('tools/restricted', 'Tools\ToolsController@getRestricted'); 
 	Route::get('platforms/public', 'Platforms\PlatformsController@getPublic');
 
+	// public diagnostic route
+	//
+	Route::get('status', 'Utilities\StatusController@getCurrent');
+
 	// public email verification routes
 	//
 	Route::group(['middleware' => 'verify.email_verification'], function () {
@@ -85,13 +89,13 @@ Route::group(['middleware' => 'verify.config'], function () {
 		Route::delete('password_resets/{password_reset_key}/{password_reset_id}', 'Users\PasswordResetsController@deleteIndex');
 	});
 
-	// github login routes
+	// oauth2 login routes
 	//
-	Route::get('github', 'Users\SessionController@github');
-	Route::get('github/user', 'Users\SessionController@githubUser');
-	Route::get('github/register', 'Users\SessionController@registerGithubUser');
-	Route::get('github/redirect', 'Users\SessionController@githubRedirect');
-	Route::post('github/link', 'Users\SessionController@githubLink');
+	Route::get('oauth2','Users\SessionController@oauth2');
+	Route::get('oauth2/user','Users\SessionController@oauth2User');
+	Route::get('oauth2/register','Users\SessionController@registeroauth2User');
+	Route::get('oauth2/redirect','Users\SessionController@oauth2Redirect');
+	Route::post('oauth2/link','Users\SessionController@oauth2Link');
 
 	// contact routes
 	//
@@ -108,10 +112,6 @@ Route::group(['middleware' => 'verify.config'], function () {
 		// proxy routes
 		// 
 		Route::any('{all}', 'Proxies\ProxyController@proxyCodeDxRequest')->where('all', '^proxy-.*');
-
-		// github linking routes
-		//
-		Route::delete('github/link', 'Users\SessionController@githubUnlink');
 
 		// linked account routes
 		//

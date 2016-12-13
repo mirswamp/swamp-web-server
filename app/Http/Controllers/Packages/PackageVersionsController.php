@@ -87,7 +87,6 @@ class PackageVersionsController extends BaseController {
 	}
 
 	public function acceptableExternalUrl( $url ){
-		//return preg_match('/^https:\/\/github.com\/.+\/.+\.git/', $url ) === 1;
 		return filter_var($url, FILTER_VALIDATE_URL);
 	}
 

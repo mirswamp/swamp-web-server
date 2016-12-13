@@ -155,7 +155,7 @@ class Package extends UserStamped {
 			//
 			$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();
 
-			if ($packageType) {
+			if ($packageType && $packageType->platform_user_selectable) {
 
 				// look up default platform for package type
 				//

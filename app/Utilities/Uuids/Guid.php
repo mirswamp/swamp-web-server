@@ -23,12 +23,12 @@
 namespace App\Utilities\Uuids;
 
 class Guid {
-    static function create() {
-        if (function_exists('com_create_guid')) {
+	static function create() {
+		if (function_exists('com_create_guid')) {
 
-            // Windows only - use built-in function
-            //
-            return com_create_guid();
+			// Windows only - use built-in function
+			//
+			return com_create_guid();
 		} elseif (function_exists('openssl_random_pseudo_bytes')) {
 
 				// If OpenSSL support is compiled into PHP, use method suggested by 
@@ -52,5 +52,5 @@ class Guid {
 				}
 				return vsprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x', $result);
 		}
-    }
+	}
 }

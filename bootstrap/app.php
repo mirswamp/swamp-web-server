@@ -41,6 +41,17 @@ $app->singleton(
 	'App\Exceptions\Handler'
 );
 
+// From http://stackoverflow.com/a/34084376 , set log file not world-readable
+$app->configureMonologUsing(function(Monolog\Logger $monolog) {
+    // Rely on built-in filename handler to append 2016-10-01 to log filename
+		$filename = storage_path('/logs/laravel.log');
+		$handler = new Monolog\Handler\RotatingFileHandler($filename, 0, 
+			\Monolog\Logger::DEBUG, true, 0660);
+		$handler->setFormatter(new \Monolog\Formatter\LineFormatter(
+			null, null, true, true));
+		$monolog->pushHandler($handler);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Return The Application

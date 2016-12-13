@@ -37,6 +37,7 @@ use App\Models\Users\UserPolicy;
 use App\Models\Users\UserPermission;
 use App\Models\Users\UserPermissionProject;
 use App\Models\Projects\Project;
+use App\Models\Tools\ToolVersion;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\TripletFilter;
@@ -95,14 +96,12 @@ class AssessmentResultsController extends BaseController {
 		if ($assessmentResultsUuid != "none") {
 			foreach( explode( ',',$assessmentResultsUuid ) as $resultUuid ){
 				$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$resultUuid)->first();
-				$execution = ExecutionRecord::where('execution_record_uuid','=',$assessmentResult->execution_record_uuid)->first();
-				$assessmentRun = AssessmentRun::where('assessment_run_uuid','=',$execution->assessment_run_uuid)->first();
-				
-				if ($assessmentRun) {
-					$result = $this->checkPermissions( $assessmentRun );
-					if( $result !== true ){
-						return $result;
-					}
+
+				// check permissions on result
+				//
+				$result = $this->checkPermissions($assessmentResult);
+				if ($result !== true) {
+					return $result;
 				}
 			}
 		}
@@ -231,9 +230,9 @@ class AssessmentResultsController extends BaseController {
 		if ($assessmentResultsUuid != "none") {
 			foreach( explode( ',',$assessmentResultsUuid ) as $resultUuid ){
 				try {
-					$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$resultUuid)->first();
-					$execution = ExecutionRecord::where('execution_record_uuid','=',$assessmentResult->execution_record_uuid)->first();
-					$assessmentRun = AssessmentRun::where('assessment_run_uuid','=',$execution->assessment_run_uuid)->first();
+					$assessmentResult = AssessmentResult::where('assessment_result_uuid', '=', $resultUuid)->first();
+					$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
+					$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $executionRecord->assessment_run_uuid)->first();
 				} catch (\ErrorException $e) {
 					return response()->json(array(
 						'error' => 'not_found',
@@ -242,9 +241,12 @@ class AssessmentResultsController extends BaseController {
 				}
 				
 				if ($assessmentRun) {
-					$result = $this->checkPermissions( $assessmentRun );
-					if( $result !== true ){
-					  // Check reponse contents. If JSON, return it, otherwise make new JSON response.
+					$result = $this->checkPermissions($assessmentResult);
+
+					if ($result !== true) {
+
+						// Check reponse contents. If JSON, return it, otherwise make new JSON response.
+						//
 						$content = @$result->getContent();
 						json_decode($content);
 						if ((json_last_error() == JSON_ERROR_NONE) && (strlen($content) > 0)) {
@@ -374,37 +376,29 @@ class AssessmentResultsController extends BaseController {
 		//
 		foreach (explode( ',',$assessmentResultsUuid ) as $resultUuid) {
 			$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$resultUuid)->first();
-			if ($assessmentResult) {
-				$execution = ExecutionRecord::where('execution_record_uuid','=',$assessmentResult->execution_record_uuid)->first();
-				if ($execution) {
-					$assessmentRun = AssessmentRun::where('assessment_run_uuid','=',$execution->assessment_run_uuid)->first();
-					if ($assessmentRun) {
-						$result = $this->checkPermissions($assessmentRun);
+			$result = $this->checkPermissions($assessmentResult);
 
-						// if not true, return permissions error
-						//
-						if ($result !== true) {
-							return $result;
-						}
-					}
-				}
+			// if not true, return permissions error
+			//
+			if ($result !== true) {
+				return $result;
 			}
 		}
 	}
 
-	private function checkPermissions($assessmentRun) {
-
-		// return if no assessment run
-		//
-		if (!$assessmentRun) {
-			return response('approved', 200);
-		}
+	private function checkPermissions($assessmentResult) {
 
 		// return if no tool
 		//
-		$tool = Tool::where('tool_uuid','=',$assessmentRun->tool_uuid)->first();
-		if (!$tool) {
-			return response('approved', 200);
+		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
+		$toolVersion = ToolVersion::where('tool_version_uuid', '=', $executionRecord->tool_version_uuid)->first();
+		if ($toolVersion) {
+			$tool = Tool::where('tool_uuid', '=', $toolVersion->tool_uuid)->first();
+			if (!$tool) {
+				return true;
+			}
+		} else {
+			return true;	
 		}
 
 		// check restricted tools
@@ -415,24 +409,29 @@ class AssessmentResultsController extends BaseController {
 			// check for no tool permission
 			//
 			$permission = Permission::where('policy_code', '=', $tool->policy_code)->first();
+			/*
 			if (!$permission) {
 				return response()->json(array(
 					'status' => 'tool_no_permission',
 					'tool_name' => $tool->name
 				), 404);
 			}
+			*/
 
 			// check for no project
 			//
-			$project = Project::where('project_uid', '=', $assessmentRun->project_uuid)->first();
+			$project = Project::where('project_uid', '=', $assessmentResult->project_uuid)->first();
+			/*
 			if (!$project) {
 				return response()->json(array(
 					'status' => 'no_project'
 				), 404);
 			}
+			*/
 
 			// check for owner permission
 			//
+			/*
 			$owner = User::getIndex($project->project_owner_uid);
 			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $owner->user_uid)->first();
 
@@ -467,6 +466,27 @@ class AssessmentResultsController extends BaseController {
 					), 404);
 				}
 			}
+			*/
+
+			// check user permission
+			//
+			/*
+			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $user['user_uid'])->first();
+			if (!$userPermission) {
+				return response()->json(array(
+					'status' => 'tool_no_permission',
+					'project_name' => $project->full_name,
+					'tool_name' => $tool->name
+				), 404);
+			}
+			if ($userPermission->status !== 'granted') {
+				return response()->json(array(
+					'status' => 'tool_no_permission',
+					'project_name' => $project->full_name,
+					'tool_name' => $tool->name
+				), 401);
+			}
+			*/
 
 			// if the policy hasn't been accepted, return error
 			//
@@ -483,7 +503,6 @@ class AssessmentResultsController extends BaseController {
 
 		return true;
 	}
-
 
 	// get status of launching viewer, and then return results
 	//

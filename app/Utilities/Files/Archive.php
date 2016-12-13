@@ -253,6 +253,28 @@ class Archive {
 	// private directory utility methods
 	//
 
+	private static function getRootDirectoryName($array) {
+
+		// take the first item as initial prefix
+		//
+		$prefix = $array[0];  
+		$length = strlen($prefix);
+
+		// compare the current prefix with the prefix of the same length of the other items
+		//
+		foreach ($array as $item) {
+
+			// check if there is a match; if not, decrease the prefix length by one
+			//
+			while ($length > 0 && substr($item, 0, $length) !== $prefix) {
+				$length--;
+				$prefix = substr($prefix, 0, $length);
+			}
+		}
+
+		return $prefix;
+	}
+
 	private static function isDirectoryName($path) {
 		return $path[strlen($path) - 1] == '/';
 	}
@@ -559,7 +581,11 @@ class Archive {
 		// get root directory name
 		//
 		if ($dirname == '.') {
-			$dirname = './';
+			$dirname = self::getRootDirectoryName($names);
+
+			if (!$dirname) {
+				$dirname = './';
+			}
 		}
 
 		// filter for directory names

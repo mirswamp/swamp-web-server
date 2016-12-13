@@ -52,11 +52,10 @@ class Authenticate {
 				Session::flush();
 				return response('SESSION_INVALID', 401);
 			}	
-        } elseif (Session::has('github_access_token')) {
+        } elseif (Session::has('oauth2_access_token')) {
 
-        	//if a user has a github token but is not logged in, need
-        	//to allow them to be forwarded to necessary login 
-        	//functions
+        	//if a user has an oauth2 token but is not logged in, need
+        	//to allow them to be forwarded to necessary login functions
             $reqName = strval($request);
             $isCurrUsers = strpos($reqName, 'users/current');
             if ($isCurrUsers) {

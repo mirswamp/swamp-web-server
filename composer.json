@@ -6,7 +6,11 @@
 	"type": "project",
 	"require": {
 		"laravel/framework": "5.1.*",
-		"filp/whoops": "^1.1"
+		"filp/whoops": "^1.1",
+		"league/oauth2-client": "^1.4",
+		"league/oauth2-github": "^0.2.1",
+		"league/oauth2-google": "^1.0",
+		"cilogon/oauth2-cilogon": "dev-master"
 	},
 	"require-dev": {
 		"phpunit/phpunit": "~4.8",

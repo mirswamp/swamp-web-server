@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\Viewers\ViewerInstance;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
@@ -207,16 +208,20 @@ class ProxyController extends BaseController {
 						self::setResponseHeaders($response, $headers, $status);
 						return $response;
 					} else {
-						return "Error - insuffient curl response in proxy controller.";
+						Log::info("Proxy Controller Error - insuffient curl response in proxy controller.");
+						return "Error - viewer is no longer available.  Please try again.";
 					}
 				} else {
-					return "Error - insuffient curl response in proxy controller.";
+					Log::info("Proxy Controller Error - insuffient curl response in proxy controller.");
+					return "Error - viewer is no longer available.  Please try again.";
 				}
 			} else {
-				return "Error - no response to command: $command.";
+				Log::info("Proxy Controller Error - no response to command.");
+				return "Error - viewer is no longer available.  Please try again.";
 			}
 		} else {
-			return "Error - no viewer instance is available.";
+			Log::info("Proxy Controller Error - no viewer instance is available.");
+			return "Error - viewer is no longer available.  Please try again.";
 		}
 	}
 }

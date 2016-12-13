@@ -21,6 +21,7 @@ namespace App\Models\Utilities;
 
 use App\Models\BaseModel;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Request;
 
 class Configuration extends BaseModel {
 
@@ -30,10 +31,12 @@ class Configuration extends BaseModel {
 	protected $appends = array(
 		'email_enabled',
 		'use_promo_code',
-		'federated_authentication_enabled',
+		'linked_accounts_enabled',
 		'github_authentication_enabled',
 		'google_authentication_enabled',
-		'api_explorer_enabled'
+		'ci_logon_authentication_enabled',
+		'api_explorer_enabled',
+		'client_ip'
 	);
 
 	/**
@@ -48,11 +51,13 @@ class Configuration extends BaseModel {
 		return Config::get('app.use_promo_code');
 	}
 
-	public function getFederatedAuthenticationEnabledAttribute() {
-		return Config::get('app.federated_authentication_enabled');
+	public function getLinkedAccountsEnabledAttribute() {
+		return Config::get('app.github_authentication_enabled') ||
+			Config::get('app.google_authentication_enabled') || 
+			Config::get('app.ci_logon_authentication_enabled');
 	}
 
-	public function getGithubAuthenticationEnabledAttribute() {
+	public function getGitHubAuthenticationEnabledAttribute() {
 		return Config::get('app.github_authentication_enabled');
 	}
 
@@ -60,7 +65,15 @@ class Configuration extends BaseModel {
 		return Config::get('app.google_authentication_enabled');
 	}
 
+	public function getCILogonAuthenticationEnabledAttribute() {
+		return Config::get('app.ci_logon_authentication_enabled');
+	}
+
 	public function getApiExplorerEnabledAttribute() {
 		return Config::get('app.api_explorer_enabled');
+	}
+
+	public function getClientIpAttribute() {
+		return Request::ip();
 	}
 }

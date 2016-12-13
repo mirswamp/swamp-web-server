@@ -114,7 +114,7 @@ class IdentityProvider {
 			$idpjson = IdentitiesController::getProvidersList();
 			$idparray = json_decode($idpjson,true);
 			foreach ($idparray as $arr) {
-				if ($arr['name'] == $idp) {
+				if ($arr['entityid'] == $idp) {
 					$selectedidp = $arr['entityid'];
 					Session::set('oauth2_idp',$selectedidp);
 					Session::save();

@@ -106,41 +106,81 @@ class AssessmentRun extends UserStamped {
 	}
 
 	public function getPackageNameAttribute() {
-		$package = Package::where('package_uuid', '=', $this->package_uuid)->first();
-		return $package != null? $package->name : '?';
+		if ($this->package_uuid != null) {
+			$package = Package::where('package_uuid', '=', $this->package_uuid)->first();
+			if ($package) {
+				return $package->name;
+			} else {
+				return '?';
+			}
+		} else {
+			return '';
+		}
 	}
 
 	public function getPackageVersionStringAttribute() {
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $this->package_version_uuid)->first();
-		return $packageVersion != null? $packageVersion->version_string : 'latest';
+		if ($this->package_version_uuid != null) {
+			$packageVersion = PackageVersion::where('package_version_uuid', '=', $this->package_version_uuid)->first();
+			if ($packageVersion) {
+				return $packageVersion->version_string;
+			} else {
+				return '?';
+			}
+		} else {
+			return 'latest';
+		}
 	}
 
 	public function getToolNameAttribute() {
-		if ($this->tool_uuid) {
-			if (!$this->isMultiple()) {
-				$tool = tool::where('tool_uuid', '=', $this->tool_uuid)->first();
+		if ($this->tool_uuid != null) {
+			$tool = Tool::where('tool_uuid', '=', $this->tool_uuid)->first();
+			if ($tool) {
+				return $tool->name;
 			} else {
-				return "All";
+				return '?';
 			}
 		} else {
-			$tool = null;
+			return 'all';
 		}
-		return $tool != null? $tool->name : '?';
 	}
 
 	public function getToolVersionStringAttribute() {
-		$toolVersion = ToolVersion::where('tool_version_uuid', '=', $this->tool_version_uuid)->first();
-		return $toolVersion != null? $toolVersion->version_string : 'latest';
+		if ($this->tool_version_uuid != null) {
+			$toolVersion = ToolVersion::where('tool_version_uuid', '=', $this->tool_version_uuid)->first();
+			if ($toolVersion) {
+				return $toolVersion->version_string;
+			} else {
+				return '?';
+			}
+		} else {
+			return 'latest';
+		}
 	}
 
 	public function getPlatformNameAttribute() {
-		$platform = Platform::where('platform_uuid', '=', $this->platform_uuid)->first();
-		return $platform != null? $platform->name : '?';
+		if ($this->platform_uuid != null) {
+			$platform = Platform::where('platform_uuid', '=', $this->platform_uuid)->first();
+			if ($platform) {
+				return $platform->name;
+			} else {
+				return '?';
+			}
+		} else {
+			return 'default';
+		}
 	}
 
 	public function getPlatformVersionStringAttribute() {
-		$platformVersion = PlatformVersion::where('platform_version_uuid', '=', $this->platform_version_uuid)->first();
-		return $platformVersion != null? $platformVersion->version_string : 'latest';
+		if ($this->platform_version_uuid != null) {
+			$platformVersion = PlatformVersion::where('platform_version_uuid', '=', $this->platform_version_uuid)->first();
+			if ($platformVersion) {
+				return $platformVersion->version_string;
+			} else {
+				return '?';
+			}
+		} else {
+			return 'latest';
+		}
 	}
 
 	public function getNumExecutionRecordsAttribute() {
@@ -159,6 +199,7 @@ class AssessmentRun extends UserStamped {
 	// querying methods
 	//
 
+	/*
 	public function getRunRequests() {
 		$assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->get();
 		$collection = new Collection;
@@ -187,5 +228,49 @@ class AssessmentRun extends UserStamped {
 			}
 		}
 		return $num;
+	}
+	*/
+
+	public function getRunRequests() {
+		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')->first();
+		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)->get();
+	}
+
+	public function getNumRunRequests() {
+		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')->first();
+		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)->count();
+	}
+
+	//
+	// overridden Laravel methods
+	//
+
+	public function toArray() {
+		$array = parent::toArray();
+
+		// add checks for uuid integrity
+		//
+		if ($array['package_uuid'] && !Package::where('package_uuid', '=', $array['package_uuid'])->exists()) {
+			$array['package_uuid'] = 'undefined';
+		}
+		if ($array['package_version_uuid'] && !PackageVersion::where('package_version_uuid', '=', $array['package_version_uuid'])->exists()) {
+			$array['package_version_uuid'] = 'undefined';
+		}
+
+		if ($array['tool_uuid'] && !Tool::where('tool_uuid', '=', $array['tool_uuid'])->exists()) {
+			$array['tool_uuid'] = 'undefined';
+		}
+		if ($array['tool_version_uuid'] && !ToolVersion::where('tool_version_uuid', '=', $array['tool_version_uuid'])->exists()) {
+			$array['tool_version_uuid'] = 'undefined';
+		}
+
+		if ($array['platform_uuid'] && !Platform::where('platform_uuid', '=', $array['platform_uuid'])->exists()) {
+			$array['platform_uuid'] = 'undefined';
+		}
+		if ($array['platform_version_uuid'] && !PlatformVersion::where('platform_version_uuid', '=', $array['platform_version_uuid'])->exists()) {
+			$array['platform_version_uuid'] = 'undefined';
+		}
+
+		return $array;
 	}
 }
