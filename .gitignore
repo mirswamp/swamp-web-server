@@ -1,0 +1,16 @@
+# Laravel ignores
+# we will no longer be ignoring laravel files
+#vendor
+
+# Vim ignores
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+
+# local ignores
+*.swp
+*.DS_Store
+*.env
+*.env.local
+
+# environment ignores
+/.env
