@@ -297,7 +297,6 @@ class UsersController extends BaseController {
 		$user->first_name = Input::get('first_name');
 		$user->last_name = Input::get('last_name');
 		$user->preferred_name = Input::get('preferred_name');
-		$user->username = Input::get('username');
 		$user->address = Input::get('address');
 		$user->phone = Input::get('phone');
 		$user->affiliation = Input::get('affiliation');
@@ -307,22 +306,22 @@ class UsersController extends BaseController {
 		$changes = $user->getDirty();
 		$user->modify();
 
-		// get meta attributes
-		//
-		$attributes = array(
-			'enabled_flag' => Input::get('enabled_flag'),
-			'admin_flag' => Input::get('admin_flag'),
-			'email_verified_flag' => Input::get('email_verified_flag'),
-			'forcepwreset_flag' => Input::get('forcepwreset_flag'),
-			'hibernate_flag' => Input::get('hibernate_flag'),
-			'owner_flag' => Input::get('owner_flag'),
-			'user_type' => Input::get('user_type')
-		);
-
-		// update meta attributes
+		// update user's meta attributes (admin only)
 		//
 		$currentUser = User::getIndex(Session::get('user_uid'));
-		if ($currentUser) {
+		if ($currentUser && $currentUser->isAdmin()) {
+
+			// get meta attributes
+			//
+			$attributes = array(
+				'enabled_flag' => Input::get('enabled_flag'),
+				'admin_flag' => Input::get('admin_flag'),
+				'email_verified_flag' => Input::get('email_verified_flag'),
+				'forcepwreset_flag' => Input::get('forcepwreset_flag'),
+				'hibernate_flag' => Input::get('hibernate_flag'),
+				'owner_flag' => Input::get('owner_flag'),
+				'user_type' => Input::get('user_type')
+			);
 
 			// update user account
 			//
