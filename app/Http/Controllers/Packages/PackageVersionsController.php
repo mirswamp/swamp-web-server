@@ -699,7 +699,7 @@ class PackageVersionsController extends BaseController {
 				//
 				$result = `mkdir $workdir;
 				 cd $workdir;
-				 git clone $external_url`;
+				 git clone --recursive $external_url`;
 
 				$files = scandir($workdir);
 				if (sizeof( $files ) !== 3) {
