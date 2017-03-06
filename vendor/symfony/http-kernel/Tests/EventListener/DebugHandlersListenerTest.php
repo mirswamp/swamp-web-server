@@ -21,7 +21,10 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Debug\ErrorHandler;
 use Symfony\Component\Debug\ExceptionHandler;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Event\KernelEvent;
 use Symfony\Component\HttpKernel\EventListener\DebugHandlersListener;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
@@ -33,7 +36,7 @@ class DebugHandlersListenerTest extends \PHPUnit_Framework_TestCase
 {
     public function testConfigure()
     {
-        $logger = $this->getMock('Psr\Log\LoggerInterface');
+        $logger = $this->getMockBuilder('Psr\Log\LoggerInterface')->getMock();
         $userHandler = function () {};
         $listener = new DebugHandlersListener($userHandler, $logger);
         $xHandler = new ExceptionHandler();
@@ -62,11 +65,36 @@ class DebugHandlersListenerTest extends \PHPUnit_Framework_TestCase
         $this->assertSame(array($logger, LogLevel::INFO), $loggers[E_DEPRECATED]);
     }
 
+    public function testConfigureForHttpKernelWithNoTerminateWithException()
+    {
+        $listener = new DebugHandlersListener(null);
+        $eHandler = new ErrorHandler();
+        $event = new KernelEvent(
+            $this->getMockBuilder('Symfony\Component\HttpKernel\HttpKernelInterface')->getMock(),
+            Request::create('/'),
+            HttpKernelInterface::MASTER_REQUEST
+        );
+
+        $exception = null;
+        $h = set_exception_handler(array($eHandler, 'handleException'));
+        try {
+            $listener->configure($event);
+        } catch (\Exception $exception) {
+        }
+        restore_exception_handler();
+
+        if (null !== $exception) {
+            throw $exception;
+        }
+
+        $this->assertNull($h);
+    }
+
     public function testConsoleEvent()
     {
         $dispatcher = new EventDispatcher();
         $listener = new DebugHandlersListener(null);
-        $app = $this->getMock('Symfony\Component\Console\Application');
+        $app = $this->getMockBuilder('Symfony\Component\Console\Application')->getMock();
         $app->expects($this->once())->method('getHelperSet')->will($this->returnValue(new HelperSet()));
         $command = new Command(__FUNCTION__);
         $command->setApplication($app);

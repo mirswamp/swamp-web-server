@@ -105,6 +105,18 @@ return [
 
 	'nameserver' => env('APP_NAMESERVER'),
 
+    /*  
+    |--------------------------------------------------------------------------
+    | HTCondor Collector Hostname
+    |--------------------------------------------------------------------------
+    |
+    | The server used to obtain vm status information
+    |
+    */
+
+    'htcondorcollectorhost' => env('HTCONDOR_COLLECTOR_HOST'),
+
+
 	/*
 	|--------------------------------------------------------------------------
 	| Promotional Code

@@ -66,21 +66,34 @@ class SymfonyStyle extends OutputStyle
     {
         $this->autoPrependBlock();
         $messages = is_array($messages) ? array_values($messages) : array($messages);
+        $indentLength = 0;
         $lines = array();
 
-        // add type
         if (null !== $type) {
-            $messages[0] = sprintf('[%s] %s', $type, $messages[0]);
+            $typePrefix = sprintf('[%s] ', $type);
+            $indentLength = strlen($typePrefix);
+            $lineIndentation = str_repeat(' ', $indentLength);
         }
 
         // wrap and add newlines for each element
         foreach ($messages as $key => $message) {
             $message = OutputFormatter::escape($message);
-            $lines = array_merge($lines, explode(PHP_EOL, wordwrap($message, $this->lineLength - Helper::strlen($prefix), PHP_EOL, true)));
+            $lines = array_merge($lines, explode(PHP_EOL, wordwrap($message, $this->lineLength - Helper::strlen($prefix) - $indentLength, PHP_EOL, true)));
+
+            // prefix each line with a number of spaces equivalent to the type length
+            if (null !== $type) {
+                foreach ($lines as &$line) {
+                    $line = $lineIndentation === substr($line, 0, $indentLength) ? $line : $lineIndentation.$line;
+                }
+            }
 
             if (count($messages) > 1 && $key < count($messages) - 1) {
                 $lines[] = '';
             }
+        }
+
+        if (null !== $type) {
+            $lines[0] = substr_replace($lines[0], $typePrefix, 0, $indentLength);
         }
 
         if ($padding && $this->isDecorated()) {
@@ -108,7 +121,7 @@ class SymfonyStyle extends OutputStyle
     {
         $this->autoPrependBlock();
         $this->writeln(array(
-            sprintf('<comment>%s</>', $message),
+            sprintf('<comment>%s</>', OutputFormatter::escapeTrailingBackslash($message)),
             sprintf('<comment>%s</>', str_repeat('=', strlen($message))),
         ));
         $this->newLine();
@@ -121,7 +134,7 @@ class SymfonyStyle extends OutputStyle
     {
         $this->autoPrependBlock();
         $this->writeln(array(
-            sprintf('<comment>%s</>', $message),
+            sprintf('<comment>%s</>', OutputFormatter::escapeTrailingBackslash($message)),
             sprintf('<comment>%s</>', str_repeat('-', strlen($message))),
         ));
         $this->newLine();
@@ -204,12 +217,13 @@ class SymfonyStyle extends OutputStyle
      */
     public function table(array $headers, array $rows)
     {
-        $headers = array_map(function ($value) { return sprintf('<info>%s</>', $value); }, $headers);
+        $style = clone Table::getStyleDefinition('symfony-style-guide');
+        $style->setCellHeaderFormat('<info>%s</info>');
 
         $table = new Table($this);
         $table->setHeaders($headers);
         $table->setRows($rows);
-        $table->setStyle('symfony-style-guide');
+        $table->setStyle($style);
 
         $table->render();
         $this->newLine();

@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Utilities;
@@ -36,7 +36,8 @@ class Configuration extends BaseModel {
 		'google_authentication_enabled',
 		'ci_logon_authentication_enabled',
 		'api_explorer_enabled',
-		'client_ip'
+		'client_ip',
+		'ldap_readonly'
 	);
 
 	/**
@@ -75,5 +76,12 @@ class Configuration extends BaseModel {
 
 	public function getClientIpAttribute() {
 		return Request::ip();
+	}
+
+	public function getLdapReadOnlyAttribute() {
+		$ldapEnabled = Config::get('ldap.enabled');
+		$ldapConnectionConfig = Config::get('ldap.connection');
+		$ldapReadOnly = $ldapConnectionConfig['read_only'];
+		return ($ldapEnabled && $ldapReadOnly);
 	}
 }

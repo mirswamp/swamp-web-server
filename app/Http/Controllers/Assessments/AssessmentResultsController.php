@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Assessments;
@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Config;
 use App\Models\Assessments\AssessmentResult;
 use App\Models\Assessments\AssessmentRun;
 use App\Models\Executions\ExecutionRecord;
@@ -43,6 +44,8 @@ use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\TripletFilter;
 use App\Utilities\Filters\LimitFilter;
 use ErrorException;
+use App\Services\HTCondorCollector;
+
 
 class AssessmentResultsController extends BaseController {
 
@@ -179,12 +182,12 @@ class AssessmentResultsController extends BaseController {
 			// otherwise just use what database gave us.
 			// FIXME viewer is always present when url has no .html?
 			if($viewerInstanceUuid) {
-				$instance = ViewerInstance::where('viewer_instance_uuid', '=', $viewerInstanceUuid)->first();
+				$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
 				// TODO what is return value of status when returns immediately
 
 				// if proxy url, return it
 				//
-				if($instance->proxy_url) {
+				if($instance->state && ($instance->state == 2) && $instance->proxy_url) {
 					$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 					$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
 					if($base_url) {
@@ -511,12 +514,12 @@ class AssessmentResultsController extends BaseController {
 		$connection = DB::connection('assessment');
 		$pdo = $connection->getPdo();
 
-		$instance = ViewerInstance::where('viewer_instance_uuid', '=', $viewerInstanceUuid)->first();
+		$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
 		// TODO what is return value of status when returns immediately
 
 		// if proxy url, return it
 		//
-		if($instance->proxy_url) {
+		if($instance->state && ($instance->state == 2) && $instance->proxy_url) {
 			$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 			$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
 			if($base_url) {

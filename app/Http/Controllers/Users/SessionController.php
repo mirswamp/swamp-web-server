@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -36,6 +36,7 @@ use App\Models\Users\LinkedAccountProvider;
 use App\Models\Users\UserEvent;
 use App\Models\Users\EmailVerification;
 use App\Models\Users\PasswordReset;
+use App\Models\Utilities\Configuration;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Identity\IdentityProvider;
 use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
@@ -56,10 +57,32 @@ class SessionController extends BaseController {
 		//
 		$user = User::getByUsername($username);
 		if ($user) {
-			if (User::isValidPassword($password, $user->password)) {
+			if (User::isValidPassword($user, $password, $user->password)) {
+
+				$userAccount = $user->getUserAccount();
+
+				// In the case of local read-only LDAP, the user may
+				// authenticate with LDAP but not have a corresponding 
+				// UserAccount. So create one now. Since we trust the LDAP
+				// email address, set email_verified_flag to '1'.
+				$configuration = new Configuration;
+				if (($configuration->getLdapReadOnlyAttribute()) &&
+					(count($userAccount) == 0)) {
+						$userAccount = new UserAccount(array(
+							'ldap_profile_update_date' => gmdate('Y-m-d H:i:s'),
+							'user_uid' => $user->user_uid,
+							'promo_code_id' => null,
+							'enabled_flag' => 1,
+							'owner_flag' => 0,
+							'admin_flag' => 0,
+							'email_verified_flag' => Config::get('mail.enabled')? 1 : -1
+						));
+						$userAccount->save();
+				}
+
 				if ($user->hasBeenVerified()) {
 					if ($user->isEnabled()) {
-						$userAccount = $user->getUserAccount();
+
 						if ($userAccount->isHibernating()) {
 
 							// reactivate user's password
@@ -465,7 +488,8 @@ class SessionController extends BaseController {
 
 	public function oauth2Link() {
 
-		if (gmdate('U') - Session::get('oauth2_access_time') > (15 * 60)) {
+		if (gmdate('U') - Session::get('oauth2_access_time') > 
+			(Config::get('oauth2.session_expiration') * 60)) {
 			return response('OAuth2 access has expired.  If you would like to link an external account to an existing SWAMP account, please click "Sign In" and select an external Identity Provider.', 401);
 		}
 
@@ -478,7 +502,7 @@ class SessionController extends BaseController {
 		//
 		$user = User::getByUsername($username);
 		if ($user) {
-			if (User::isValidPassword($password, $user->password)) {
+			if (User::isValidPassword($user, $password, $user->password)) {
 				if ($user->hasBeenVerified()) {
 					if ($user->isEnabled()) {
 						$userAccount = $user->getUserAccount();

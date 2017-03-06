@@ -64,7 +64,7 @@ trait InteractsWithPages
 
         $this->currentUri = $this->app->make('request')->fullUrl();
 
-        $this->crawler = new Crawler($this->response->getContent(), $uri);
+        $this->crawler = new Crawler($this->response->getContent(), $this->currentUri);
 
         return $this;
     }
@@ -533,8 +533,6 @@ trait InteractsWithPages
                 return $option->getAttribute('value');
             }
         }
-
-        return;
     }
 
     /**
@@ -556,8 +554,6 @@ trait InteractsWithPages
                 return $radio->getAttribute('value');
             }
         }
-
-        return;
     }
 
     /**

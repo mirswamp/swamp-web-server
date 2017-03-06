@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
@@ -36,6 +36,7 @@ use App\Models\Packages\PackageType;
 use App\Models\Packages\PackageSharing;
 use App\Models\Packages\PackageVersion;
 use App\Models\Packages\PackageVersionSharing;
+use App\Models\Packages\PackagePlatform;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
 
@@ -55,12 +56,20 @@ class PackagesController extends BaseController {
 			}
 		}
 
+		// parse package language
+		//
+		$packageLanguage = Input::get('package_language');
+		if (is_array($packageLanguage)) {
+			$packageLanguage = implode(' ', $packageLanguage);
+		}
+
 		$package = new Package(array(
 			'package_uuid' => Guid::create(),
 			'name' => Input::get('name'),
 			'description' => Input::get('description'),
 			'external_url' => Input::get('external_url'),
 			'package_type_id' => Input::get('package_type_id'),
+			'package_language' => $packageLanguage,
 			'package_owner_uuid' => Session::get('user_uid'),
 			'package_sharing_status' => Input::get('package_sharing_status')
 		));
@@ -588,6 +597,14 @@ class PackagesController extends BaseController {
 			array_push($projectUuids, $packageSharing[$i]->project_uuid);
 		}
 		return $projectUuids;
+	}
+
+	// get platforms / platlform versions
+	//
+	public function getPackagePlatforms($packageUuid) {
+		$packageVersionUuid = Input::get('package_version_uuid');
+		return PackagePlatform::where('package_uuid', '=', $packageUuid)->
+			where('package_version_uuid', '=', $packageVersionUuid)->get();
 	}
 
 	// update by index

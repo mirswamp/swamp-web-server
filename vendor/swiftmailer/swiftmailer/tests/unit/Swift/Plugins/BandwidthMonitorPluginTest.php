@@ -2,6 +2,10 @@
 
 class Swift_Plugins_BandwidthMonitorPluginTest extends \PHPUnit_Framework_TestCase
 {
+    private $_monitor;
+
+    private $_bytes = 0;
+
     public function setUp()
     {
         $this->_monitor = new Swift_Plugins_BandwidthMonitorPlugin();
@@ -106,7 +110,7 @@ class Swift_Plugins_BandwidthMonitorPluginTest extends \PHPUnit_Framework_TestCa
     private function _createMessageWithByteCount($bytes)
     {
         $this->_bytes = $bytes;
-        $msg = $this->getMock('Swift_Mime_Message');
+        $msg = $this->getMockBuilder('Swift_Mime_Message')->getMock();
         $msg->expects($this->any())
             ->method('toByteStream')
             ->will($this->returnCallback(array($this, '_write')));
@@ -117,7 +121,6 @@ class Swift_Plugins_BandwidthMonitorPluginTest extends \PHPUnit_Framework_TestCa
         return $msg;
     }
 
-    private $_bytes = 0;
     public function _write($is)
     {
         for ($i = 0; $i < $this->_bytes; ++$i) {

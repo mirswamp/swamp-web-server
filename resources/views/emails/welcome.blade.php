@@ -14,7 +14,7 @@
 	<img id="logo" src="{{ $logo }}" alt="logo" />
 	<p>Greetings {{ $user->getFullName() }},</p>
 	On behalf of the staff at the Software Assurance Marketplace: thank you for your interest in our services!
-	<p>Please take a moment to view the <a href="https://continuousassurance.org/swamp/SWAMP-User-Manual.pdf">SWAMP User Manual</a> and the <a href='https://continuousassurance.org/video-tutorials/'>video tutorials</a> on our website; they provide valuable guidance for the initial orientation experience. </p>
+	<p>Please take a moment to view the <a href="https://www.swampinabox.org/doc/SWAMP-User-Manual.pdf">SWAMP User Manual</a> and the <a href='https://continuousassurance.org/video-tutorials/'>video tutorials</a> on our website; they provide valuable guidance for the initial orientation experience. </p>
 	<p>
 		<div style="float: left; width: 30%;">
 			<p style="font-size:14px">&nbsp;</p>

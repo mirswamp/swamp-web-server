@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -169,7 +169,7 @@ class EmailVerificationsController extends BaseController {
 		//
 		$user = User::getByUsername($username);
 		if ($user) {
-			if (User::isValidPassword($password, $user->password)) {
+			if (User::isValidPassword($user, $password, $user->password)) {
 
 				// get email verification
 				//

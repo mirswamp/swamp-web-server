@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 Route::get('environment', function() {
@@ -49,10 +49,6 @@ Route::group(['middleware' => 'verify.config'], function () {
 	Route::get('tools/public', 'Tools\ToolsController@getPublic');
 	Route::get('tools/restricted', 'Tools\ToolsController@getRestricted'); 
 	Route::get('platforms/public', 'Platforms\PlatformsController@getPublic');
-
-	// public diagnostic route
-	//
-	Route::get('status', 'Utilities\StatusController@getCurrent');
 
 	// public email verification routes
 	//
@@ -167,6 +163,10 @@ Route::group(['middleware' => 'verify.config'], function () {
 			Route::delete('restricted-domains/{restricted_domain_id}', 'Admin\RestrictedDomainsController@deleteIndex');
 			Route::get('restricted-domains', 'Admin\RestrictedDomainsController@getAll');
 			Route::put('restricted-domains', 'Admin\RestrictedDomainsController@updateMultiple');
+
+			// diagnostic route
+			//
+			Route::get('status', 'Utilities\StatusController@getCurrent');
 		});
 
 		// project routes
@@ -288,6 +288,9 @@ Route::group(['middleware' => 'verify.config'], function () {
 		// package routes
 		//
 		Route::group(['middleware' => 'verify.package'], function () {
+
+			// package creation and querying routes
+			//
 			Route::get('packages/all', 'Packages\PackagesController@getAll');
 			Route::get('packages/{package_uuid}', 'Packages\PackagesController@getIndex');
 			Route::post('packages', 'Packages\PackagesController@postCreate');
@@ -296,6 +299,13 @@ Route::group(['middleware' => 'verify.config'], function () {
 			Route::get('packages/users/{user_uuid}', 'Packages\PackagesController@getByUser');
 			Route::get('packages/users/{user_uuid}/num', 'Packages\PackagesController@getNumByUser');
 			Route::get('packages/projects/{project_uuid}', 'Packages\PackagesController@getByProject');
+
+			// package compatibility routes
+			//
+			Route::get('packages/{package_uuid}/platforms', 'Packages\PackagesController@getPackagePlatforms');
+
+			// package version and sharing routes
+			//
 			Route::get('packages/{package_uuid}/versions', 'Packages\PackagesController@getVersions');
 			Route::get('packages/{package_uuid}/{project_uuid}/versions', 'Packages\PackagesController@getSharedVersions');
 			Route::get('packages/{package_uuid}/sharing', 'Packages\PackagesController@getSharing');

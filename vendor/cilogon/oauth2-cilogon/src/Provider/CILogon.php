@@ -93,18 +93,18 @@ class CILogon extends AbstractProvider
     protected function checkResponse(ResponseInterface $response, $data)
     {
         if ((gettype($data) == 'string') &&
-            (preg_match('/error="([^"]*)"/',$data,$matches))) {
+            (preg_match('/error="([^"]*)"/', $data, $matches))) {
             $message = $matches[1];
-            if (preg_match('/error_description="([^"]*)"/',$data,$matches)) {
+            if (preg_match('/error_description="([^"]*)"/', $data, $matches)) {
                 $message .= ': ' . urldecode($matches[1]);
             }
-            throw new IdentityProviderException($message,0,$data);
+            throw new IdentityProviderException($message, 0, $data);
         } elseif (!empty($data['error'])) {
             $message = $data['error'];
             if (!empty($data['error_description'])) {
                 $message .= ': ' . $data['error_description'];
             }
-            throw new IdentityProviderException($message,0,$data);
+            throw new IdentityProviderException($message, 0, $data);
         }
     }
 

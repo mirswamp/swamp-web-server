@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -24,6 +24,7 @@ use App\Models\Users\User;
 use App\Models\Users\Owner;
 use App\Models\Packages\PackageType;
 use App\Models\Packages\PackageVersion;
+use App\Models\Packages\PackagePlatform;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 use App\Models\Assessments\SystemSetting;
@@ -47,6 +48,7 @@ class Package extends UserStamped {
 		'description',
 		'external_url',
 		'package_type_id',
+		'package_language',
 		'package_owner_uuid',
 		'package_sharing_status'
 	);
@@ -60,6 +62,7 @@ class Package extends UserStamped {
 		'description',
 		'external_url',
 		'package_type_id',
+		'package_language',
 		'package_sharing_status',
 		'is_owned',
 		'package_type',
@@ -72,6 +75,7 @@ class Package extends UserStamped {
 	 */
 	protected $appends = array(
 		'is_owned',
+		'external_url',
 		'package_type',
 		'version_strings',
 		'platform_user_selectable'
@@ -275,6 +279,29 @@ class Package extends UserStamped {
 	}
 
 	/**
+	 * compatibility methods
+	 */
+
+	public function getPlatformCompatibility($platform) {
+		$compatibility = PackagePlatform::where('package_uuid', '=', $this->package_uuid)->
+			whereNull('package_version_uuid')->
+			where('platform_uuid', '=', $platform->platform_uuid)->
+			whereNull('platform_version_uuid')->first();
+		if ($compatibility) {
+			return $compatibility->compatible_flag;
+		}
+	}
+
+	public function getPlatformVersionCompatibility($platformVersion) {
+		$compatibility = PackagePlatform::where('package_uuid', '=', $this->package_uuid)->
+			whereNull('package_version_uuid')->
+			where('platform_version_uuid', '=', $platformVersion->platform_version_uuid)->first();
+		if ($compatibility) {
+			return $compatibility->compatible_flag;
+		}
+	}
+
+	/**
 	 * access control methods
 	 */
 
@@ -324,6 +351,13 @@ class Package extends UserStamped {
 				return $owner->toArray();
 			}
 		}
+	}
+
+	public function getExternalUrlAttribute() {
+
+		// if external URL is empty string, then return null
+		//
+		return $this->getOriginal('external_url') != ''? $this->getOriginal('external_url') : null;
 	}
 
 	public function getIsOwnedAttribute() {

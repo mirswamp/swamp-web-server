@@ -68,8 +68,8 @@ return [
 	*/
 
 	'from' => array(
-		'address' => env('MAIL_FROM_ADDRESS'), 
-		'name' => env('MAIL_FROM_NAME')
+		'address' => env('MAIL_FROM_ADDRESS','root@localhost'), 
+		'name' => env('MAIL_FROM_NAME','SWAMP')
 	),
 
 	/*

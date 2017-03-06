@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
@@ -40,6 +40,7 @@ use App\Models\Packages\PythonPackageVersion;
 use App\Models\Packages\RubyPackageVersion;
 use App\Models\Packages\AndroidSourcePackageVersion;
 use App\Models\Packages\AndroidBytecodePackageVersion;
+use App\Models\Packages\WebScriptingPackageVersion;
 use App\Http\Controllers\BaseController;
 
 class PackageVersionsController extends BaseController {
@@ -59,7 +60,14 @@ class PackageVersionsController extends BaseController {
 		} else if (Input::has('external_url')) {
 			$url = Input::get('external_url');
 			if ($this->acceptableExternalUrl($url)) {
-				$uploaded = self::upload(null, $url);
+				if (Input::has('checkout_argument')){
+					$checkout_argument = Input::get('checkout_argument');
+					$uploaded = self::upload(null, $url, $checkout_argument);
+
+				} else {
+					$uploaded = self::upload(null, $url);
+
+				}
 				if ($uploaded) {
 					return $uploaded;
 				} else {
@@ -71,8 +79,10 @@ class PackageVersionsController extends BaseController {
 
 		} else if (Input::has('use_external_url') && Input::has('package_uuid')) {
 			$package = Package::where('package_uuid','=',Input::get('package_uuid'))->first();
+			$checkout_argument = Input::get('checkout_argument');
+
 			if ($package && $this->acceptableExternalUrl($package->external_url)){
-				$uploaded = self::upload(null, $package->external_url);
+				$uploaded = self::upload(null, $package->external_url, $checkout_argument);
 				if ($uploaded) {
 					return $uploaded;
 				} else {
@@ -597,6 +607,9 @@ class PackageVersionsController extends BaseController {
 			case 13:	// Java8 Bytecode
 				return new JavaBytecodePackageVersion($attributes);
 				break;
+			case 14:	// Web Scripting
+				return new WebScriptingPackageVersion($attributes);
+				break;
 			default:
 				return null;
 				break;
@@ -629,6 +642,7 @@ class PackageVersionsController extends BaseController {
 			// version attributes
 			//
 			'version_string' => Input::get('version_string'),
+			'checkout_argument' => Input::get('checkout_argument'),
 			'language_version' => Input::get('language_version'),
 			'version_sharing_status' => Input::get('version_sharing_status'),
 
@@ -679,7 +693,8 @@ class PackageVersionsController extends BaseController {
 		);
 	}
 
-	private static function upload($file, $external_url = false) {
+
+	private static function upload($file, $external_url = false, $checkout_argument = false) {
 		$filename = null;
 		$path = null;
 		$extension = null;
@@ -697,9 +712,21 @@ class PackageVersionsController extends BaseController {
 
 				// clone from GitHub
 				//
-				$result = `mkdir $workdir;
-				 cd $workdir;
-				 git clone $external_url`;
+
+                $temp = strrchr($external_url, "/");
+                $dirname = substr($temp, 1, -4);
+
+				if ($checkout_argument) {
+					$result = `mkdir $workdir;
+					cd $workdir;
+					git clone $external_url;
+					cd $dirname;
+					git checkout $checkout_argument`;
+				} else {
+					$result = `mkdir $workdir;
+				 	cd $workdir;
+				 	git clone $external_url`;
+				}
 
 				$files = scandir($workdir);
 				if (sizeof( $files ) !== 3) {

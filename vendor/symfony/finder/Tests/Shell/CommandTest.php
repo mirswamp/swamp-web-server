@@ -146,9 +146,9 @@ class CommandTest extends \PHPUnit_Framework_TestCase
         $cmd->add('--version');
         $result = $cmd->execute();
 
-        $this->assertTrue(is_array($result));
+        $this->assertInternalType('array', $result);
         $this->assertNotEmpty($result);
-        $this->assertRegexp('/PHP|HipHop/', $result[0]);
+        $this->assertRegExp('/PHP|HipHop/', $result[0]);
     }
 
     public function testCastToString()

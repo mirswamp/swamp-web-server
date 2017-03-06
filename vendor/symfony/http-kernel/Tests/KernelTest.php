@@ -65,7 +65,7 @@ class KernelTest extends \PHPUnit_Framework_TestCase
 
     public function testBootSetsTheContainerToTheBundles()
     {
-        $bundle = $this->getMock('Symfony\Component\HttpKernel\Bundle\Bundle');
+        $bundle = $this->getMockBuilder('Symfony\Component\HttpKernel\Bundle\Bundle')->getMock();
         $bundle->expects($this->once())
             ->method('setContainer');
 
@@ -99,7 +99,7 @@ class KernelTest extends \PHPUnit_Framework_TestCase
 
     public function testClassCacheIsNotLoadedByDefault()
     {
-        $kernel = $this->getKernel(array('initializeBundles', 'initializeContainer'));
+        $kernel = $this->getKernel(array('initializeBundles', 'initializeContainer', 'doLoadClassCache'));
         $kernel->expects($this->never())
             ->method('doLoadClassCache');
 
@@ -162,7 +162,7 @@ class KernelTest extends \PHPUnit_Framework_TestCase
 
     public function testShutdownCallsShutdownOnAllBundles()
     {
-        $bundle = $this->getMock('Symfony\Component\HttpKernel\Bundle\Bundle');
+        $bundle = $this->getMockBuilder('Symfony\Component\HttpKernel\Bundle\Bundle')->getMock();
         $bundle->expects($this->once())
             ->method('shutdown');
 
@@ -174,7 +174,7 @@ class KernelTest extends \PHPUnit_Framework_TestCase
 
     public function testShutdownGivesNullContainerToAllBundles()
     {
-        $bundle = $this->getMock('Symfony\Component\HttpKernel\Bundle\Bundle');
+        $bundle = $this->getMockBuilder('Symfony\Component\HttpKernel\Bundle\Bundle')->getMock();
         $bundle->expects($this->at(3))
             ->method('setContainer')
             ->with(null);
@@ -246,7 +246,7 @@ modified';
 $heredoc = <<<HD
 
 
-Heredoc should not be   modified
+Heredoc should not be   modified {$a[1+$b]}
 
 
 HD;
@@ -282,7 +282,7 @@ modified';
 $heredoc = <<<HD
 
 
-Heredoc should not be   modified
+Heredoc should not be   modified {$a[1+$b]}
 
 
 HD;
@@ -730,21 +730,17 @@ EOF;
     public function testTerminateDelegatesTerminationOnlyForTerminableInterface()
     {
         // does not implement TerminableInterface
-        $httpKernelMock = $this->getMockBuilder('Symfony\Component\HttpKernel\HttpKernelInterface')
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $httpKernelMock
-            ->expects($this->never())
-            ->method('terminate');
+        $httpKernel = new TestKernel();
 
         $kernel = $this->getKernel(array('getHttpKernel'));
         $kernel->expects($this->once())
             ->method('getHttpKernel')
-            ->will($this->returnValue($httpKernelMock));
+            ->willReturn($httpKernel);
 
         $kernel->boot();
         $kernel->terminate(Request::create('/'), new Response());
+
+        $this->assertFalse($httpKernel->terminateCalled, 'terminate() is never called if the kernel class does not implement TerminableInterface');
 
         // implements TerminableInterface
         $httpKernelMock = $this->getMockBuilder('Symfony\Component\HttpKernel\HttpKernel')
@@ -845,5 +841,19 @@ EOF;
         $p->setValue($kernel, __DIR__.'/Fixtures');
 
         return $kernel;
+    }
+}
+
+class TestKernel implements HttpKernelInterface
+{
+    public $terminateCalled = false;
+
+    public function terminate()
+    {
+        $this->terminateCalled = true;
+    }
+
+    public function handle(Request $request, $type = self::MASTER_REQUEST, $catch = true)
+    {
     }
 }

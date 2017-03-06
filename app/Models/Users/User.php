@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -512,7 +512,11 @@ class User extends TimeStamped {
 		}
 	}
 
-	public static function isValidPassword($password, $hash) {
+	public static function isValidPassword($user, $password, $hash) {
+
+		if (Config::get('ldap.enabled')) {
+			return Ldap::validatePassword($user->user_uid,$password);
+		}
 
 		// no password
 		//

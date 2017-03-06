@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Proxies;
@@ -24,10 +24,12 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use App\Models\Viewers\ViewerInstance;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
+use App\Services\HTCondorCollector;
 
 class ProxyController extends BaseController {
 
@@ -160,29 +162,26 @@ class ProxyController extends BaseController {
 		}
 	}
 
+
 	public function proxyCodeDxRequest() {
 		$user = User::getIndex(Session::get('user_uid'));
 
 		// get viewer instance
 		//
 		$proxyUrl = Request::segment(1);
-		$viewerInstance = ViewerInstance::where('proxy_url', '=', $proxyUrl)->first();
-		
-		// query failed, keep trying
-		//
+		$vm_ip = HTCondorCollector::getVMIP($proxyUrl);
 		$iterations = 0;
 		$maxIterations = 1000;
-		while (!$viewerInstance && $iterations < $maxIterations) {
+		while (!$vm_ip && $iterations < $maxIterations) {
 			$iterations++;
 			usleep(10000);
-			$viewerInstance = ViewerInstance::where('proxy_url','=', $proxyUrl)->first();
+			$vm_ip = HTCondorCollector::getVMIP($proxyUrl);
 		}
 
-		if ($viewerInstance) {
+		if ($vm_ip) {
 
 			// get virtual machine info
 			//
-			$vm_ip = $viewerInstance->vm_ip_address;
 			$content = Request::instance()->getContent();
 			$tfh = tmpfile();
 			fwrite($tfh, $content);

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -50,6 +50,7 @@ class PackageVersion extends UserStamped {
 		// version attributes
 		//
 		'version_string',
+		'checkout_argument',
 		'language_version',
 		'version_sharing_status',
 
@@ -115,6 +116,7 @@ class PackageVersion extends UserStamped {
 		// version attributes
 		//
 		'version_string',
+		'checkout_argument',
 		'language_version',
 		'version_sharing_status',
 
@@ -326,6 +328,27 @@ class PackageVersion extends UserStamped {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * compatibility methods
+	 */
+
+	public function getPlatformCompatibility($platform) {
+		$compatibility = PackagePlatform::where('package_version_uuid', '=', $this->package_version_uuid)->
+			where('platform_uuid', '=', $platform->platform_uuid)->
+			whereNull('platform_version_uuid')->first();
+		if ($compatibility) {
+			return $compatibility->compatible_flag;
+		}
+	}
+
+	public function getPlatformVersionCompatibility($platformVersion) {
+		$compatibility = PackagePlatform::where('package_version_uuid', '=', $this->package_version_uuid)->
+			where('platform_version_uuid', '=', $platformVersion->platform_version_uuid)->first();
+		if ($compatibility) {
+			return $compatibility->compatible_flag;
+		}
 	}
 
 	/**

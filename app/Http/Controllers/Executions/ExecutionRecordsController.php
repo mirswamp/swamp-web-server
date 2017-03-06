@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Executions;
@@ -33,13 +33,17 @@ use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\TripletFilter2;
 use App\Utilities\Filters\LimitFilter;
+use App\Services\HTCondorCollector;
+
 
 class ExecutionRecordsController extends BaseController {
 
 	// get by index
 	//
 	public function getIndex($executionRecordUuid) {
-		return ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
+		// Use HTCondor Collector
+		$result = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
+		return HTCondorCollector::insertStatus($result, $executionRecordUuid);
 	}
 
 	// get ssh access
@@ -49,21 +53,15 @@ class ExecutionRecordsController extends BaseController {
 		if (!$permission) {
 			return response('You do not have permission to access SSH information.', 401);
 		}
-		$record = ExecutionRecord::where('execution_record_uuid','=',$executionRecordUuid)->first();
 
 		$attempts = 30;
 
-		// look up ip
+		// look up vm ip
 		//
 		do {
-			if( $attempts < 30 ) 
-				sleep( 1 );
-			$dns 	= Config::get('app.nameserver');  
-			$host 	= $record->vm_hostname;
-			$ip 	= `nslookup $host $dns`; 
-			$vm_ip 	= array();
-			if(preg_match_all('/Address: ((?:\d{1,3}\.){3}\d{1,3})/', $ip, $match) > 0)
-				$vm_ip = $match[1][0];
+			if( $attempts < 30 ) sleep( 1 );
+			$record = ExecutionRecord::where('execution_record_uuid','=',$executionRecordUuid)->first();
+			$vm_ip = $record->vm_ip_address;
 			$attempts--;
 		} while( ! $vm_ip && $attempts > 0 );
 
@@ -181,7 +179,9 @@ class ExecutionRecordsController extends BaseController {
 
 		// execute query
 		//
-		return $executionRecordsQuery->get();
+		// Use HTCondor Collector
+		$result = $executionRecordsQuery->get();
+		return HTCondorCollector::insertStatuses($result);
 	}
 
 	// get number by project
@@ -247,7 +247,9 @@ class ExecutionRecordsController extends BaseController {
 			//
 			$executionRecordsQuery = $executionRecordsQuery->whereNull('delete_date');
 			
-			return $executionRecordsQuery->get();
+			// Use HTCondor Collector
+			$result = $executionRecordsQuery->get();
+			return HTCondorCollector::insertStatuses($result);
 		}
 	}
 

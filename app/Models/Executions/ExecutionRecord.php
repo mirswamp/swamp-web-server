@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Executions;
@@ -204,6 +204,11 @@ class ExecutionRecord extends CreateStamped {
 	}
 	
 	public function getVmReadyFlagAttribute(){
-		return ($this->vm_hostname != '') && ($this->vm_username != '') && ($this->vm_password != '') ? 1 : 0;
+		return 
+			($this->vm_hostname != '') && 
+			($this->vm_username != '') && 
+			($this->vm_password != '') &&
+			($this->vm_ip_address != '')
+			? 1 : 0;
 	}
 }

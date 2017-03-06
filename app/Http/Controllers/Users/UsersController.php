@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -389,7 +389,7 @@ class UsersController extends BaseController {
 		//
 		} else if ($userUid == $currentUser->user_uid) {
 			$oldPassword = Input::get('old_password');
-			if (User::isValidPassword($oldPassword, $currentUser->password)) {
+			if (User::isValidPassword($currentUser, $oldPassword, $currentUser->password)) {
 				$newPassword = Input::get('new_password');
 
 				// For LDAP extended error messages, check the exception message for the

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Assessments;
@@ -61,64 +61,74 @@ class AssessmentRunsController extends BaseController {
 		//
 		$project = $projectUuid? Project::where('project_uid', '=', $projectUuid)->first() : NULL;
 		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : NULL;
-		$packageVersion = $packageVersionUuid? PackageVersion::where('package_version_uuid', '=', $packageVersionUuid) : NULL;
+		$packageVersion = $packageVersionUuid? PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first() : NULL;
 		$platform = $platformUuid? Platform::where('platform_uuid', '=', $platformUuid)->first() : NULL;
 		$platformVersion = $platformVersionUuid? PlatformVersion::where('platform_version_uuid', '=', $platformVersionUuid)->first() : NULL;
 
-		// find platform
+		// get latest package version
 		//
-		if ($platformVersion) {
-
-			// get platform from version
-			//
-			$platform = $platformVersion->getPlatform();
-		
-			// get platform uuid
-			//
-			if ($platform) {
-				$platformUuid = $platform->platform_uuid;
-			}
-		} else if (!$platform && $package) {
-
-			// get default platform / platform version
-			//
-			$platform = $package->getDefaultPlatform($platformVersion);
-
-			// get platform / version uuids
-			//
-			if ($platform) {
-				$platformUuid = $platform->platform_uuid;
-			}
-			if ($platformVersion) {
-				$platformVersionUuid = $platformVersion->platform_version_uuid;
-			}
-		}
-
-		// latest package version
-		//
-		if (!$packageVersion) {
+		if ($package && !$packageVersion) {
 			$packageVersion = $package->getLatestVersion($projectUuid);
 		}
 
-		// if record found then package version is incompatible with platform version
+		// get default platform / platform version
 		//
-		if ($platformVersionUuid) {
-			$incompatible = PackagePlatform::where('package_uuid', '=', $packageUuid)->
-				where('package_version_uuid', '=', $packageVersionUuid)->
-				where('platform_uuid', '=', $platformUuid)->
-				where('platform_version_uuid', '=', $platformVersionUuid)->exists();
-		} else {
-			$incompatible = PackagePlatform::where('package_uuid', '=', $packageUuid)->
-				where('package_version_uuid', '=', $packageVersionUuid)->
-				where('platform_uuid', '=', $platformUuid)->exists();
+		if (!$platform && $package) {
+			$platform = $package->getDefaultPlatform($platformVersion);
+		}
+
+		// get latest platform version
+		//
+		if ($platform && !$platformVersion) {
+			$platformVersion = $platform->getLatestVersion();
+		}
+
+		// get platform from version
+		//
+		if (!$platform && $platformVersion) {
+			$platform = $platformVersion->getPlatform();
+		}
+
+		// check compatibility in order of most specific to least specific
+		//
+		$compatibility = null;
+		$message = "Platform is compatible.";
+
+		if ($compatibility === null && $packageVersion && $platformVersion) {
+			$compatibility = $packageVersion->getPlatformVersionCompatibility($platformVersion);
+			if ($compatibility === 0) {
+				$message = "Package version is incompatible with platform version.";
+			}
+		}
+
+		if ($compatibility === null && $packageVersion && $platform) {
+			$compatibility = $packageVersion->getPlatformCompatibility($platform);
+			if ($compatibility === 0) {
+				$message = "Package version is incompatible with platform.";
+			}
+		}
+
+		if ($compatibility === null && $package && $platformVersion) {
+			$compatibility = $package->getPlatformVersionCompatibility($platformVersion);
+			if ($compatibility === 0) {
+				$message = "Package is incompatible with platform version.";
+			}
+		}
+
+		if ($compatibility === null && $package && $platform) {
+			$compatibility = $package->getPlatformCompatibility($platform);
+			if ($compatibility === 0) {
+				$message = "Package is incompatible with platform.";
+			}
 		}
 
 		// return response
 		//
-		if ($incompatible) {
-			return response('Platform is incompatible.', 400);
+		if ($compatibility === 0) {
+			return response($message, 400);
+		} else {
+			return response($message, 200);
 		}
-		return response('Platform is compatible.', 200);
 	}
 
 	// create

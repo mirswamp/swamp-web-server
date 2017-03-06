@@ -42,4 +42,15 @@ return array(
 	'cilogon_client_secret' => env('CILOGON_CLIENT_SECRET'),
 	'cilogon_skin'          => env('CILOGON_SKIN','SWAMP'),
 
+/*
+	|--------------------------------------------------------------------------
+	| OAuth2 Session Expiration Time
+	|--------------------------------------------------------------------------
+	|
+	| This is the time (in minutes) that an OAuth2 session is valid.
+	|
+	*/
+
+	'session_expiration' => env('OAUTH2_SESSION_EXPIRATION',15),
+
 );
