@@ -4,7 +4,7 @@ return array(
 
 	/*
 	|--------------------------------------------------------------------------
-	| LDAP Enbled
+	| LDAP Enabled
 	|--------------------------------------------------------------------------
 	|
 	| If LDAP is not enabled, we will use the SQL database instead.
@@ -12,6 +12,32 @@ return array(
 	*/
 
 	'enabled' => env('LDAP_ENABLED', false),
+
+	/*
+	|--------------------------------------------------------------------------
+	| LDAP Enabled
+	|--------------------------------------------------------------------------
+	|
+	| If LDAP is not enabled, we will use the SQL database instead.
+	|
+	*/
+
+	'password_validation' => env('LDAP_PASSWORD_VALIDATION', false),
+
+	/*
+	|--------------------------------------------------------------------------
+	| LDAP at Production www.mir-swamp.org
+	|--------------------------------------------------------------------------
+	|
+	| Set this to 'true' for the production LDAP server used by
+	| www.mir-swamp.org. Essentially, this adds an 'enabled' attribute to
+	| all user entries as required due to historical setup. For non-production
+	| LDAP servers, this should be false, which will UNset the 'enabled'
+	| attribute for user entries.
+	|
+	*/
+
+	'mir_swamp' => env('LDAP_MIR_SWAMP', true),
 
 	/*
 	|--------------------------------------------------------------------------
@@ -35,9 +61,8 @@ return array(
 		'password_attr' => env('LDAP_PASSWORD_ATTR','userPassword'),
 		'username_attr' => env('LDAP_USERNAME_ATTR','uid'),
 		'email_attr' => env('LDAP_EMAIL_ATTR','mail'),
-		'address_attr' => env('LDAP_ADDRESS_ATTR','postalAddress'),
-		'phone_attr' => env('LDAP_PHONE_ATTR','telephoneNumber'),
-		'org_attr' => env('LDAP_PHONE_ATTR','o'),
+		'org_attr' => env('LDAP_ORG_ATTR','o'),
+		'objectclass' => env('LDAP_OBJECTCLASS','top,person,organizationalPerson,inetOrgPerson,eduPerson,swampEntity'),
 		'users' => array(
 			'web_user' => array(
 				'user' => env('LDAP_WEB_USER',null),

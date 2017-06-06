@@ -21,12 +21,14 @@ namespace App\Http\Controllers\Users;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\PasswordReset;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
+use App\Http\Controllers\Users\AppPasswordsController;
 
 use \DateTime;
 use \DateTimeZone;
@@ -106,45 +108,62 @@ class PasswordResetsController extends BaseController {
 		$passwordReset = PasswordReset::where('password_reset_id', '=', $passwordResetId)->first();
 		$user = User::getIndex($passwordReset->user_uid);
 
-		// For LDAP extended error messages, check the exception message for the
-		// ldap_* method and check for pattern match. If so, then rather than
-		// returning the user object, return a new JSON object with the 
-		// encoded LDAP extended error message.
-		//
-		try {
-			$user->modifyPassword($password);
-		} catch (\ErrorException $exception) {
-			if (preg_match('/^Constraint violation:/',$exception->getMessage())) {
-				return response()->json(array('error' => $exception->getMessage()), 409);
-			} else {
-			  throw $exception;
+		if ($user) {
+			
+			// For LDAP extended error messages, check the exception message for the
+			// ldap_* method and check for pattern match. If so, then rather than
+			// returning the user object, return a new JSON object with the 
+			// encoded LDAP extended error message.
+			//
+			try {
+				$user->modifyPassword($password);
+			} catch (\ErrorException $exception) {
+				if (preg_match('/^Constraint violation:/',$exception->getMessage())) {
+					return response()->json(array('error' => $exception->getMessage()), 409);
+				} else {
+					throw $exception;
+				}
 			}
-		}
 
-		// destroy password reset if present
-		//
-		$passwordReset->delete();
+			// delete all app passwords for the user
+			//
+			$app_password_con = new AppPasswordsController();
+			$app_password_con->deleteByUser($user->user_uid);
 
-		// send email notification of password change
-		//
-		if (Config::get('mail.enabled')) {
-			$data = array(
-				'url' => Config::get('app.cors_url') ?: '',
-				'user' => $user
+			// destroy password reset if present
+			//
+			$passwordReset->delete();
+
+			// send email notification of password change
+			//
+			if (Config::get('mail.enabled')) {
+				if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+					$data = array(
+						'url' => Config::get('app.cors_url') ?: '',
+						'user' => $user
+					);
+					Mail::send('emails.password-changed', $data, function($message) use ($user) {
+						$message->to($user->email, $user->getFullName());
+						$message->subject('SWAMP Password Changed');
+					});
+				}
+			}
+
+			// unmark account as requiring a reset
+			//
+			$userAccount = $user->getUserAccount();
+			$userAccount->setAttributes(array(
+				'forcepwreset_flag' => false,
+				'hibernate_flag' => false
+			), $user);
+
+			// Log the password reset event
+			Log::info("Password reset complete.",
+				array(
+					'reset_user_uid' => $user->user_uid,
+				)
 			);
-			Mail::send('emails.password-changed', $data, function($message) use ($user) {
-				$message->to($user->email, $user->getFullName());
-				$message->subject('SWAMP Password Changed');
-			});
 		}
-
-		// unmark account as requiring a reset
-		//
-		$userAccount = $user->getUserAccount();
-		$userAccount->setAttributes(array(
-			'forcepwreset_flag' => false,
-			'hibernate_flag' => false
-		), $user);
 
 		// return response
 		//

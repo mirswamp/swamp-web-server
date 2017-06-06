@@ -43,6 +43,7 @@ use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\TripletFilter;
 use App\Utilities\Filters\LimitFilter;
+use App\Utilities\Strings\StringUtils;
 use ErrorException;
 use App\Services\HTCondorCollector;
 
@@ -113,7 +114,8 @@ class AssessmentResultsController extends BaseController {
 		//
 		$connection = DB::connection('assessment');
 		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL launch_viewer(:assessmentResultsUuid, :userUuidIn, :viewerVersionUuid, :projectUuid, @returnUrl, @returnString, @viewerInstanceUuid);");
+		$stmt = $pdo->prepare("CALL launch_viewer(:assessmentResultsUuid, :userUuidIn, :viewerVersionUuid, :projectUuid, :destinationBasePath, @returnPath, @returnString, @viewerInstanceUuid);");
+		$resultsDestination = Config::get('app.outgoing');
 
 		// bind params
 		//
@@ -121,14 +123,14 @@ class AssessmentResultsController extends BaseController {
 		$stmt->bindParam(":userUuidIn", $userUuidIn, PDO::PARAM_STR, 45);
 		$stmt->bindParam(":viewerVersionUuid", $viewerVersionUuid, PDO::PARAM_STR, 45);
 		$stmt->bindParam(":projectUuid", $projectUuid, PDO::PARAM_STR, 45);
+		$stmt->bindParam(":destinationBasePath", $resultsDestination, PDO::PARAM_STR, 45);
 
 		// set param values
 		//
-		if( $assessmentResultsUuid == 'none' ){
+		if ($assessmentResultsUuid == 'none') {
 			$assessmentResultsUuid = '';
 		}
 		$userUuidIn = Session::get('user_uid');
-		$returnUrl = null;
 		$returnString = null;
 		$viewerInstanceUuid = null;
 
@@ -138,24 +140,45 @@ class AssessmentResultsController extends BaseController {
 
 		// fetch return parameters
 		//
-		$select = $pdo->query('SELECT @returnUrl, @returnString, @viewerInstanceUuid');
+		$select = $pdo->query('SELECT @returnPath, @returnString, @viewerInstanceUuid');
 		$results = $select->fetchAll();
-		$returnUrl = $results[0]["@returnUrl"];
+		$returnPath = $results[0]["@returnPath"];
 		$returnString = $results[0]["@returnString"];
 		$viewerInstanceUuid = $results[0]["@viewerInstanceUuid"];
 
 		// log viewer launching
 		//
-		Log::info("Launching viewer with viewer_instance_uuid = $viewerInstanceUuid\n");
+		Log::info("Launching viewer.",
+			array('viewer_instance_uuid' => $viewerInstanceUuid)
+		);
 
-		if (substr($returnUrl, -4) == 'html') {
+		if (StringUtils::endsWith($returnPath, '.html')) {
 			$options=array(
 				"ssl"=>array(
 					"verify_peer"=>false,
 					"verify_peer_name"=>false
 				)
 			);
-			$results = @file_get_contents($returnUrl, false, stream_context_create($options));
+			$results = @file_get_contents($returnPath, false, stream_context_create($options));
+
+			// remove results file
+			//
+			//unlink($returnPath);
+
+			// remove all files in results directory
+			//
+			//array_map('unlink', glob(dirname($returnPath).'/*.*'));
+
+			// remove results directory
+			//
+			//rmdir(dirname($returnPath));
+
+			// recursively remove results folder
+			//
+			if (StringUtils::endsWith($returnPath, 'nativereport.html')) {
+				self::rrmdir(dirname($returnPath));
+			}
+
 			if ($results) {
 
 				// return results
@@ -166,7 +189,7 @@ class AssessmentResultsController extends BaseController {
 					"results_status" => $returnString
 				);
 			} else {
-				return response('Could not return results from '.$returnUrl, 500);
+				return response('Could not return results from '.$returnPath, 500);
 			}
 			
 			// return results
@@ -181,21 +204,23 @@ class AssessmentResultsController extends BaseController {
 			// get url/status from viewer instance if present
 			// otherwise just use what database gave us.
 			// FIXME viewer is always present when url has no .html?
-			if($viewerInstanceUuid) {
+			if ($viewerInstanceUuid) {
 				$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
 				// TODO what is return value of status when returns immediately
 
 				// if proxy url, return it
 				//
-				if($instance->state && ($instance->state == 2) && $instance->proxy_url) {
+				if ($instance->state && ($instance->state == 2) && $instance->proxy_url) {
 					$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 					$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
-					if($base_url) {
+					if ($base_url) {
 						$returnUrl = $base_url.$instance->proxy_url;
 
 						// log success
 						//
-						Log::info("Successfully launched viewer with viewer_instance_uuid = $viewerInstanceUuid\n.");
+						Log::info("Successfully launched viewer.",
+							array('viewer_instance_uuid' => $viewerInstanceUuid)
+						);
 
 						return array(
 							"assessment_results_uuid" => $assessmentResultsUuid,
@@ -220,10 +245,27 @@ class AssessmentResultsController extends BaseController {
 			//
 			return array(
 				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results_url" => $returnUrl,
+				"results_url" => Config::get('app.url').'/'.$returnPath,
 				"results_status" => $returnString
 			);
 		}
+	}
+
+	public static function rrmdir($dir) {
+		if (is_dir($dir)) {
+			$objects = scandir($dir);
+			foreach ($objects as $object) {
+				if ($object != '.' && $object != '..') {
+					if (filetype($dir.'/'.$object) == 'dir') {
+						self::rrmdir($dir.'/'.$object); 
+					} else {
+						unlink($dir.'/'.$object);
+					}
+				}
+			}
+		}
+		reset($objects);
+		rmdir($dir);
 	}
 
 	// Get SCARF results as XML file
@@ -302,7 +344,13 @@ class AssessmentResultsController extends BaseController {
 
 		// log returned download url
 		//
-		Log::info("In downloadResults, returnUrl = '$returnUrl', returnFile = '$returnFile', returnString = '$returnString'.\n");
+		Log::info("In downloadResults.",
+			array(
+				'returnUrl' => $returnUrl, 
+				'returnFile' => $returnFile,
+				'returnString' => $returnString
+			)
+		);
 
 		if (strcmp($returnString,'SUCCESS') == 0) {
 			if (strlen($returnFile) > 0) {
@@ -527,7 +575,9 @@ class AssessmentResultsController extends BaseController {
 
 				// log success
 				//
-				Log::info("Successfully launched viewer with viewer_instance_uuid = $viewerInstanceUuid\n.");
+				Log::info("Successfully launched viewer.",
+					array('viewer_instance_uuid' => $viewerInstanceUuid)
+				);
 
 				return array(
 					"results_url" => $returnUrl,

@@ -118,33 +118,37 @@ class ProjectInvitation extends CreateStamped {
 
 			// send invitation to existing user
 			//
-			$data = array(
-				'invitation' => $this,
-				'inviter' => User::getIndex($this->inviter_uid),
-				'project' => Project::where('project_uid', '=', $this->project_uid)->first(),
-				'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute
-			);
+			if ($this->invitee_email) {
+				$data = array(
+					'invitation' => $this,
+					'inviter' => User::getIndex($this->inviter_uid),
+					'project' => Project::where('project_uid', '=', $this->project_uid)->first(),
+					'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute
+				);
 
-			Mail::send('emails.project-invitation', $data, function($message) {
-			    $message->to($this->invitee_email, $this->invitee_name);
-			    $message->subject('SWAMP Project Invitation');
-			});
+				Mail::send('emails.project-invitation', $data, function($message) {
+				    $message->to($this->invitee_email, $this->invitee_name);
+				    $message->subject('SWAMP Project Invitation');
+				});
+			}
 		} else {
-
+			
 			// send invitation to new / future user
 			//
-			$data = array(
-				'invitation' => $this,
-				'inviter' => User::getIndex($this->inviter_uid),
-				'project' => Project::where('project_uid', '=', $this->project_uid)->first(),
-				'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute,
-				'register_url' => Config::get('app.cors_url').'/'.$registerRoute
-			);
+			if ($this->invitee_email) {
+				$data = array(
+					'invitation' => $this,
+					'inviter' => User::getIndex($this->inviter_uid),
+					'project' => Project::where('project_uid', '=', $this->project_uid)->first(),
+					'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute,
+					'register_url' => Config::get('app.cors_url').'/'.$registerRoute
+				);
 
-			Mail::send('emails.project-new-user-invitation', $data, function($message) {
-			    $message->to($this->invitee_email, $this->invitee_name);
-			    $message->subject('SWAMP Project Invitation');
-			});
+				Mail::send('emails.project-new-user-invitation', $data, function($message) {
+				    $message->to($this->invitee_email, $this->invitee_name);
+				    $message->subject('SWAMP Project Invitation');
+				});
+			}
 		}
 	}
 

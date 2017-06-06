@@ -52,16 +52,15 @@ class Authenticate {
 				Session::flush();
 				return response('SESSION_INVALID', 401);
 			}	
-        } elseif (Session::has('oauth2_access_token')) {
+		} elseif (Session::has('oauth2_access_token')) {
 
-        	//if a user has an oauth2 token but is not logged in, need
-        	//to allow them to be forwarded to necessary login functions
-            $reqName = strval($request);
-            $isCurrUsers = strpos($reqName, 'users/current');
-            if ($isCurrUsers) {
-            	return $next($request);
-            }
-            else {
+			//if a user has an oauth2 token but is not logged in, need
+			//to allow them to be forwarded to necessary login functions
+			$reqName = strval($request);
+			$isCurrUsers = strpos($reqName, 'users/current');
+			if ($isCurrUsers) {
+				return $next($request);
+			} else {
 				return response(array(
 					'status' => 'NO_SESSION',
 					'config' => new Configuration()
@@ -72,7 +71,6 @@ class Authenticate {
 			// no current session exists
 			//
 			Session::flush();
-			//return response('NO_SESSION', 401);
 
 			// return configuration information
 			//

@@ -5,6 +5,23 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 class Kernel extends HttpKernel {
 
 	/**
+	 * The bootstrap classes for the application.
+	 * Override the base ConfigureLogging so that additional information is
+	 * added to every Log::... message.
+	 *
+	 * @var array
+	 */
+	protected $bootstrappers = [
+		'Illuminate\Foundation\Bootstrap\DetectEnvironment',
+		'Illuminate\Foundation\Bootstrap\LoadConfiguration',
+		'App\Bootstrap\ConfigureLogging',
+		'Illuminate\Foundation\Bootstrap\HandleExceptions',
+		'Illuminate\Foundation\Bootstrap\RegisterFacades',
+		'Illuminate\Foundation\Bootstrap\RegisterProviders',
+		'Illuminate\Foundation\Bootstrap\BootProviders',
+	];
+
+	/**
 	 * The application's global HTTP middleware stack.
 	 *
 	 * @var array
@@ -34,6 +51,7 @@ class Kernel extends HttpKernel {
 		'guest' => 'App\Http\Middleware\RedirectIfAuthenticated',
 		'verify.config' => 'App\Http\Middleware\VerifyConfig',
 		'verify.user' => 'App\Http\Middleware\VerifyUser',
+		'verify.app_passwords' => 'App\Http\Middleware\VerifyAppPasswords',
 		'verify.admin' => 'App\Http\Middleware\VerifyAdmin',
 		'verify.admin_invitation' => 'App\Http\Middleware\VerifyAdminInvitation',
 		'verify.password_reset' => 'App\Http\Middleware\VerifyPasswordReset',

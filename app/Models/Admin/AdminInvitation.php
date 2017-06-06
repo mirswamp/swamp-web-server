@@ -76,19 +76,22 @@ class AdminInvitation extends CreateStamped {
 			return response('Email has not been enabled.', 400);
 		}
 
-		// send invitation to the invitee
-		//
-		$data = array(
-			'invitation' => $this,
-			'inviter' => $this->getInviter(),
-			'invitee' => $this->getInvitee(),
-			'invitee_name' => $inviteeName,
-			'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute
-		);
-		Mail::send('emails.admin-invitation', $data, function($message) {
-			$message->to($this->invitee['email'], $this->invitee_name);
-			$message->subject('SWAMP Admin Invitation');
-		});
+		if ($this->invitee && $this->invitee['email']) {
+
+			// send invitation to the invitee
+			//
+			$data = array(
+				'invitation' => $this,
+				'inviter' => $this->getInviter(),
+				'invitee' => $this->getInvitee(),
+				'invitee_name' => $inviteeName,
+				'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute
+			);
+			Mail::send('emails.admin-invitation', $data, function($message) {
+				$message->to($this->invitee['email'], $this->invitee_name);
+				$message->subject('SWAMP Admin Invitation');
+			});
+		}
 	}
 
 	/**

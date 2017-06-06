@@ -88,9 +88,9 @@ class StartSession extends BaseStartSession
 				$user = User::getIndex($user_uid);
 				// If user has been disabled, clear the current session data.
 				if (($user) && (!$user->isEnabled())) {
-					Log::notice("Found disabled user " . 
-						$user_uid . " '" . $user->username . "'. Removing session.");
+					Log::notice("Removing session for disabled user.");
 					$session->flush();
+					$session->save();
 				}
 			}
 		}

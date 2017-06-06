@@ -64,14 +64,16 @@ class PasswordReset extends BaseModel {
 		// send password reset notification email
 		//
 		$this->user = User::getIndex($this->user_uid);
-		$data = array(
-			'user' => $this->user,
-			'password_reset' => $this,
-			'password_reset_url' => Config::get('app.cors_url').'/#reset-password/'.$passwordResetNonce.'/'.$this->password_reset_id
-		);
-		Mail::send(array('text' => 'emails.reset-password-plaintext'), $data, function($message) {
-		    $message->to($this->user->email, $this->user->getFullName());
-		    $message->subject('SWAMP Password Reset');
-		});
+		if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
+			$data = array(
+				'user' => $this->user,
+				'password_reset' => $this,
+				'password_reset_url' => Config::get('app.cors_url').'/#reset-password/'.$passwordResetNonce.'/'.$this->password_reset_id
+			);
+			Mail::send(array('text' => 'emails.reset-password-plaintext'), $data, function($message) {
+			    $message->to($this->user->email, $this->user->getFullName());
+			    $message->subject('SWAMP Password Reset');
+			});
+		}
 	}
 }

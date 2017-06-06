@@ -88,17 +88,19 @@ class EmailVerification extends CreateStamped {
 
 		// send email verification email
 		//
-		$data = array(
-			'user' => User::getIndex($this->user_uid),
-			'verification_key' => $this->verification_key,
-			'verify_url' => Config::get('app.cors_url').'/'.$verifyRoute
-		);
-		$template = $changed ? 'emails.email-verification' : 'emails.user-verification';
-		$this->subject  = $changed ? 'SWAMP Email Verification'  : 'SWAMP User Verification';
-		$this->recipient = User::getIndex($this->user_uid);
-		Mail::send($template, $data, function($message) {
-		    $message->to($this->email, $this->recipient->getFullName());
-		    $message->subject($this->subject);
-		});
+		if ($this->email && filter_var($this->email, FILTER_VALIDATE_EMAIL)) {
+			$data = array(
+				'user' => User::getIndex($this->user_uid),
+				'verification_key' => $this->verification_key,
+				'verify_url' => Config::get('app.cors_url').'/'.$verifyRoute
+			);
+			$template = $changed ? 'emails.email-verification' : 'emails.user-verification';
+			$this->subject  = $changed ? 'SWAMP Email Verification'  : 'SWAMP User Verification';
+			$this->recipient = User::getIndex($this->user_uid);
+			Mail::send($template, $data, function($message) {
+			    $message->to($this->email, $this->recipient->getFullName());
+			    $message->subject($this->subject);
+			});
+		}
 	}
 }

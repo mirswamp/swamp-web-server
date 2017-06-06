@@ -22,7 +22,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Session;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
@@ -37,9 +39,24 @@ class ProjectsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// check project owner permission
+		//
+		$currentUserUid = Session::get('user_uid');
+		$currentUser = User::getIndex($currentUserUid);
+		if (!$currentUser->hasOwnerPermission()) {
+			return response("This user does not have permission to create projects.", 401);
+		} else {
+			$permission = $currentUser->getOwnerPermission();
+			$status = $permission->getStatus();
+			if ($status != 'granted') {
+				return response("This user's project owner permission is ".$status.".", 401);
+			}
+		}
+
 		$project = new Project(array(
 			'project_uid' => Guid::create(),
-			'project_owner_uid' => Input::get('project_owner_uid'),
+			'project_owner_uid' => $currentUserUid,
 			'full_name' => Input::get('full_name'),
 			'short_name' => Input::get('short_name'),
 			'description' => Input::get('description'),
@@ -61,7 +78,15 @@ class ProjectsController extends BaseController {
 		));
 		$projectMembership->save();
 
-        return $project;
+		// Log the project event
+		Log::info("Project created.",
+			array(
+				'project_uid' => $project->project_uid,
+				'project_owner_uid' => $project->project_owner_uid,
+			)
+		);
+
+		return $project;
 	}
 
 	// get by index
@@ -113,16 +138,18 @@ class ProjectsController extends BaseController {
 			//
 			if (!$project->denial_date && Input::get('denial_date')) {
 				$this->user = User::getIndex($project->project_owner_uid);
-				$data = array(
-					'project' => array(
-					'owner'		=> $this->user->getFullName(),
-					'full_name'	=> $project->full_name
-					)
-				);
-				Mail::send('emails.project-denied', $data, function($message) {
-					$message->to($this->user->email, $this->user->getFullName());
-					$message->subject('SWAMP Project Denied');
-				});
+				if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
+					$data = array(
+						'project' => array(
+						'owner'		=> $this->user->getFullName(),
+						'full_name'	=> $project->full_name
+						)
+					);
+					Mail::send('emails.project-denied', $data, function($message) {
+						$message->to($this->user->email, $this->user->getFullName());
+						$message->subject('SWAMP Project Denied');
+					});
+				}
 			}
 
 			// send an email to the project owner if it's reactivated
@@ -130,17 +157,19 @@ class ProjectsController extends BaseController {
 			if ($project->deactivation_date != null && Input::get('deactivation_date') == '') {
 				if ($project->project_owner_uid) {
 					$this->user = User::getIndex($project->project_owner_uid);
-					$data = array(
-						'user' => $this->user,
-						'project' => array(
-						'owner'     => $this->user->getFullName(),
-						'full_name' => $project->full_name
-						)
-					);
-					Mail::send('emails.user-project-reactivated', $data, function($message){
-						$message->to( $this->user->email, $this->user->getFullName() );
-						$message->subject('SWAMP User Project Reactivated');
-					});
+					if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
+						$data = array(
+							'user' => $this->user,
+							'project' => array(
+							'owner'     => $this->user->getFullName(),
+							'full_name' => $project->full_name
+							)
+						);
+						Mail::send('emails.user-project-reactivated', $data, function($message){
+							$message->to( $this->user->email, $this->user->getFullName() );
+							$message->subject('SWAMP User Project Reactivated');
+						});
+					}
 				}
 			}
 		}
@@ -160,6 +189,14 @@ class ProjectsController extends BaseController {
 		//
 		$changes = $project->getDirty();
 		$project->save();
+
+		// Log the project event
+		Log::info("Project updated.",
+			array(
+				'project_uid' => $projectUid,
+			)
+		);
+
 		return $changes;
 	}
 
@@ -192,6 +229,10 @@ class ProjectsController extends BaseController {
 			//
 			$project->save();
 		}
+
+		// Log the project event
+		Log::info("Project update all.");
+
 		return response("Projects successfully updated.", 200);
 	}
 	
@@ -209,20 +250,30 @@ public function deleteIndex($projectUid) {
 			if (Config::get('mail.enabled')) {
 				if ($project->project_owner_uid) {
 					$this->user = User::getIndex($project->project_owner_uid);
-					$data = array(
-						'user' => $this->user,
-						'project' => array(
-						'owner'     => $this->user->getFullName(),
-						'full_name' => $project->full_name
-						)
-					);
-					Mail::send('emails.user-project-deactivated', $data, function($message){
-						$message->to( $this->user->email, $this->user->getFullName() );
-						$message->subject('SWAMP User Project Deactivated');
-					});
+					if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
+						$data = array(
+							'user' => $this->user,
+							'project' => array(
+							'owner'     => $this->user->getFullName(),
+							'full_name' => $project->full_name
+							)
+						);
+						Mail::send('emails.user-project-deactivated', $data, function($message) {
+							$message->to($this->user->email, $this->user->getFullName());
+							$message->subject('SWAMP User Project Deactivated');
+						});
+					}
 				}
 			}
 			
+			// Log the project event
+			Log::info("Project deleted.",
+				array(
+					'project_uid' => $project->project_uid,
+					'deactivation_date' => $project->deactivation_date,
+				)
+			);
+
 			return $project;
 		} else {
 			return response('Project not found.', 404);

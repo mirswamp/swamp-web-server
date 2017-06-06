@@ -430,6 +430,18 @@ class PackageVersionsController extends BaseController {
 
 		// create new sharing
 		//
+		$projectUuids = Input::get('project_uuids');
+		$packageVersionSharings = array();
+		foreach ($projectUuids as $projectUuid) {
+			$packageVersionSharing = new PackageVersionSharing(array(
+				'package_version_uuid' => $packageVersionUuid,
+				'project_uuid' => $projectUuid
+			));
+			$packageVersionSharing->save();
+			$packageVersionSharings[] = $packageVersionSharing;
+		}	
+
+		/*
 		$projects = Input::get('projects');
 		$packageVersionSharings = array();
 		if ($projects) {
@@ -443,6 +455,7 @@ class PackageVersionsController extends BaseController {
 				$packageVersionSharings[] = $packageVersionSharing;
 			}
 		}
+		*/
 		return $packageVersionSharings;
 	}
 
@@ -719,13 +732,13 @@ class PackageVersionsController extends BaseController {
 				if ($checkout_argument) {
 					$result = `mkdir $workdir;
 					cd $workdir;
-					git clone $external_url;
+					git clone --recursive $external_url;
 					cd $dirname;
 					git checkout $checkout_argument`;
 				} else {
 					$result = `mkdir $workdir;
 				 	cd $workdir;
-				 	git clone $external_url`;
+				 	git clone --recursive $external_url`;
 				}
 
 				$files = scandir($workdir);

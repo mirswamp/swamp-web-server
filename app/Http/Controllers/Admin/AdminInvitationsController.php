@@ -76,13 +76,13 @@ class AdminInvitationsController extends BaseController {
 		}
 
 		$inviter = User::getIndex( $adminInvitation->inviter_uid );
-		$inviter = ( ! $inviter || $inviter->enabled_flag != 1 ) ? false : $inviter;
+		$inviter = ( ! $inviter || ! $inviter->isEnabled() ) ? false : $inviter;
 		if( $inviter )
 			$inviter['user_uid'] = $adminInvitation->inviter_uid;
 		$adminInvitation->inviter = $inviter;
 
 		$invitee = User::getIndex( $adminInvitation->invitee_uid );
-		$invitee = ( ! $invitee || $invitee->enabled_flag != 1 ) ? false : $invitee;
+		$invitee = ( ! $invitee || ! $invitee->isEnabled() ) ? false : $invitee;
 		if( $invitee )
 			$invitee['user_uid'] = $adminInvitation->invitee_uid;
 		$adminInvitation->invitee = $invitee;

@@ -80,7 +80,9 @@ class CookieCleaner
 			$confdomain = Config::has('session.domain') ? 
 				Config::get('session.domain') : '';
 			foreach ($hexacookies as $name => $value) {
-				Log::notice("Deleting orphaned cookie '$name'.");
+				Log::notice("Deleting orphaned cookie.",
+					array('cookie_name' => $name)
+				);
 				$domain = $confdomain;
 				$domainvalid = true;
 				// Delete the cookie for all possible combinations of domain

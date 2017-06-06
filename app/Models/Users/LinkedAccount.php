@@ -52,6 +52,7 @@ class LinkedAccount extends CreateStamped {
 	protected $visible = array(
 		'linked_account_id',
 		'user_uid',
+		'user_external_id',
 		'enabled_flag',
 		'create_date',
 		'title',

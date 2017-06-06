@@ -24,6 +24,12 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 
 class SWAMPStatus {
+
+	private static function get_condor_collector_host() {
+		$collector_host = Config::get('app.htcondorcollectorhost');
+		return $collector_host;
+	}
+
 	private static function get_condor_submit_node($condor_manager) {
 		$command = "condor_status -pool $condor_manager -schedd -af Name";
 		exec($command, $output, $returnVar);
@@ -46,9 +52,8 @@ class SWAMPStatus {
 		return $exec_nodes;
 	}
 
-	private static function get_swamp_data_nodes() {
+	private static function get_swamp_data_nodes($hostname) {
 		$data_nodes = [];
-		$hostname = gethostname();
 		$first_data_node = env('PACKAGE_DB_HOST', $hostname);
 		$data_nodes[] = $first_data_node;
 		$data_node = env('TOOL_DB_HOST', $hostname);
@@ -69,12 +74,6 @@ class SWAMPStatus {
 		}
 		return $data_nodes;
 	}
-
-	private static function get_condor_collector_host() {
-		$collector_host = Config::get('app.htcondorcollectorhost');
-		return $collector_host;
-	}
-
 
 	public static function get_collector_records($collector_host, $title) {
 		$global_fields['assessment'] = [
@@ -120,8 +119,7 @@ class SWAMPStatus {
 				$temp = preg_split("/,/", $output[$i], sizeof($fieldnames), PREG_SPLIT_NO_EMPTY);
 				for ($n = 0; $n < sizeof($fieldnames); $n++) {
 					$fieldname = $fieldnames[$n];
-					// $crecord[$fieldname] = str_replace(array('"', ','), '',  $temp[$n]);
-					$crecord[$fieldname] = str_replace(array('"', ','), '',  $temp[$n]);
+					$crecord[$fieldname] = str_replace(array('"', ','), '',  trim($temp[$n]));
 				}
 				$crecords[] = $crecord;
 			}
@@ -145,7 +143,7 @@ class SWAMPStatus {
 		$fieldnames = [];
 		$jobs = [];
 		$summary = [];
-		$command = "condor_q ";
+		$command = "condor_q -allusers";
 		if ($submit_node != $hostname) {
 			// modify command to use pool and name
 			$command .= " -pool $condor_manager -name $submit_node";
@@ -501,7 +499,7 @@ class SWAMPStatus {
 		return $ra;
 	}
 
-	private static function show_result($ra, $brcount) {
+	private static function html_table($ra, $brcount) {
 		if (empty($ra)) {
 			return '';
 		}
@@ -517,13 +515,13 @@ class SWAMPStatus {
 		return $rstring;
 	}
 
-	private static function show_results($ra) {
+	private static function html_results($ra) {
 		$rstring = "";
 		foreach ($ra as $title => $table) {
 			if (($title == 'SWAMP Processes') || ($title == 'Virtual Machines')) {
 				foreach ($table as $machine => $value) {
 					$rstring .= $title . ': ' . $machine . '<br/>';
-					$rstring .= SWAMPStatus::show_result($table[$machine], 2);
+					$rstring .= SWAMPStatus::html_table($table[$machine], 2);
 				}
 			}
 			else {
@@ -531,8 +529,30 @@ class SWAMPStatus {
 				$machine = key($table);
 				$rstring .= $title . ': ' . $machine . '<br/>';
 				$brcount = 2;
-				if ($title == 'Condor Queue') $brcount = 1;
-				$rstring .= SWAMPStatus::show_result($table[$machine], $brcount);
+				if ($title == 'Condor Queue') {
+					$brcount = 1;
+				}
+				// annotate execrunuid with link to Assessment Run Status page
+				// /#runs/<execrunuid>/status
+				elseif ($title == 'Collector Assessment Records') {
+					$data = &$table[$machine]['data'];
+					for ($n = 0; $n < sizeof($data); $n++) {
+						$execrunuid = $data[$n]['execrunuid'];
+						$link = '/#runs/' . $execrunuid . '/status';
+						$data[$n]['execrunuid'] = "<a href=\"$link\" target=\"_blank\">$execrunuid</a>";
+					}
+				}
+				// annotate projectuid with link to Project page
+				// /#projects/<projectuid>
+				elseif ($title == 'Collector Viewer Records') {
+					$data = &$table[$machine]['data'];
+					for ($n = 0; $n < sizeof($data); $n++) {
+						$projectuid = $data[$n]['project'];
+						$link = '/#projects/' . $projectuid;
+						$data[$n]['project'] = "<a href=\"$link\" target=\"_blank\">$projectuid</a>";
+					}
+				}
+				$rstring .= SWAMPStatus::html_table($table[$machine], $brcount);
 				if ($title == 'Condor Queue') {
 					$summary = $table[$machine]['summary'];
 					if (empty($summary)) {
@@ -554,14 +574,34 @@ class SWAMPStatus {
 	public static function getCurrent() {
 		$hostname = gethostname();
 		$collector_host = SWAMPStatus::get_condor_collector_host();
-		// change csacol to csacon and domain to mirsam
+		// Log::info(".env collector_host: <$collector_host>");
+		$localhost = false;
 		$parts = explode('.', $collector_host);
+		if (preg_match('/localhost/', $collector_host)) {
+			$parts = explode('.', $hostname);
+			$localhost = true;
+		}
+		// change csacol to csacon and domain to mirsam
 		$parts[0] = str_replace('csacol', 'csacon', $parts[0]);
 		$parts[1] = 'mirsam';
 		$condor_manager = implode('.', $parts);
-		$submit_node = SWAMPStatus::get_condor_submit_node($condor_manager);
-		$exec_nodes = SWAMPStatus::get_condor_exec_nodes($condor_manager);
-		$data_nodes = SWAMPStatus::get_swamp_data_nodes();
+
+		if ($localhost === true) {
+			$submit_node = $hostname;
+			$exec_nodes[] = $hostname;
+			$data_nodes[] = $hostname;
+		}
+		else {
+			$submit_node = SWAMPStatus::get_condor_submit_node($condor_manager);
+			$exec_nodes = SWAMPStatus::get_condor_exec_nodes($condor_manager);
+			$data_nodes = SWAMPStatus::get_swamp_data_nodes($hostname);
+		}
+
+        // Log::info("collector_host: <$collector_host>");
+		// Log::info("condor_manager: <$condor_manager>");
+		// Log::info("submit_node: <$submit_node>");
+		// Log::info("exec_nodes: <" . implode(" ", $exec_nodes) . ">"); 
+		// Log::info("data_nodes: <" . implode(" ", $data_nodes) . ">"); 
 
 		// condor queue
 		$cq = SWAMPStatus::get_condor_queue($hostname, $submit_node, $condor_manager);
@@ -632,6 +672,7 @@ class SWAMPStatus {
 		// Return the data table object
 		// return $ra;
 		// Return an html decorated string
-		return SWAMPStatus::show_results($ra);
+		return SWAMPStatus::html_results($ra);
 	}
+
 }

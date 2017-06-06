@@ -117,30 +117,36 @@ class EmailVerificationsController extends BaseController {
 		// send email to notify that email is being verified
 		//
 		if (Config::get('mail.enabled')) {
-			if (!$user->hasBeenVerified()) {
+			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL) ) {
+				if (!$user->hasBeenVerified()) {
 
-				// automatically send welcome email
-				//	
-				Mail::send('emails.welcome', array(
-					'user'		=> $user,
-					'logo'		=> Config::get('app.cors_url') . '/images/logos/swamp-logo-small.png'
-				), function($message) use ($user) {
-					$message->to($user->email, $user->getFullName());
-					$message->subject('Welcome to the Software Assurance Marketplace');
-				});
-			} else {
+					// automatically send welcome email
+					//
+					Mail::send('emails.welcome', array(
+						'user' => $user,
+						'logo' => Config::get('app.cors_url').'/images/logos/swamp-logo-small.png'
+					), function($message) use ($user) {
+						$message->to($user->email, $user->getFullName());
+						$message->subject('Welcome to the Software Assurance Marketplace');
+					});
+				} else {
 
-				// send notification if email has changed
-				//
-				$data = array('fullName' => $user->getFullName(), 'oldEmail' => $oldEmail);
-
-				Mail::send('emails.email-verification-oldemail', array(
-					'user'		=> $user,
-					'logo'		=> Config::get('app.cors_url') . '/images/logos/swamp-logo-small.png'
-				), function($message) use($data) {
-				    $message->to($data['oldEmail'], $data['fullName']);
-				    $message->subject('SWAMP Email Changed');
-				});
+					// send notification if email has changed
+					//
+					if (filter_var($oldEmail, FILTER_VALIDATE_EMAIL)) {
+						$data = array(
+							'fullName' => $user->getFullName(), 
+							'oldEmail' => $oldEmail
+						);
+						Mail::send('emails.email-verification-oldemail', array(
+							'user' => $user,
+							'logo' => Config::get('app.cors_url').'/images/logos/swamp-logo-small.png'
+						), function($message) use($data) {
+								$message->to($data['oldEmail'], $data['fullName']);
+								$message->subject('SWAMP Email Changed');
+						});
+					}
+				}
 			}
 		}
 
@@ -169,11 +175,21 @@ class EmailVerificationsController extends BaseController {
 		//
 		$user = User::getByUsername($username);
 		if ($user) {
-			if (User::isValidPassword($user, $password, $user->password)) {
+			if ($user->isAuthenticated($password)) {
 
 				// get email verification
 				//
 				$emailVerification = $user->getEmailVerification();
+
+				// if missing email verification, create one on-the-fly
+				if (is_null($emailVerification)) {
+					$emailVerification = new EmailVerification(array(
+						'user_uid' => $user->user_uid,
+						'verification_key' => Guid::create(),
+						'email' => $user->email
+					));
+					$emailVerification->save();
+				}
 
 				// resend
 				//

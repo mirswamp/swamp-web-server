@@ -68,8 +68,8 @@ return [
 	*/
 
 	'from' => array(
-		'address' => env('MAIL_FROM_ADDRESS','root@localhost'), 
-		'name' => env('MAIL_FROM_NAME','SWAMP')
+		'address' => env('MAIL_FROM_ADDRESS', 'root@localhost'),
+		'name' => env('MAIL_FROM_NAME', 'Software Assurance Marketplace')
 	),
 
 	/*
@@ -82,13 +82,13 @@ return [
 	*/
 
 	'contact' => array(
-		'address' => env('MAIL_CONTACT_ADDRESS'),
-		'name' => env('MAIL_CONTACT_NAME')
+		'address' => env('MAIL_CONTACT_ADDRESS', 'root@localhost'),
+		'name' => env('MAIL_CONTACT_NAME', 'Software Assurance Marketplace: Contact Form')
 	),
 
 	'security' => array(
-		'address' => env('MAIL_SECURITY_ADDRESS'),
-		'name' => env('MAIL_SECURITY_NAME')		
+		'address' => env('MAIL_SECURITY_ADDRESS', 'root@localhost'),
+		'name' => env('MAIL_SECURITY_NAME', 'Software Assurance Marketplace: Report Incident Form')
 	),
 	
 	/*

@@ -207,19 +207,19 @@ class ProxyController extends BaseController {
 						self::setResponseHeaders($response, $headers, $status);
 						return $response;
 					} else {
-						Log::info("Proxy Controller Error - insuffient curl response in proxy controller.");
+						Log::warning("Proxy Controller Error - insuffient curl response in proxy controller.");
 						return "Error - viewer is no longer available.  Please try again.";
 					}
 				} else {
-					Log::info("Proxy Controller Error - insuffient curl response in proxy controller.");
+					Log::warning("Proxy Controller Error - insuffient curl response in proxy controller.");
 					return "Error - viewer is no longer available.  Please try again.";
 				}
 			} else {
-				Log::info("Proxy Controller Error - no response to command.");
+				Log::warning("Proxy Controller Error - no response to command.");
 				return "Error - viewer is no longer available.  Please try again.";
 			}
 		} else {
-			Log::info("Proxy Controller Error - no viewer instance is available.");
+			Log::warning("Proxy Controller Error - no viewer instance is available.");
 			return "Error - viewer is no longer available.  Please try again.";
 		}
 	}

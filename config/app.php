@@ -139,6 +139,43 @@ return [
 
 	'incoming' => env('APP_INCOMING', '/swamp/incoming/'),
 
+	/*
+	|--------------------------------------------------------------------------
+	| Results
+	|--------------------------------------------------------------------------
+	|
+	| This path is used for incoming file uploads.
+	|
+	*/
+
+	'outgoing' => env('APP_OUTGOING', '/swamp/outgoing/'),
+
+	/*
+	|--------------------------------------------------------------------------
+	| Password Encryption
+	|--------------------------------------------------------------------------
+	|
+	| This setting determines the algorithm used by the application to encrypt 
+	| passwords.  Note:  If password encryption is handled by LDAP instead of
+	| the application code, then this value should be set to NONE. 
+	|
+	*/
+
+	'password_encryption_method' => env('APP_PASSWORD_ENCRYPTION_METHOD', 'BCRYPT'),
+
+	/*
+	|--------------------------------------------------------------------------
+	| App Passwords
+	|--------------------------------------------------------------------------
+	|
+	| App Passwords for alternative login. 0 (or less) indicates app passwords
+	| are disabled. Note there is a hardcoded max of 100 app passwords (per
+	| user). Default is 10.
+	|
+	*/
+
+	'app_password_max' => env('APP_PASSWORD_MAX', 10),
+
 
 	/*
 	|--------------------------------------------------------------------------
@@ -298,7 +335,7 @@ return [
 	|
 	*/
 
-	'log' => 'daily',
+	'log' => env('APP_LOGGING', 'syslog'),
 
 	/*
 	|--------------------------------------------------------------------------

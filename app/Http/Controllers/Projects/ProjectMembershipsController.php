@@ -21,6 +21,7 @@ namespace App\Http\Controllers\Projects;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\User;
@@ -40,6 +41,10 @@ class ProjectMembershipsController extends BaseController {
 			'admin_flag' => Input::get('admin_flag') == 'true'
 		));
 		$projectMembership->save();
+
+		// Log the project membership event
+		Log::info("Project membership created.", $projectMembership->toArray());
+
 		return $projectMembership;
 	}
 
@@ -73,6 +78,10 @@ class ProjectMembershipsController extends BaseController {
 		//
 		$changes = $projectMembership->getDirty();
 		$projectMembership->save();
+
+		// Log the project membership event
+		Log::info("Project membership updated.", $projectMembership->toArray());
+
 		return $changes;
 	}
 
@@ -99,6 +108,10 @@ class ProjectMembershipsController extends BaseController {
 			//
 			$projectMembership->save();
 		}
+
+		// Log the project membership event
+		Log::info("Project membership update all.");
+
 		return $collection;
 	}
 
@@ -115,15 +128,22 @@ class ProjectMembershipsController extends BaseController {
 		// send notification email that membership was deleted
 		//
 		if (Config::get('mail.enabled')) {
-			$data = array(
-				'user' => $user,
-				'project' => $project
-			);
-			$this->user = $user;
-			Mail::send('emails.project-membership-deleted', $data, function($message) {
-				$message->to($this->user->email, $this->user->getFullName());
-				$message->subject('SWAMP Project Membership Deleted');
-			});
+			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+				$data = array(
+					'user' => $user,
+					'project' => $project
+				);
+				$this->user = $user;
+				Mail::send('emails.project-membership-deleted', $data, function($message) {
+					$message->to($this->user->email, $this->user->getFullName());
+					$message->subject('SWAMP Project Membership Deleted');
+				});
+			}
+		}
+
+		if ($projectMembership) {
+			// Log the project membership event
+			Log::info("Project membership deleted.", $projectMembership->toArray());
 		}
 
 		$projectMembership->delete();

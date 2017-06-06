@@ -78,9 +78,14 @@ class UserAccount extends UserStamped {
 
 	/**
 	 * setting methods
+	 * @param array $attributes Which attributes to be set
+	 * @param User $user Which user to set attributes for
+	 * @param bool $currentuser If true, then send the user-specific email.
+	 *        If false, then send the more general "from admin" email.
+	 *        Defaults to false.
 	 */
 
-	public function setAttributes($attributes, $user) {
+	public function setAttributes($attributes, $user, $currentuser = false) {
 
 		// send email notification of changes in account status
 		//
@@ -92,49 +97,57 @@ class UserAccount extends UserStamped {
 
 				// send account change notification email
 				//
-				switch ($attributes['enabled_flag']) {
+				if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+					switch ($attributes['enabled_flag']) {
 
-					// notify user that account has been disabled
-					//
-					case 0:
-						Mail::send('emails.user-account-disabled', array( 
-							'user' => $user
-						), function($message) use ($user) {
-							$message->to($user->email, $user->getFullName());
-							$message->subject('SWAMP User Account Disabled');
-						});
-						break;
+						// notify user that account has been disabled
+						//
+						case 0:
+							$emailtemplate = 'emails.user-account-disabled';
+							$emailsubject = 'SWAMP User Account Disabled';
+							if ($currentuser) {
+								$emailtemplate = 'emails.user-account-deleted';
+								$emailsubject = 'SWAMP User Account Deleted';
+							}
+							Mail::send($emailtemplate, array( 
+								'user' => $user
+							), function($message) use ($user, $emailsubject) {
+								$message->to($user->email, $user->getFullName());
+								$message->subject($emailsubject);
+							});
+							break;
 
-					// notify user that account has been enabled
-					//
-					case 1:
-						Mail::send('emails.user-account-enabled', array( 
-							'user' => $user
-						), function($message) use ($user) {
-							$message->to($user->email, $user->getFullName());
-							$message->subject('SWAMP User Account Enabled');
-						});
-						break;
+						// notify user that account has been enabled
+						//
+						case 1:
+							Mail::send('emails.user-account-enabled', array( 
+								'user' => $user
+							), function($message) use ($user) {
+								$message->to($user->email, $user->getFullName());
+								$message->subject('SWAMP User Account Enabled');
+							});
+							break;
+					}
 				}
 
 			// check to see if email verified flag has changed
 			// which indicates transition from pending to enabled
 			//
 			} else if (array_key_exists('email_verified_flag', $attributes) && $attributes['email_verified_flag'] != $this->email_verified_flag) {
-
-				// send welcome email
-				//
 				if ($this->email_verified_flag != 1) {
 
-
-					Mail::send('emails.welcome', array(
-						'user'		=> $user,
-						'logo'		=> Config::get('app.cors_url') . '/images/logos/swamp-logo-small.png',
-						'manual'	=> Config::get('app.cors_url') . 'https://continuousassurance.org/swamp/SWAMP-User-Manual.pdf',
-					), function($message) use ($user) {
-						$message->to($user->email, $user->getFullName());
-						$message->subject('Welcome to the Software Assurance Marketplace');
-					});
+					// send welcome email
+					//
+					if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+						Mail::send('emails.welcome', array(
+							'user' => $user,
+							'logo' => Config::get('app.cors_url').'/images/logos/swamp-logo-small.png',
+							'manual' => Config::get('app.cors_url').'https://continuousassurance.org/swamp/SWAMP-User-Manual.pdf',
+						), function($message) use ($user) {
+							$message->to($user->email, $user->getFullName());
+							$message->subject('Welcome to the Software Assurance Marketplace');
+						});
+					}
 				}
 			}
 		}

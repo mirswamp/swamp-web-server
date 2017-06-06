@@ -18,7 +18,7 @@
 		<br />
 		<br />
 		
-		In order to join this project, you must first register to become a member of the SWAMP.  To register for an account, first click this link:
+		In order to join this project, you must first register to become a member of the SWAMP. To register for an account, first click this link:
 		<a href="{{ $register_url }}">{{ $register_url }}</a>
 		<br />
 		<br />

@@ -4,7 +4,7 @@ You have requested to reset your password.  To do so, paste the following URL in
 {{ $password_reset_url }} .
 
 If you did not request a password change or have other questions, please contact the SWAMP staff at: 
-security@continuousassurance.org .
+{{ Config::get('mail.contact.address') }} .
 
 -The Software Assurance Marketplace (SWAMP)
 

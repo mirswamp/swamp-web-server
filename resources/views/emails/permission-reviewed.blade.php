@@ -15,7 +15,7 @@
 
 		<br/>
 		<br/>
-		Your permissions have recently been reviewed by a SWAMP Administrator.  The Administrator left the following comment:
+		Your permissions have recently been reviewed by a SWAMP Administrator. The Administrator left the following comment:
 		<br/>
 		<br/>
 
@@ -24,7 +24,7 @@
 		<br/>
 		<br/>
 
-		If you have questions or ongoing problems with your permissions, please contact the SWAMP staff using the <a href="{{ $url }}/#contact">contact form</a>.
+		If you have any questions please contact the SWAMP staff at: {{ Config::get('mail.contact.address') }} .
 		
 		<br/>
 		<br/>

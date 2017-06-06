@@ -26,6 +26,7 @@ namespace App\Utilities\Ldap;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Log;
 use App\Models\Users\User;
 use App\Models\Users\UserAccount;
 use App\Utilities\Sanitization\LdapSanitize;
@@ -37,32 +38,37 @@ if (!defined('LDAP_OPT_DIAGNOSTIC_MESSAGE')) {
 
 class Ldap {
 
+	// This array holds the LDAP connections for the web_user and the
+	// password_set_user. This allows the connections to be reused
+	// without multiple ldap_bind() calls. The keys of the array are the
+	// user (i.e., web_user or password_set_user) and the values of the
+	// array are the ldap_connect() (and ldap_bind()) values.
+	//
+	protected static $ldapConnection = array();
+
 	// $userUid corresponds to the database project.user_account(user_uid)
 	// entry. In LDAP terms, it matches against the configured swamp_uid_attr
 	// which defaults to swampUuid. This method returns the matching LDAP
 	// entry if found (or null if not found). False is returned for LDAP
 	// connectivity problems.
+	//
 	public static function getIndex($userUid) {
 
-		$ldapConnectionConfig = Config::get('ldap.connection');
-		$ldapHost = $ldapConnectionConfig['host'];
-		$ldapPort = $ldapConnectionConfig['port'];
-		$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
-			ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-			$ldapUser = $ldapConnectionConfig['users']['web_user'];
-			$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+			$ldapConnectionConfig = Config::get('ldap.connection');
 			$basedn = $ldapConnectionConfig['base_dn'];
+
 			// Match the passed-in $userUid against the LDAP swamp_uid_attr
-			// key (which defaults to 'swampUuid'). 
+			// key (which defaults to 'swampUuid').
+			//
 			$filter = $ldapConnectionConfig['swamp_uid_attr'] . '=' . $userUid;
 			$searchResults = ldap_search($ldapConnection, $basedn, $filter);
 			$entries = ldap_get_entries($ldapConnection, $searchResults);
-			ldap_close($ldapConnection);
 
 			// convert LDAP entry to user
 			if ($entries['count'] > 0) {
-				return self::entrytoUser($entries[0]);
+				return static::entrytoUser($entries[0]);
 			} else {
 				return null;
 			}
@@ -76,28 +82,26 @@ class Ldap {
 	// username_attr which defaults to uid. This method returns the matching
 	// LDAP entry if found (or null if not found). False is returned for LDAP
 	// connectivity issues.
+	//
 	public static function getByUsername($username) {
 
-		$ldapConnectionConfig = Config::get('ldap.connection');
-		$ldapHost = $ldapConnectionConfig['host'];
-		$ldapPort = $ldapConnectionConfig['port'];
-		$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
-			ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-			$ldapUser = $ldapConnectionConfig['users']['web_user'];
-			$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+			$ldapConnectionConfig = Config::get('ldap.connection');
 			$basedn = $ldapConnectionConfig['base_dn'];
+
 			// Match the passed-in $username against the LDAP username_attr key
 			// (which defaults to 'uid').
-			$filter = $ldapConnectionConfig['username_attr'] . '=' . 
+			//
+			$filter = $ldapConnectionConfig['username_attr'] . '=' .
 				LdapSanitize::escapeQueryValue($username);
 			$searchResults = ldap_search($ldapConnection, $basedn, $filter);
 			$entries = ldap_get_entries($ldapConnection, $searchResults);
-			ldap_close($ldapConnection);
 
 			// convert LDAP entry to user
+			//
 			if ($entries['count'] > 0) {
-				return self::entrytoUser($entries[0]);
+				return static::entrytoUser($entries[0]);
 			} else {
 				return null;
 			}
@@ -107,29 +111,25 @@ class Ldap {
 	}
 
 	// $email corresponds to the user's email address. For LDAP, this is
-	// matched against the configured email_attr which defaults to mail. 
-	// This method returns the matching LDAP entry if found (or null if 
+	// matched against the configured email_attr which defaults to mail.
+	// This method returns the matching LDAP entry if found (or null if
 	// not found). False is returned for LDAP connectivity issues.
+	//
 	public static function getByEmail($email) {
 
-		$ldapConnectionConfig = Config::get('ldap.connection');
-		$ldapHost = $ldapConnectionConfig['host'];
-		$ldapPort = $ldapConnectionConfig['port'];
-		$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
-			ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-			$ldapUser = $ldapConnectionConfig['users']['web_user'];
-			$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+			$ldapConnectionConfig = Config::get('ldap.connection');
 			$basedn = $ldapConnectionConfig['base_dn'];
-			$filter = $ldapConnectionConfig['email_attr'] . '=' . 
+			$filter = $ldapConnectionConfig['email_attr'] . '=' .
 				LdapSanitize::escapeQueryValue($email);
 			$searchResults = ldap_search($ldapConnection, $basedn, $filter);
 			$entries = ldap_get_entries($ldapConnection, $searchResults);
-			ldap_close($ldapConnection);
 
 			// convert LDAP entry to user
+			//
 			if ($entries['count'] > 0) {
-				return self::entrytoUser($entries[0]);
+				return static::entrytoUser($entries[0]);
 			} else {
 				return null;
 			}
@@ -143,36 +143,47 @@ class Ldap {
 	// by the server) since it is possible that LDAP may contain more
 	// entries than can be returned by a single ldap_search call. To save
 	// on the amount of data returned, only the necessary LDAP attributes
-	// are returned. 
+	// are returned.
+	//
 	public static function getAll() {
 
-		$ldapConnectionConfig = Config::get('ldap.connection');
-		$ldapHost = $ldapConnectionConfig['host'];
-		$ldapPort = $ldapConnectionConfig['port'];
-		$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
-			$users = new Collection(); // Start with a emtpy collection of users
-			ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-			$ldapUser = $ldapConnectionConfig['users']['web_user'];
-			$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+			$ldapConnectionConfig = Config::get('ldap.connection');
 			$basedn = $ldapConnectionConfig['base_dn'];
+
 			// Ask for only certain LDAP attributes
-			$requested = array(
-				$ldapConnectionConfig['user_rdn_attr'],
-				$ldapConnectionConfig['swamp_uid_attr'],
-				$ldapConnectionConfig['firstname_attr'],
-				$ldapConnectionConfig['lastname_attr'],
-				$ldapConnectionConfig['fullname_attr'],
-				$ldapConnectionConfig['username_attr'],
-				$ldapConnectionConfig['email_attr'],
-				$ldapConnectionConfig['address_attr'],
-				$ldapConnectionConfig['phone_attr'],
-				$ldapConnectionConfig['org_attr']
-			);
+			//
+			$requested = array();
+			$requested[] = $ldapConnectionConfig['user_rdn_attr'];
+			$requested[] = $ldapConnectionConfig['swamp_uid_attr'];
+			if ($ldapConnectionConfig['firstname_attr'] != 'ignore') {
+				$requested[] = $ldapConnectionConfig['firstname_attr'];
+			}
+			if ($ldapConnectionConfig['lastname_attr'] != 'ignore') {
+				$requested[] = $ldapConnectionConfig['lastname_attr'];
+			}
+			if ($ldapConnectionConfig['fullname_attr'] != 'ignore') {
+				$requested[] = $ldapConnectionConfig['fullname_attr'];
+			}
+			$requested[] = $ldapConnectionConfig['username_attr'];
+			if ($ldapConnectionConfig['email_attr'] != 'ignore') {
+				$requested[] = $ldapConnectionConfig['email_attr'];
+			}
+			if ($ldapConnectionConfig['org_attr'] != 'ignore') {
+				$requested[] = $ldapConnectionConfig['org_attr'];
+			}
+
 			// Eliminate any duplicates attributes from $requested
+			//
 			$requested = array_keys(array_flip($requested));
 
+			// Start with a emtpy collection of users
+			//
+			$users = new Collection(); 
+
 			// Loop through the pages of LDAP results for all matching user rdns
+			//
 			$filter = '(' . $ldapConnectionConfig['user_rdn_attr'] . '=*)';
 			$pageSize = 100;
 			$cookie = '';
@@ -183,19 +194,26 @@ class Ldap {
 					$entries = ldap_get_entries($ldapConnection,$searchResults);
 					
 					// convert LDAP entries to users
-					$users = $users->merge(self::entriesToUsers($entries));
+					//
+					$users = $users->merge(static::entriesToUsers($entries));
 
 					ldap_control_paged_result_response($ldapConnection,$searchResults,$cookie);
 				} catch (\ErrorException $e) {
-					// If we got here, then the LDAP server possibly returned 
+
+					// If we got here, then the LDAP server possibly returned
 					// "Adminlimit exceeded" error. So just return what we have.
+					//
 					$cookie = '';
 				}
 			} while (($cookie !== null) && ($cookie != ''));
 
-			ldap_close($ldapConnection);
+			// Turn off pagination control for future LDAP operations
+			//
+			ldap_control_paged_result($ldapConnection,0,false);
 
-			return $users; // Return the merged collection of users
+			// Return the merged collection of users
+			//
+			return $users;
 		} else {
 			return false;
 		}
@@ -203,6 +221,7 @@ class Ldap {
 
 	// Add a new user object to LDAP. Note this method only works when LDAP
 	// read_only is false.
+	//
 	public static function add($user) {
 
 		$ldapConnectionConfig = Config::get('ldap.connection');
@@ -211,28 +230,20 @@ class Ldap {
 				'Constraint violation: LDAP is configured read-only.');
 		}
 
-		$ldapHost = $ldapConnectionConfig['host'];
-		$ldapPort = $ldapConnectionConfig['port'];
-		$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
-			ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-			$ldapUser = $ldapConnectionConfig['users']['web_user'];
-			$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+
 			// Note here that this is the one place where we can't use
 			// swampUidToUserDN since the user's entry does not yet exist in LDAP.
 			// Instead, use the configured user_rdn_attr.
+			//
 			$dn = $ldapConnectionConfig['user_rdn_attr'] .'='. $user->user_uid .','.
 				$ldapConnectionConfig['base_dn'];
-			$entry = self::newUserToEntry($user);
+			$entry = static::newUserToEntry($user);
 
 			// set object class
 			//
-			$entry['objectclass'][0] = "top";
-			$entry['objectclass'][1] = "person";
-			$entry['objectclass'][2] = "organizationalPerson";
-			$entry['objectclass'][3] = "inetOrgPerson";
-			$entry['objectclass'][4] = "eduPerson";
-			$entry['objectclass'][5] = "swampEntity";
+			$entry['objectclass'] = preg_split('/\s*,\s*/', $ldapConnectionConfig['objectclass']);
 
 			// add new object
 			//
@@ -248,8 +259,6 @@ class Ldap {
 				}
 			}
 
-			ldap_close($ldapConnection);
-
 			return $user;
 		}
 	}
@@ -264,62 +273,22 @@ class Ldap {
 				'Constraint violation: LDAP is configured read-only.');
 		}
 
-		$ldapHost = $ldapConnectionConfig['host'];
-		$ldapPort = $ldapConnectionConfig['port'];
-		$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
-			ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-			$ldapUser = $ldapConnectionConfig['users']['web_user'];
-			$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+
 			// Attempt to look up the existing user_uid in LDAP. If found, use
 			// the $userdn returned by swampUidToUserDN. Otherwise, fall back to
 			// forming the user dn from the user_rdn_attr plus base_dn.
-			$dn = self::swampUidToUserDN($user->user_uid);
+			//
+			$dn = static::swampUidToUserDN($user->user_uid);
 			if (($dn === false) || (strlen($dn) == 0)) {
 				$dn = $ldapConnectionConfig['user_rdn_attr'] .'='. $user->user_uid .','.
 					$ldapConnectionConfig['base_dn'];
 			}
-			$entry = self::userToEntry($user);
+			$entry = static::userToEntry($user);
 
-			// LDAP blank affiliation
-			if ($user->affiliation == null) {
-
-				// delete empty affiliation attribute
-				unset($entry["o"]);
-
-				try {
-					$response = ldap_mod_del($ldapConnection, $dn, array('o' => array()));
-				} 
-				catch(\ErrorException $e) {
-
-					// trying to clear out attribute that is already cleared
-					//
-					if ($e->getMessage() != "ldap_mod_del(): Modify: No such attribute") {
-						throw $e;
-					}
-				}
-			}
-
-			// LDAP blank telephone
-			if ($user->phone == null) {
-
-				// delete empty phone attribute
-				unset($entry["telephoneNumber"]);
-
-				try {
-					$response = ldap_mod_del($ldapConnection, $dn, array('telephoneNumber' => array()));
-				}
-				catch(\ErrorException $e) {
-
-					// trying to clear out attribute that is already cleared
-					//
-					if ($e->getMessage() != "ldap_mod_del(): Modify: No such attribute") {
-						throw $e;
-					}
-				}
-			}
-
-			// modify remaining attributes
+			// modify attributes
+			//
 			try {
 				$response = ldap_modify($ldapConnection, $dn, $entry);
 			} catch (\ErrorException $e) {
@@ -331,8 +300,6 @@ class Ldap {
 					throw $e;
 				}
 			}
-
-			ldap_close($ldapConnection);
 
 			return $user;
 		}
@@ -349,11 +316,16 @@ class Ldap {
 	// to the configured base_dn. This is the full 'dn' for the given user.
 	// We then attempt to bind to LDAP with that dn and passed-in $password.
 	// A successful bind means that the password is valid.
+	//
 	public static function validatePassword($userUid,$password) {
 		$retval = false;
 
-		$userdn = self::swampUidToUserDN($userUid);
+		$userdn = static::swampUidToUserDN($userUid);
 		if (strlen($userdn) > 0) {
+
+			// Note that this method MUST bind with the user's username
+			// and password. Do not use the 'web_user' for the connection.
+			//
 			$ldapConnectionConfig = Config::get('ldap.connection');
 			$ldapHost = $ldapConnectionConfig['host'];
 			$ldapPort = $ldapConnectionConfig['port'];
@@ -362,6 +334,12 @@ class Ldap {
 				ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
 				$ldapbind = @ldap_bind($ldapConnection, $userdn, $password);
 				if ($ldapbind) {
+					Log::info("LDAP bind authenticated.",
+						array(
+							'user_uid' => $userUid,
+							'userdn' => $userdn,
+						)
+					);
 					$retval = true;
 				}
 				ldap_close($ldapConnection);
@@ -372,6 +350,7 @@ class Ldap {
 
 	// Modify an existing user object's password in LDAP. Note this method
 	// only works when LDAP read_only is false.
+	//
 	public static function modifyPassword($user, $password) {
 		$retval = false;
 
@@ -381,15 +360,10 @@ class Ldap {
 				'Constraint violation: LDAP is configured read-only.');
 		}
 
-		$userdn = self::swampUidToUserDN($user->user_uid);
+		$userdn = static::swampUidToUserDN($user->user_uid);
 		if (strlen($userdn) > 0) {
-			$ldapHost = $ldapConnectionConfig['host'];
-			$ldapPort = $ldapConnectionConfig['port'];
-			$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+			$ldapConnection = static::getLdapConnection('password_set_user');
 			if ($ldapConnection) {
-				ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-				$ldapUser = $ldapConnectionConfig['users']['password_set_user'];
-				$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
 				try {
 					$response = ldap_modify($ldapConnection, $userdn, array(
 						$ldapConnectionConfig['password_attr'] => $password
@@ -403,9 +377,9 @@ class Ldap {
 						throw $e;
 					}
 				}
-				ldap_close($ldapConnection);
 
 				// update user_account entry
+				//
 				$userAccount = UserAccount::where('user_uid', '=', $user->user_uid)->first();
 				$userAccount->ldap_profile_update_date = gmdate('Y-m-d H:i:s');
 				$userAccount->save();
@@ -424,27 +398,25 @@ class Ldap {
 	// project.user_account(user_uid), looks in LDAP for a matching entry,
 	// and returns the full 'dn' for that entry. This can be used to
 	// bind against LDAP for a particular user. Upon error, false is returned.
+	//
 	private static function swampUidToUserDN($userUid) {
 		$retval = false;
 
-		$ldapConnectionConfig = Config::get('ldap.connection');
-		$ldapHost = $ldapConnectionConfig['host'];
-		$ldapPort = $ldapConnectionConfig['port'];
-		$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
+			$ldapConnectionConfig = Config::get('ldap.connection');
+
 			// Using the passed-in $userUid (which is the swamp identifier stored in
 			// the database), search for an entry with a matching swamp_uid_attr.
-			ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
-			$ldapUser = $ldapConnectionConfig['users']['web_user'];
-			$ldapbind = ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+			//
 			$basedn = $ldapConnectionConfig['base_dn'];
 			$filter = $ldapConnectionConfig['swamp_uid_attr'] . '=' . $userUid;
 			$searchResults = ldap_search($ldapConnection, $basedn, $filter);
 			$entries = ldap_get_entries($ldapConnection, $searchResults);
-			ldap_close($ldapConnection);
 
 			// If we found a matching entry, use the configured 'user_rdn_attr'
 			// value in the entry (plus the base_dn) as the full dn to return.
+			//
 			if ($entries['count'] > 0) {
 				$rdnkey = $ldapConnectionConfig['user_rdn_attr'];
 				$rdnval = @$entries[0][strtolower($rdnkey)][0];
@@ -457,37 +429,38 @@ class Ldap {
 	}
 
 	private static function entryToUser($entry) {
-		// Active Directory street addresses are Base64 encoded
-		$address = self::searchEntryForAttr($entry,'address_attr');
-		/*
-		if (self::isBase64Encoded($address)) {
-			$address = base64_decode($address);
-		}
-		*/
 		$user =  new User(array(
-			'user_uid' => self::searchEntryForAttr($entry,'swamp_uid_attr'),
-			'first_name' => self::searchEntryForAttr($entry,'firstname_attr'),
-			'last_name' => self::searchEntryForAttr($entry,'lastname_attr'),
-			'preferred_name' => self::searchEntryForAttr($entry,'fullname_attr'),
-			'username' => self::searchEntryForAttr($entry,'username_attr'),
-			'password' => null, // Don't need LDAP password for user authn
-			'email' => self::searchEntryForAttr($entry,'email_attr'),
-			'address' => $address,
-			'phone' => self::searchEntryForAttr($entry,'phone_attr'),
-			'affiliation' => self::searchEntryForAttr($entry,'org_attr'),
+			'user_uid' => static::searchEntryForAttr($entry,'swamp_uid_attr'),
+			'first_name' => static::searchEntryForAttr($entry,'firstname_attr'),
+			'last_name' => static::searchEntryForAttr($entry,'lastname_attr'),
+			'preferred_name' => static::searchEntryForAttr($entry,'fullname_attr'),
+			'username' => static::searchEntryForAttr($entry,'username_attr'),
+			
+			// If LDAP is not doing the password validation, then return the
+			// password from LDAP so it can be validated in the application.
+			//
+			'password' => !Config::get('ldap.password_validation')? static::searchEntryForAttr($entry,'password_attr') : null,
+
+			// For email address and affiliation, remove any leading/trailing spaces
+			//
+			'email' => trim(static::searchEntryForAttr($entry,'email_attr')),
+			'affiliation' => trim(static::searchEntryForAttr($entry,'org_attr'))
 		));
 		return $user;
 	}
 
 	// Used by entryToUser, this helper function searches $entry (which has
-	// all lowercase keys) for a key matching $attr as configured for LDAP. 
+	// all lowercase keys) for a key matching $attr as configured for LDAP.
 	// If found, it returns the value of that $attr. Otherwise, it returns null.
+	//
 	private static function searchEntryForAttr($entry,$attr) {
 		$retval = null;
 		$ldapConnectionConfig = Config::get('ldap.connection');
-		$ldapAttr = strtolower($ldapConnectionConfig[$attr]);
-		if (array_key_exists($ldapAttr,$entry)) {
-			$retval = $entry[$ldapAttr][0];
+		if ($ldapConnectionConfig[$attr] != 'ignore') {
+			$ldapAttr = strtolower($ldapConnectionConfig[$attr]);
+			if (array_key_exists($ldapAttr,$entry)) {
+				$retval = $entry[$ldapAttr][0];
+			}
 		}
 		return $retval;
 	}
@@ -495,51 +468,91 @@ class Ldap {
 	private static function entriesToUsers($entries) {
 		$users = new Collection();
 		for ($i = 0; $i < $entries['count']; $i++) {
-			$users->push(self::entryToUser($entries[$i]));
+			$users->push(static::entryToUser($entries[$i]));
 		}
 		return $users;
 	}
 
 	private static function newUserToEntry($user) {
-		// prepare LDAP info
-		$ldapConnectionConfig = Config::get('ldap.connection');
-		return array(
-			$ldapConnectionConfig['swamp_uid_attr'] => $user->user_uid,
-			$ldapConnectionConfig['firstname_attr'] => $user->first_name ?: 'none',
-			$ldapConnectionConfig['lastname_attr'] => $user->last_name ?: 'none',
-			$ldapConnectionConfig['fullname_attr'] => $user->preferred_name ?: 'none',
-			$ldapConnectionConfig['username_attr'] => $user->username,
-			$ldapConnectionConfig['password_attr'] => $user->password,
-			$ldapConnectionConfig['email_attr'] => $user->email,
-			'enabled' => 'TRUE',
-			$ldapConnectionConfig['address_attr'] => $user->address,
-		);
+		return static::userToEntry($user, true);
 	}
 
-	public static function userToEntry($user) {
-		// prepare LDAP info
-		$ldapConnectionConfig = Config::get('ldap.connection');
-		return array(
-			$ldapConnectionConfig['swamp_uid_attr'] => $user->user_uid,
-			$ldapConnectionConfig['firstname_attr'] => $user->first_name,
-			$ldapConnectionConfig['lastname_attr'] => $user->last_name,
-			$ldapConnectionConfig['fullname_attr'] => $user->preferred_name ?: 'none',
-			$ldapConnectionConfig['username_attr'] => $user->username,
-			$ldapConnectionConfig['email_attr'] => $user->email,
-			'enabled' => 'TRUE',
-			$ldapConnectionConfig['address_attr'] => $user->address,
-			$ldapConnectionConfig['phone_attr'] => $user->phone,
-			$ldapConnectionConfig['org_attr'] => $user->affiliation,
-		);
-	}
-
-	// Taken from http://stackoverflow.com/a/34982057 , find out if
-	// a string is base64 encoded.
-	public static function isBase64Encoded($data) {
-		$retval = false;
-		if (preg_match('%^[a-zA-Z0-9/+]*={0,2}$%', $data)) {
-			$retval = true;
+	/**
+	 * Converts an App\Models\Users\User object into an array suitable for
+	 * writing to LDAP.
+	 * @param $user The App\Models\Users\User object to convert
+	 * @param $newuser Set to true for a 'new' user entry, which adds the
+	 *        'password' entry to the returned array. Defaults to false.
+	 * @return An array containing the parameters of the passed-in user object
+	 */
+	public static function userToEntry($user, $newuser=false) {
+		$retarr = array();
+		$ldapConnConf = Config::get('ldap.connection');
+		$mir_swamp = Config::get('ldap.mir_swamp');
+		$retarr[$ldapConnConf['swamp_uid_attr']] = $user->user_uid;
+		if ($ldapConnConf['firstname_attr'] != 'ignore') {
+			$retarr[$ldapConnConf['firstname_attr']] = $user->first_name ?: 'none';
 		}
+		if ($ldapConnConf['lastname_attr'] != 'ignore') {
+			$retarr[$ldapConnConf['lastname_attr']] = $user->last_name ?: 'none';
+		}
+		if ($ldapConnConf['fullname_attr'] != 'ignore') {
+			$retarr[$ldapConnConf['fullname_attr']] = $user->preferred_name ?: 'none';
+		}
+		$retarr[$ldapConnConf['username_attr']] = $user->username;
+		if ($newuser) {
+			$retarr[$ldapConnConf['password_attr']] = $user->password;
+		}
+		if ($ldapConnConf['email_attr'] != 'ignore') {
+			$retarr[$ldapConnConf['email_attr']] = $user->email ?: ' ';
+		}
+		if ($mir_swamp) { // Only add 'enabled' attribute for mir-swamp.org servers
+			$retarr['enabled'] = 'TRUE';
+		}
+		if ($ldapConnConf['org_attr'] != 'ignore') {
+			$retarr[$ldapConnConf['org_attr']] = $user->affiliation ?: ' ';
+		}
+		return $retarr;
+	}
+
+	// This function gets/sets the static class $ldapConnection array
+	// variable which holds the LDAP connection (for both the web_user and
+	// the password_set_user) which has been set up with ldap_connect() /
+	// ldap_bind(). This allows the LDAP connection to be used multiple
+	// times without having to bind more than once. Note that when using
+	// this method, DO NOT call ldap_close() for the LDAP connection.
+	//
+	protected static function getLdapConnection($user) {
+		$retval = null;
+
+		// Check if we have already set up the LDAP connection for the
+		// passed-in $user. If so, simply return it.
+		//
+		if ((array_key_exists($user,static::$ldapConnection)) &&
+			(!is_null(static::$ldapConnection[$user]))) {
+			$retval = static::$ldapConnection[$user];
+		} else { 
+
+			// Need to set up the LDAP connection for the $user
+			//
+			$ldapConnectionConfig = Config::get('ldap.connection');
+			$ldapHost = $ldapConnectionConfig['host'];
+			$ldapPort = $ldapConnectionConfig['port'];
+			$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+			if ($ldapConnection) {
+				ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
+				$ldapUser = $ldapConnectionConfig['users'][$user];
+				$ldapbind = @ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+				if ($ldapbind) {
+
+					// Save it for later
+					//
+					static::$ldapConnection[$user] = $ldapConnection;
+					$retval = $ldapConnection;
+				}
+			}
+		}
+
 		return $retval;
 	}
 

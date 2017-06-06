@@ -23,11 +23,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
 use App\Models\Projects\ProjectInvitation;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Users\User;
+use App\Models\Utilities\Configuration;
 use App\Http\Controllers\BaseController;
 
 class ProjectInvitationsController extends BaseController {
@@ -58,11 +60,20 @@ class ProjectInvitationsController extends BaseController {
 		//
 		if ($projectInvitation->invitee_email) {
 			$user = User::getByEmail($projectInvitation->invitee_email);
+			if (!$user) {
+				// If LDAP is set read-only, make sure that there is an LDAP user
+				// with a matching email address. Otherwise, return an error
+				// response so that a "Sign Up with SWAMP" email link is not
+				// generated (since read-only LDAP cannot create new users).
+				$configuration = new Configuration();
+				if ($configuration->getLdapReadOnlyAttribute()) {
+					return response(array("The email address '".htmlentities($projectInvitation->invitee_email)."' does not match an existing user."), 409);
+				}
+			}
 		} else if ($projectInvitation->invitee_username) {
-			if (User::where('username', '=', $projectInvitation->invitee_username)->count() > 0) {
-				$user = User::getByUsername($projectInvitation->invitee_username);
-			} else {
-				return response(array("The username '".$projectInvitation->invitee_username."' does not match an existing user."), 409);
+			$user = User::getByUsername($projectInvitation->invitee_username);
+			if (!$user) {
+				return response(array("The username '".htmlentities($projectInvitation->invitee_username)."' does not match an existing user."), 409);
 			}
 		} else {
 			return response("Project invitee must be specified by either an email address or a username.", 409);
@@ -111,6 +122,9 @@ class ProjectInvitationsController extends BaseController {
 				$projectInvitation->send(Input::get('confirm_route'), Input::get('register_route'));
 			}
 
+			// Log the invitation event
+			Log::info("Project invitation created.", $projectInvitation->toArray());
+
 			return $projectInvitation;
 		} else {
 
@@ -126,7 +140,7 @@ class ProjectInvitationsController extends BaseController {
 	public function getIndex($invitationKey) {
 		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
 		$sender = User::getIndex( $projectInvitation->inviter_uid );
-		$sender = ( ! $sender || $sender->enabled_flag != 1 ) ? false : $sender;
+		$sender = ( ! $sender || ! $sender->isEnabled() ) ? false : $sender;
 		if( $sender )
 			$sender['user_uid'] = $projectInvitation->inviter_uid;
 		$projectInvitation->sender = $sender;
@@ -201,6 +215,10 @@ class ProjectInvitationsController extends BaseController {
 		//
 		$changes = $projectInvitation->getDirty();
 		$projectInvitation->save();
+
+		// Log the invitation event
+		Log::info("Project invitation updated.", $projectInvitation->toArray());
+
 		return $changes;
 	}
 
@@ -210,6 +228,10 @@ class ProjectInvitationsController extends BaseController {
 		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
 		$projectInvitation->accept();
 		$projectInvitation->save();
+
+		// Log the invitation event
+		Log::info("Project invitation accepted.", $projectInvitation->toArray());
+
 		return $projectInvitation;
 	}
 
@@ -219,6 +241,10 @@ class ProjectInvitationsController extends BaseController {
 		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
 		$projectInvitation->decline();
 		$projectInvitation->save();
+
+		// Log the invitation event
+		Log::info("Project invitation declined.", $projectInvitation->toArray());
+
 		return $projectInvitation;
 	}
 
@@ -240,6 +266,10 @@ class ProjectInvitationsController extends BaseController {
 			$projectInvitations->push($projectInvitation);
 			$projectInvitation->save();
 		}
+
+		// Log the invitation event
+		Log::info("Project invitation update all.");
+
 		return $projectInvitations;
 	}
 
@@ -247,6 +277,12 @@ class ProjectInvitationsController extends BaseController {
 	//
 	public function deleteIndex($invitationKey) {
 		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->first();
+
+		if ($projectInvitation) {
+			// Log the invitation event
+			Log::info("Project invitation deleted.", $projectInvitation->toArray());
+		}
+
 		$projectInvitation->delete();
 		return $projectInvitation;
 	}

@@ -23,6 +23,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -62,6 +63,17 @@ class LinkedAccountsController extends BaseController {
 			));
 			$userEvent->save();
 			$account->delete();
+
+			// Log the link delete event
+			Log::info("Linked account deleted.",
+				array(
+					'linked_user_uid' => $user->user_uid,
+					'linked_account_id' => $linkedAccountId,
+					'linked_account_provider_code' => $idp->linked_provider,
+					'user_external_id' => $account->user_external_id,
+				)
+			);
+
 			return response('The linked account has been deleted.', 204);
 		} else {
 			return response('Unable to delete this linked account.  Insufficient privileges.', 400);

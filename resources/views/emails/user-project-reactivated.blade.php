@@ -18,7 +18,7 @@
 
 		<br />
 		<br />
-		If you have any questions please contact the SWAMP staff at: security@continuousassurance.org
+		If you have any questions please contact the SWAMP staff at: {{ Config::get('mail.contact.address') }} .
 
 		<br />
 		<br />

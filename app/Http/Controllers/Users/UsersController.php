@@ -5,7 +5,7 @@
 |                                                                              |
 |******************************************************************************|
 |                                                                              |
-|        This defines a controller for platforms.                              |
+|        This defines a controller for handling user models.                   |
 |                                                                              |
 |        Author(s): Abe Megahed                                                |
 |                                                                              |
@@ -23,6 +23,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\App;
@@ -54,8 +55,6 @@ class UsersController extends BaseController {
 			'password' => Input::get('password'),
 			'user_uid' => Guid::create(),
 			'email' => Input::get('email'),
-			'address' => Input::get('address'),
-			'phone' => Input::get('phone'),
 			'affiliation' => Input::get('affiliation')
 		));
 
@@ -84,15 +83,13 @@ class UsersController extends BaseController {
 	//
 	public function postValidate() {
 		$user = new User(array(
+			'user_uid' => Input::get('user_uid'),
 			'first_name' => Input::get('first_name'),
 			'last_name' => Input::get('last_name'),
 			'preferred_name' => Input::get('preferred_name'),
 			'username' => Input::get('username'),
 			'password' => Input::get('password'),
-			'user_uid' => Guid::create(),
 			'email' => Input::get('email'),
-			'address' => Input::get('address'),
-			'phone' => Input::get('phone'),
 			'affiliation' => Input::get('affiliation')
 		));
 		$errors = array();
@@ -200,11 +197,19 @@ class UsersController extends BaseController {
 		// send email notification
 		//
 		if (Config::get('mail.enabled')) {
-			if ($this->user != null) {
+			if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
 				Mail::send('emails.request-username', array( 'user' => $this->user ), function($message) {
 					$message->to( $this->user->email, $this->user->getFullName() );
 					$message->subject('SWAMP Username Request');
 				});
+
+				// Log the username request event
+				Log::info("Username requested.",
+					array(
+						'requested_user_uid' => $this->user->user_uid,
+						'email' => $email,
+					)
+				);
 			}
 		}
 
@@ -230,7 +235,7 @@ class UsersController extends BaseController {
 
 					// sort by date
 					//			
-					$users = $users->sortByDesc('create_date');
+					$users = $users->sortByDesc('create_date')->values();
 
 					// add filters
 					//
@@ -280,16 +285,21 @@ class UsersController extends BaseController {
 			return Response('Could not find user.', 400);
 		}
 
-		// send verification email
+		// send verification email if email address has changed
 		//
-		if ($user->email != Input::get('email')) {
-			$emailVerification = new EmailVerification(array(
-				'user_uid' => $user->user_uid,
-				'verification_key' => Guid::create(),
-				'email' => Input::get('email')
-			));
-			$emailVerification->save();
-			$emailVerification->send('#verify-email', true); 
+		$user_email = trim($user->email);
+		$input_email = trim(Input::get('email'));
+		if (Config::get('mail.enabled')) {
+			if ((filter_var($input_email, FILTER_VALIDATE_EMAIL)) &&
+				($user_email != $input_email)) {
+				$emailVerification = new EmailVerification(array(
+					'user_uid' => $user->user_uid,
+					'verification_key' => Guid::create(),
+					'email' => $input_email
+				));
+				$emailVerification->save();
+				$emailVerification->send('#verify-email', true); 
+			}
 		}
 
 		// update attributes
@@ -297,8 +307,7 @@ class UsersController extends BaseController {
 		$user->first_name = Input::get('first_name');
 		$user->last_name = Input::get('last_name');
 		$user->preferred_name = Input::get('preferred_name');
-		$user->address = Input::get('address');
-		$user->phone = Input::get('phone');
+		$user->username = Input::get('username');
 		$user->affiliation = Input::get('affiliation');
 
 		// save changes
@@ -331,11 +340,27 @@ class UsersController extends BaseController {
 			}
 		}
 
+		// append original email to changes (email change is still pending)
+		//
+		if (strlen($input_email) > 0) {
+			$changes = array_merge($changes, array(
+				'email' => $user_email
+			));
+		}
+
 		// append change date to changes
 		//
 		$changes = array_merge($changes, array(
 			'update_date' => $user->update_date
 		));
+
+		// Log the update user event
+		Log::info("User account updated.",
+			array(
+				'Updated_user_uid' => $userUid,
+				'update_date' => $user->update_date,
+			)
+		);
 
 		// return changes
 		//
@@ -348,48 +373,11 @@ class UsersController extends BaseController {
 		$currentUser = User::getIndex(Session::get('user_uid'));
 		$user = User::getIndex($userUid);
 
-		// current user is an admin
+		// The target password being changed is the current user's password
 		//
-		if ($currentUser->isAdmin() && ($userUid != $currentUser->user_uid)) {
-			$newPassword = Input::get('new_password');
-
-			// For LDAP extended error messages, check the exception message for the
-			// ldap_* method and check for pattern match. If so, then rather than
-			// returning the user object, return a new JSON object with the 
-			// encoded LDAP extended error message.
-			//
-			try {
-				$user->modifyPassword($newPassword);
-			} catch (\ErrorException $e) {
-				if (preg_match('/^Constraint violation:/',$e->getMessage())) {
-					return response()->json(array('error' => $e->getMessage()), 409);
-				} else {
-				  throw $e;
-				}
-			}
-
-			// alert user via email that password has changed
-			//
-			if (Config::get('mail.enabled')) {
-				$cfg = array(
-					'url' => Config::get('app.cors_url') ?: '',
-					'user' => $user
-				);
-				Mail::send('emails.password-changed', $cfg, function($message) use ($user) {
-					$message->to($user->email, $user->getFullName());
-					$message->subject('SWAMP Password Changed');
-				});
-			}
-
-			// return success
-			//
-			return response()->json(array('success' => true));
-
-		// current user is not an admin
-		//
-		} else if ($userUid == $currentUser->user_uid) {
+		if ($userUid == $currentUser->user_uid) {
 			$oldPassword = Input::get('old_password');
-			if (User::isValidPassword($currentUser, $oldPassword, $currentUser->password)) {
+			if ($currentUser->isAuthenticated($oldPassword)) {
 				$newPassword = Input::get('new_password');
 
 				// For LDAP extended error messages, check the exception message for the
@@ -410,15 +398,24 @@ class UsersController extends BaseController {
 				// alert user via email that password has changed
 				//
 				if (Config::get('mail.enabled')) {
-					$cfg = array(
-						'url' => Config::get('app.cors_url') ?: '',
-						'user' => $user
-					);
-					Mail::send('emails.password-changed', $cfg, function($message) use ($user) {
-						$message->to($user->email, $user->getFullName());
-						$message->subject('SWAMP Password Changed');
-					});
+					if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+						$cfg = array(
+							'url' => Config::get('app.cors_url') ?: '',
+							'user' => $user
+						);
+						Mail::send('emails.password-changed', $cfg, function($message) use ($user) {
+							$message->to($user->email, $user->getFullName());
+							$message->subject('SWAMP Password Changed');
+						});
+					}
 				}
+
+				// Log the password change event
+				Log::info("Password changed.",
+					array(
+						'changed_user_uid' => $userUid,
+					)
+				);
 
 				// return success
 				//
@@ -430,7 +427,54 @@ class UsersController extends BaseController {
 				return response('Old password is incorrect.', 404);
 			}
 
-		// current user is not the target user
+		// current user is an admin - can change any password
+		//
+		} elseif ($currentUser->isAdmin()) {
+			$newPassword = Input::get('new_password');
+
+			// For LDAP extended error messages, check the exception message for the
+			// ldap_* method and check for pattern match. If so, then rather than
+			// returning the user object, return a new JSON object with the 
+			// encoded LDAP extended error message.
+			//
+			try {
+				$user->modifyPassword($newPassword);
+			} catch (\ErrorException $e) {
+				if (preg_match('/^Constraint violation:/',$e->getMessage())) {
+					return response()->json(array('error' => $e->getMessage()), 409);
+				} else {
+				  throw $e;
+				}
+			}
+
+			// alert user via email that password has changed
+			//
+			if (Config::get('mail.enabled')) {
+				if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+					$cfg = array(
+						'url' => Config::get('app.cors_url') ?: '',
+						'user' => $user
+					);
+					Mail::send('emails.password-changed', $cfg, function($message) use ($user) {
+						$message->to($user->email, $user->getFullName());
+						$message->subject('SWAMP Password Changed');
+					});
+				}
+			}
+
+			// Log the password change event
+			Log::info("Password changed by admin.",
+				array(
+					'changed_user_uid' => $userUid,
+					'admin_user_uid' => $currentUser->user_uid,
+				)
+			);
+
+			// return success
+			//
+			return response()->json(array('success' => true));
+
+		// current user is not the target user nor admin user
 		//
 		} else {
 			return response("You must be an admin to change a user's password", 403);
@@ -453,20 +497,6 @@ class UsersController extends BaseController {
 	public function deleteIndex($userUid) {
 		$user = User::getIndex($userUid);
 
-		// call stored procedure to remove all project associations
-		//
-		/*
-		$connection = DB::connection('mysql');
-		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL remove_user_from_all_projects(:userUuidIn, @returnString);");
-		$stmt->bindParam(':userUuidIn', $userUuid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
-		*/
-
 		// delete project memberships
 		//
 		ProjectMembership::deleteByUser($user);
@@ -475,10 +505,19 @@ class UsersController extends BaseController {
 		//
 		$userAccount = $user->getUserAccount();
 		if ($userAccount) {
+			$currentUserUid = Session::get('user_uid');
 			$userAccount->setAttributes(array(
 				'enabled_flag' => false
-			), $user);
+			), $user, ($userUid == $currentUserUid));
+
+			// Log the user account delete event
+			Log::info("User account deleted.",
+				array(
+					'deleted_user_uid' => $userUid,
+				)
+			);
 		}
+
 
 		// return response
 		//

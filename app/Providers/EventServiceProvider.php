@@ -1,4 +1,22 @@
-<?php namespace App\Providers;
+<?php 
+/******************************************************************************\
+|                                                                              |
+|                          EventServiceProvider.php                            |
+|                                                                              |
+|******************************************************************************|
+|                                                                              |
+|        This defines events to listen for and their associated handlers.      |
+|                                                                              |
+|        Author(s): Terry Fleury                                               |
+|                                                                              |
+|        This file is subject to the terms and conditions defined in           |
+|        'LICENSE.txt', which is part of this source code distribution.        |
+|                                                                              |
+|******************************************************************************|
+|        Copyright (C) 2012-2016 Software Assurance Marketplace (SWAMP)        |
+\******************************************************************************/
+
+namespace App\Providers;
 
 use Illuminate\Contracts\Events\Dispatcher as DispatcherContract;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -11,8 +29,10 @@ class EventServiceProvider extends ServiceProvider {
 	 * @var array
 	 */
 	protected $listen = [
-		'event.name' => [
-			'EventListener',
+		// Note that this event will probably need to change when Laravel is
+		// updated to 5.2/5.3 to "Illuminate\Mail\Events\MessageSending".
+		'mailer.sending' => [
+			'App\Handlers\Events\MailerSendingEventHandler',
 		],
 	];
 

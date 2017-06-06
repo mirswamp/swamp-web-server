@@ -112,7 +112,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 		// linked account routes
 		//
 		Route::group(['middleware' => 'verify.linked_account'], function () {
-			Route::get('linked-accounts/user/{user_uid}', 'Users\LinkedAccountsController@getLinkedAccountsByUser');
+			Route::get('linked-accounts/users/{user_uid}', 'Users\LinkedAccountsController@getLinkedAccountsByUser');
 			Route::post('linked-accounts/{linked_account_id}/enabled', 'Users\LinkedAccountsController@setEnabledFlag');
 			Route::delete('linked-accounts/{linked_account_id}', 'Users\LinkedAccountsController@deleteLinkedAccount');
 		});
@@ -298,6 +298,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 			Route::get('packages/protected/{project_uuid}/num', 'Packages\PackagesController@getNumProtected');
 			Route::get('packages/users/{user_uuid}', 'Packages\PackagesController@getByUser');
 			Route::get('packages/users/{user_uuid}/num', 'Packages\PackagesController@getNumByUser');
+			Route::get('packages/owners/{user_uuid}', 'Packages\PackagesController@getByOwner');
 			Route::get('packages/projects/{project_uuid}', 'Packages\PackagesController@getByProject');
 
 			// package compatibility routes
@@ -507,5 +508,24 @@ Route::group(['middleware' => 'verify.config'], function () {
 		Route::group(['middleware' => 'verify.admin'], function () {
 			Route::get('routes', 'Utilities\RoutesController@getActual');
 		});
+
+		// app password routes
+		//
+		Route::group(['middleware' => 'verify.app_passwords'], function () {
+			Route::post('v1/app_passwords', 'Users\AppPasswordsController@postCreate');
+			Route::get('v1/app_passwords/{app_password_uuid}', 'Users\AppPasswordsController@getIndex');
+			Route::get('v1/app_passwords', 'Users\AppPasswordsController@getAll');
+			Route::put('v1/app_passwords/{app_password_uuid}', 'Users\AppPasswordsController@putIndex');
+			Route::delete('v1/app_passwords/{app_password_uuid}', 'Users\AppPasswordsController@deleteIndex');
+			Route::delete('v1/app_passwords', 'Users\AppPasswordsController@deleteAll');
+		});
+
+		// app password routes for admins
+		//
+		Route::group(['middleware' => 'verify.admin'], function () {
+			Route::get('v1/admin/users/{user_uid}/app_passwords', 'Users\AppPasswordsController@getByUser');
+			Route::delete('v1/admin/users/{user_uid}/app_passwords', 'Users\AppPasswordsController@deleteByUser');
+		});
+
 	});
 });

@@ -103,7 +103,7 @@ class PackagesController extends BaseController {
 	// get types for filtering
 	//
 	public function getTypes() {
-		return PackageType::where('package_type_enabled', '=', 1)->get();
+		return PackageType::all();
 	}
 
 	// get by index
@@ -659,18 +659,31 @@ class PackagesController extends BaseController {
 
 		// create new sharing
 		//
-		$input = Input::get('projects');
+		$projectUuids = Input::get('project_uuids');
 		$packageSharings = new Collection;
-		for ($i = 0; $i < sizeOf($input); $i++) {
-			$project = $input[$i];
+		foreach ($projectUuids as $projectUuid) {
+			$packageSharing = new PackageSharing(array(
+				'package_uuid' => $packageUuid,
+				'project_uuid' => $projectUuid
+			));
+			$packageSharing->save();
+			$packageSharings[] = $packageSharing;
+		}	
+
+		/*
+		$projects = Input::get('projects');
+		$packageSharings = new Collection;
+		for ($i = 0; $i < sizeOf($projects); $i++) {
+			$project = $projects[$i];
 			$projectUid = $project['project_uid'];
 			$packageSharing = new PackageSharing(array(
 				'package_uuid' => $packageUuid,
-				'project_uuid' => $projectUid
+				'project_uuid' => $projectUuid
 			));
 			$packageSharing->save();
 			$packageSharings->push($packageSharing);
 		}
+		*/
 		return $packageSharings;
 	}
 

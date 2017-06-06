@@ -23,6 +23,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -81,6 +82,14 @@ class PermissionsController extends BaseController {
 			}
 			array_push( $results, $item );
 		}
+		
+		// Log the permissions request event
+		Log::info("Get permissions for user.",
+			array(
+				'requested_user_uid' => $userUid,
+			)
+		);
+
 		return $results;
 	}
 
@@ -120,7 +129,7 @@ class PermissionsController extends BaseController {
 			$admins = UserAccount::where('admin_flag', '=', 1)->get();
 			foreach( $admins as $admin ){
 				$admin = User::getIndex($admin->user_uid);
-				if( $admin && $admin->email && $admin->getFullName() ){
+				if ($admin && $admin->email && filter_var($admin->email, FILTER_VALIDATE_EMAIL)) {
 
 					$cfg = array(
 						'new_permissions' => array( $permissionCode ),
@@ -138,6 +147,15 @@ class PermissionsController extends BaseController {
 				}
 			}
 		}
+
+		// Log the permissions request event
+		Log::info("Request permission for user with permission code.",
+			array(
+				'requested_user_uid' => $userUid,
+				'user_permission_uid' => $perm->user_permission_uid,
+				'permission_code' => $permissionCode,
+			)
+		);
 
 		return $perm;
 	}
@@ -215,7 +233,7 @@ class PermissionsController extends BaseController {
 			$admins = UserAccount::where('admin_flag', '=', 1)->get();
 			foreach( $admins as $admin ){
 				$admin = User::getIndex($admin->user_uid);
-				if( $admin && $admin->email && $admin->getFullName() ){
+				if ($admin && $admin->email && filter_var($admin->email, FILTER_VALIDATE_EMAIL)) {
 
 					$cfg = array(
 						'new_permissions' => $new_permissions,
@@ -233,6 +251,18 @@ class PermissionsController extends BaseController {
 				}
 			}
 		}
+
+		// Log the permissions request event
+		//
+		Log::info("Request permissions for user.",
+			array(
+				'requested_user_uid' => $userUid,
+				'user_permission_uid' => $record->user_permission_uid,
+				'permission_code' => Input::get('permission_code'),
+				'new_permissions' => !empty($new_permissions)? $new_permissions[0] : null,
+				'updated_permissions' => !empty($updated_permissions)? $updated_permissions[0] : null
+			)
+		);
 
 		// record accepted policy
 		//
@@ -371,7 +401,7 @@ class PermissionsController extends BaseController {
 		// send notification email that permission was requested
 		//
 		if (Config::get('mail.enabled')) {
-			if ($user && $user->email && $user->getFullName()) {
+			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
 				$data = array(
 					'url' => Config::get('app.cors_url') ?: '',
 					'user' => $user,
@@ -383,6 +413,16 @@ class PermissionsController extends BaseController {
 				});
 			}
 		}
+
+		// Log the permissions event
+		Log::info("Set permissions.",
+			array(
+				'status' => Input::get('status'),
+				'requested_user_uid' => $userUid,
+				'user_permission_uid' => $record->user_permission_uid,
+				'permission_code' => $record->permission_code,
+			)
+		);
 	}
 
 	public function deletePermission( $userPermissionUid ){
@@ -395,6 +435,14 @@ class PermissionsController extends BaseController {
 			$user_permission->delete_date = gmdate('Y-m-d H:i:s');
 			$user_permission->expiration_date = null;
 			$user_permission->save();
+
+			// Log the permissions delete event
+			Log::info("Delete permission.",
+				array(
+					'user_permission_uid' => $userPermissionUid,
+				)
+			);
+
 			return response('The user permission has been deleted.', 204);
 		} else {
 			return response('Unable to revoke this permission.  Insufficient privileges.', 400);
@@ -422,6 +470,14 @@ class PermissionsController extends BaseController {
 			'project_uid' => $projectUid
 		));
 		$upp->save();
+
+		// Log the designate project event
+		Log::info("Designate project.",
+			array(
+				'user_permission_uid' => $userPermissionUid,
+				'project_uid' => $projectUid,
+			)
+		);
 
 		return $upp;
 

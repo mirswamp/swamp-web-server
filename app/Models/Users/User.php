@@ -25,12 +25,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Auth\UserInterface;
 use Illuminate\Auth\Reminders\RemindableInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
 use App\Models\BaseModel;
 use App\Models\TimeStamps\TimeStamped;
+use App\Models\Users\AppPassword;
 use App\Models\Users\EmailVerification;
 use App\Models\Users\Permission;
 use App\Models\Users\UserPermission;
@@ -40,6 +42,7 @@ use App\Models\Users\LinkedAccount;
 use App\Models\Admin\RestrictedDomain;
 use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
+use App\Models\Utilities\Configuration;
 use App\Utilities\Identity\IdentityProvider;
 use App\Utilities\Ldap\Ldap;
 
@@ -65,8 +68,6 @@ class User extends TimeStamped {
 		'username', 
 		'password',
 		'email', 
-		'address',
-		'phone',
 		'affiliation'
 	);
 
@@ -83,8 +84,6 @@ class User extends TimeStamped {
 		'preferred_name', 
 		'username', 
 		'email', 
-		'address',
-		'phone',
 		'affiliation',
 
 		// boolean flag attributes
@@ -134,6 +133,10 @@ class User extends TimeStamped {
 		return $user && $this['user_uid'] == $user['user_uid'];
 	}
 
+	public function isNew() {
+		return $this['user_uid'] == NULL;
+	}
+
 	/**
 	 * Get the unique identifier for the user.
 	 *
@@ -144,36 +147,81 @@ class User extends TimeStamped {
 	}
 
 	/**
-	 * new user validation method
+	 * user validation method
 	 */
+
+	public static function emailInUse($email) {
+		$values = array();
+		if (preg_match("/(\w*)(\+.*)(@.*)/", $email, $values)) {
+			$email = $values[1] . $values[3];
+		}
+
+		foreach (self::getAll() as $registered_user) {
+			$values = array();
+			if (preg_match("/(\w*)(\+.*)(@.*)/", $registered_user->email, $values)) {
+				$registered_user->email = $values[1] . $values[3];
+			}
+			if (strtolower($email) == strtolower( $registered_user->email)) {
+				return true;
+			}
+		}
+		return false;		
+	}
 
 	public function isValid(&$errors, $anyEmail = false) {
 
-		// check to see if username has been taken
+		// check username
 		//
-		if ($this->username) {
-			$user = User::getByUsername($this->username);
-			if ($user) {
-				$errors[] = 'The username "'.$this->username.'" is already in use.';
+		if ($this->isNew()) {
+
+			// check to see if username has been taken
+			//
+			if ($this->username) {
+				if (User::getByUsername($this->username)) {
+					$errors[] = 'The username "'.$this->username.'" is already in use.';
+				}
+			}
+		} else {
+
+			// check to see if username has changed
+			//
+			$user = User::getIndex($this->user_uid);
+			if ($user && $this->username != $user->username) {
+
+				// check to see if username has been taken
+				//
+				if ($this->username) {
+					if (User::getByUsername($this->username)) {
+						$errors[] = 'The username "'.$this->username.'" is already in use.';
+					}
+				}
 			}
 		}
 
-		// check to see if email address has been taken
+		// check email address
 		//
-		if ($this->email) {
-			$values = array();
-			$email = $this->email;
-			if (preg_match("/(\w*)(\+.*)(@.*)/", $this->email, $values)) {
-				$email = $values[1] . $values[3];
-			}
-			foreach (self::getAll() as $registered_user) {
-				$values = array();
-				if (preg_match("/(\w*)(\+.*)(@.*)/", $registered_user->email, $values)) {
-					$registered_user->email = $values[1] . $values[3];
-				}
-				if (strtolower($email) == strtolower( $registered_user->email)) {
+		if ($this->isNew()) {
+
+			// check to see if email has been taken
+			//
+			if ($this->email) {
+				if (self::emailInUse($this->email)) {
 					$errors[] = 'The email address "'.$this->email.'" is already in use. Try linking to the account instead.';
-					break;
+				}
+			}
+		} else {
+
+			// check to see if email has changed
+			//
+			$user = User::getIndex($this->user_uid);
+			if ($user && $this->email != $user->email) {
+
+				// check to see if email has been taken
+				//
+				if ($this->email) {
+					if (self::emailInUse($this->email)) {
+						$errors[] = 'The email address "'.$this->email.'" is already in use. Try linking to the account instead.';
+					}
 				}
 			}
 		}
@@ -220,7 +268,7 @@ class User extends TimeStamped {
 	}
 
 	public function hasBeenVerified() {
-		return $this->email_verified_flag == '1' ||  $this->email_verified_flag == '-1';
+		return $this->email_verified_flag == '1' || $this->email_verified_flag == '-1';
 	}
 
 	/**
@@ -247,6 +295,10 @@ class User extends TimeStamped {
 
 	public function getUserAccount() {
 		return UserAccount::where('user_uid', '=', $this->user_uid)->first();
+	}
+
+	public function hasOwnerPermission() {
+		return UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', 'project-owner')->exists();
 	}
 
 	public function getOwnerPermission() {
@@ -481,6 +533,12 @@ class User extends TimeStamped {
 		return !in_array($domain, $restrictedDomainNames);
 	}
 
+	public static function setUserUidInSession($userUid) {
+		Session::set('timestamp', time());
+		Session::set('user_uid', $userUid);
+		Session::save();
+	}
+
 	//
 	// password encrypting functons
 	//
@@ -489,11 +547,11 @@ class User extends TimeStamped {
 		switch ($encryption) {
 
 			case '{MD5}':
-				return '{MD5}'.base64_encode(md5($password,TRUE));
+				return '{MD5}'.base64_encode(md5($password, TRUE));
 				break;
 
 			case '{SHA1}':
-				return '{SHA}'.base64_encode(sha1($password, TRUE ));
+				return '{SHA1}'.base64_encode(sha1($password, TRUE ));
 				break;
 
 			case '{SSHA}':
@@ -502,77 +560,129 @@ class User extends TimeStamped {
 				break;
 
 			case '{BCRYPT}':
-				return '{BCRYPT}'.password_hash($password,PASSWORD_BCRYPT);
-				break;
-
-			default: 
-				echo "Unsupported password hash format";
-				return FALSE;
+			default:
+				return '{BCRYPT}'.password_hash($password, PASSWORD_BCRYPT);
 				break;
 		}
 	}
 
-	public static function isValidPassword($user, $password, $hash) {
-
-		if (Config::get('ldap.enabled')) {
-			return Ldap::validatePassword($user->user_uid,$password);
-		}
+	public function isValidPassword($password) {
 
 		// no password
 		//
-		if ($hash == '') {
-			return FALSE;
+		if ($this->password == '') {
+			return false;
 		}
 
 		// plaintext password
 		//
-		if ($hash{0} != '{') {
-			if ($password == $hash) {
-				return TRUE;
-			}
-			return FALSE;
-		}
-
-		// crypt
-		//
-		if (strtolower(substr($hash,0,7)) == '{crypt}') {
-			if (crypt($password, substr($hash,7)) == substr($hash,7)) {
-				return TRUE;
-			}
-			return FALSE;
-
-		// md5 
-		//
-		} elseif (substr($hash,0,5) == '{MD5}') {
-			$encryptedPassword = User::getEncryptedPassword($password, '{MD5}');
-
-		// sha1
-		//
-		} elseif (substr($hash,0,6) == '{SHA1}') {
-			$encryptedPassword = User::getEncryptedPassword($password, '{SHA1}');
-
-		// ssha
-		//
-		} elseif (substr($hash,0,6) == '{SSHA}') {
-			$encryptedPassword = User::getEncryptedPassword($password, '{SSHA}', $hash);
-
-		// bcrypt
-		//
-		} elseif (substr($hash,0,8) == '{BCRYPT}') {
-			return password_verify($password,substr($hash,8));
-
-		// unsupported
-		//		
+		if ($this->password{0} != '{') {
+			return ($this->password == $password);
 		} else {
-			echo "Unsupported password hash format";
-			return FALSE;
+
+			// find hash type
+			//
+			$i = 1;
+			while ($this->password[$i] != '}' && $i < strlen($this->password)) {
+				$i++;
+			}
+			$hash = substr($this->password, 1, $i - 1);
+
+			// crypt
+			//
+			if ($hash == 'CRYPT') {
+				return (crypt($password, substr($this->password, 7)) == substr($this->password, 7));
+
+			// md5
+			//
+			} elseif ($hash == 'MD5') {
+				$encryptedPassword = User::getEncryptedPassword($password, '{MD5}');
+
+			// sha1
+			//
+			} elseif ($hash == 'SHA1') {
+				$encryptedPassword = User::getEncryptedPassword($password, '{SHA1}');
+
+			// ssha
+			//
+			} elseif ($hash == 'SSHA') {
+				$encryptedPassword = User::getEncryptedPassword($password, '{SSHA}', $this->password);
+
+			// bcrypt
+			//
+			} elseif ($hash == 'BCRYPT') {
+				return password_verify($password, substr($this->password, 8));
+
+			// unsupported
+			//
+			} else {
+				echo "Unsupported password hash format: ".$hash.". ";
+				return false;
+			}
+
+			return ($this->password == $encryptedPassword);
+		}
+	}
+
+	public function isAuthenticated($password, $checkapppass = false) {
+
+		// If LDAP is enabled, and application level password encryption is disabled 
+		// then validate the password by binding to LDAP with username and password.
+		//
+		if (Config::get('ldap.enabled') && Config::get('ldap.password_validation')) {
+			if (Ldap::validatePassword($this->user_uid, $password)) {
+
+				// Log successful password hash authentications
+				//
+				Log::info("Password authenticated by LDAP.",
+					array(
+						'user_uid' => $this->user_uid,
+					)
+				);
+
+				return true;
+			}
+		} else {
+
+			// check password against stored password or password hash
+			//
+			if ($this->isValidPassword($password)) {
+
+				// Log successful password hash authentications
+				//
+				Log::info("Password hash authenticated.",
+					array(
+						'user_uid' => $this->user_uid,
+					)
+				);
+
+				return true;
+			}
 		}
 
-		if ($hash == $encryptedPassword) {
-			return TRUE;
+		// Still not authenticated at this point? If we are allowed to check app
+		// passwords AND app passwords are enabled, try to find a matching app
+		// password for the user.
+		//
+		if ($checkapppass) {
+			$configuration = new Configuration;
+			if ($configuration->getAppPasswordMaxAttribute() > 0) {
+				if (AppPassword::validatePassword($this->user_uid, $password)) {
+
+					// Log successful app password authentications
+					//
+					Log::info("App password authenticated.",
+						array(
+							'user_uid' => $this->user_uid,
+						)
+					);
+
+					return true;	
+				}
+			}
 		}
 
-		return FALSE;
+		return false;
 	}
 
 	//
@@ -652,6 +762,16 @@ class User extends TimeStamped {
 	//
 
 	public function add() {
+		$encryption = Config::get('app.password_encryption_method');
+
+		// encrypt password
+		//
+		if (strcasecmp($encryption, 'NONE') != 0) {
+
+			// encrypt password
+			//
+			$this->password = $this->getEncryptedPassword($this->password, '{'.$encryption.'}');
+		}
 
 		// check to see if we are to use LDAP
 		//
@@ -661,10 +781,6 @@ class User extends TimeStamped {
 			//
 			Ldap::add($this);
 		} else {
-
-			// encrypt password
-			//
-			$this->password = $this->getEncryptedPassword($this->password, '{BCRYPT}');
 
 			// use SQL / Eloquent
 			//
@@ -739,15 +855,24 @@ class User extends TimeStamped {
 
 			return $this;
 		}
-
-		// save user account info
-		//
-		$userAccount = $this->getUserAccount();
-		$userAccount->enabled_flag = $this->enabled_flag;
-		$userAccount->save();
 	}
 
 	public function modifyPassword($password) {
+		$encryption = Config::get('app.password_encryption_method');
+
+		// encrypt password
+		//
+		if (strcasecmp($encryption, 'NONE') != 0) {
+			Log::info('encrypting password');
+
+			// encrypt password
+			//
+			$password = $this->getEncryptedPassword($password, '{'.$encryption.'}');
+		}
+
+		// set user attributes
+		//
+		$this->password = $password;
 
 		// check to see if we are to use LDAP
 		//
@@ -755,12 +880,8 @@ class User extends TimeStamped {
 
 			// use LDAP
 			//
-			return Ldap::modifyPassword($this, $password);
+			return Ldap::modifyPassword($this, $this->password);
 		} else {
-
-			// encrypt password
-			//
-			$this->password = User::getEncryptedPassword($password, '{BCRYPT}');
 
 			// use SQL / Eloquent
 			//
@@ -833,12 +954,12 @@ class User extends TimeStamped {
 
 	public function getOwnerFlagAttribute() {
 		$ownerPermission = $this->getOwnerPermission();
-		return $ownerPermission ? ($ownerPermission->getStatus() == 'granted' ? 1 : 0)  : 0;
+		return $ownerPermission ? ($ownerPermission->getStatus() == 'granted' ? 1 : 0) : 0;
 	}
 
 	public function getSshAccessFlagAttribute() {
 		$sshAccessPermission = UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', 'ssh-access')->first();
-		return $sshAccessPermission ? ($sshAccessPermission->getStatus() == 'granted' ? 1 : 0)  : 0;
+		return $sshAccessPermission ? ($sshAccessPermission->getStatus() == 'granted' ? 1 : 0) : 0;
 	}
 
 	public function getHasLinkedAccountAttribute() {

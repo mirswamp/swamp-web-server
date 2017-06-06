@@ -37,7 +37,8 @@ class Configuration extends BaseModel {
 		'ci_logon_authentication_enabled',
 		'api_explorer_enabled',
 		'client_ip',
-		'ldap_readonly'
+		'ldap_readonly',
+		'app_password_max'
 	);
 
 	/**
@@ -78,10 +79,29 @@ class Configuration extends BaseModel {
 		return Request::ip();
 	}
 
+	/**
+	 * Returns true if LDAP is enabled and set to read-only.
+	 */
 	public function getLdapReadOnlyAttribute() {
 		$ldapEnabled = Config::get('ldap.enabled');
 		$ldapConnectionConfig = Config::get('ldap.connection');
 		$ldapReadOnly = $ldapConnectionConfig['read_only'];
 		return ($ldapEnabled && $ldapReadOnly);
 	}
+
+	/**
+	 * Returns the maximum number of app passwords allowed as an int.
+	 * 0 means app passwords are disabled. Hardcoded max of 100 per user.
+	 */
+	public function getAppPasswordMaxAttribute() {
+		$app_password_max = Config::get('app.app_password_max');
+		if ($app_password_max < 0) {
+			$app_password_max = 0; // 0 (or less) means app passwords disabled
+		}
+		if ($app_password_max > 100) {
+			$app_password_max = 100; // Global maximum of 100 app passwords per user
+		}
+		return intval($app_password_max);
+	}
+
 }

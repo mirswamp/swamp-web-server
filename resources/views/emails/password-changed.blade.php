@@ -15,12 +15,12 @@
 		<br />
 		<br />
 
-		Your SWAMP password was recently changed.  If this action was not undertaken by you or by your request, please contact SWAMP security immediately.
+		Your SWAMP password was recently changed. If this action was not undertaken by you or by your request, please contact SWAMP security immediately.
 
 		<br />
 		<br />
 
-		You may contact swamp security directly at security@continuousassurance.org, or visit the security contact page for more options:  <a href="{{ $url }}/#contact/security">Contact SWAMP Security</a>
+		You may contact SWAMP security directly at {{ Config::get('mail.security.address') }} or visit the security contact page for more options: <a href="{{ $url }}/#contact/security">Contact SWAMP Security</a>.
 
 		<br/>
 		<br/>

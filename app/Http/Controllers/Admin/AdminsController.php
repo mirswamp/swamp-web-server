@@ -113,35 +113,44 @@ class AdminsController extends BaseController {
 		$failures = new Collection();
 
 		foreach( $recipients as $email ){
-
 			$user = User::getByEmail($email);
-
-			if( ! $user ){
+			if (!$user) {
 				return response("Could not load user: $email", 400);	
 			}
 
-			$data = array(
-				'user' => $user,
-				'body' => $body
-			);
-
+			// check body for php signature
+			//
 			$this->secure = false;
-			if( ( strpos( $body, 'END PGP SIGNATURE' ) != FALSE ) || ( strpos( $body, 'END GPG SIGNATURE' ) != FALSE ) ){
+			if ((strpos($body, 'END PGP SIGNATURE') != FALSE) || (strpos($body, 'END GPG SIGNATURE') != FALSE)) {
 				$this->secure = true;
 			}
 
-			if( $user && filter_var( $user->email, FILTER_VALIDATE_EMAIL ) && ( trim( $user->email ) != '' ) && ( trim( $user->getFullName() ) != '' ) ){
-				Mail::send(array('text' => 'emails.admin'), $data, function($message) use ( $user ){
-					$message->to($user->email, $user->getFullName());
+			$user_email = '';
+			// Make sure user's email is valid
+			if (filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+				$user_email = $user->email;
+			}
+			$user_fullname = trim($user->getFullName());
+			if (strlen($user_email) > 0) {
+				$cfg = array(
+					'user' => $user,
+					'body' => $body
+				);
+				Mail::send(array('text' => 'emails.admin'), $cfg, function($message) use ($user_email, $user_fullname) {
+					$message->to($user_email, $user_fullname);
 					$message->subject($this->subject);
-					if( $this->secure ){
-						$message->from('security@continuousassurance.org');
+
+					if ($this->secure) {
+						$message->from(Config::get('mail.security.address'));
+
 					}
 				});
 			} else {
-				$failures->push(array( 'user' => $user->toArray(), 'email' => $email ));
+				$failures->push(array(
+					'user' => $user->toArray(), 
+					'email' => $email
+				));
 			}
-
 		}
 
 		return $failures;

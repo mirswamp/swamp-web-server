@@ -14,10 +14,10 @@
 		Dear {{ $user->getFullName() }},
 		<br />
 		<br />
-		You have recently requested a username reminder.  Your username is:  {{ $user->username }}
+		You have recently requested a username reminder. Your username is: {{ $user->username }}
 		<br />
 		<br />
-		If you did not request a username reminder or have other questions, please contact the SWAMP staff at: <a href="mailto:security@continuousassurance.org">security@continuousassurance.org</a>
+		If you did not request a username reminder or have other questions, please contact the SWAMP staff at: {{ Config::get('mail.contact.address') }} .
 		<br />
 		<br />
 		-The Software Assurance Marketplace (SWAMP)
