@@ -40,6 +40,7 @@ class ToolVersion extends UserStamped {
 		'platform_uuid',
 		
 		'version_string',
+		'version_no',
 		'release_date',
 		'retire_date',
 		'notes',
@@ -61,6 +62,7 @@ class ToolVersion extends UserStamped {
 		'package_type_names',
 		
 		'version_string',
+		'version_no',
 		'release_date',
 		'retire_date',
 		'notes'

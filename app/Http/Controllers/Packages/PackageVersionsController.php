@@ -428,34 +428,42 @@ class PackageVersionsController extends BaseController {
 			$packageVersionSharing->delete();
 		}
 
+		// create new sharing 
+		//
+		// Note: this is support for the old way of specifying sharing
+		// which is needed for backwards compatibility with API plugins).
+		//
+		$projects = Input::get('projects');
+		if ($projects) {
+			$packageVersionSharings = array();
+			if ($projects) {
+				foreach($projects as $project) {
+					$projectUid = $project['project_uid'];
+					$packageVersionSharing = new PackageVersionSharing(array(
+						'package_version_uuid' => $packageVersionUuid,
+						'project_uuid' => $projectUid
+					));
+					$packageVersionSharing->save();
+					$packageVersionSharings[] = $packageVersionSharing;
+				}
+			}
+		} 
+
 		// create new sharing
 		//
 		$projectUuids = Input::get('project_uuids');
-		$packageVersionSharings = array();
-		foreach ($projectUuids as $projectUuid) {
-			$packageVersionSharing = new PackageVersionSharing(array(
-				'package_version_uuid' => $packageVersionUuid,
-				'project_uuid' => $projectUuid
-			));
-			$packageVersionSharing->save();
-			$packageVersionSharings[] = $packageVersionSharing;
-		}	
-
-		/*
-		$projects = Input::get('projects');
-		$packageVersionSharings = array();
-		if ($projects) {
-			foreach($projects as $project) {
-				$projectUid = $project['project_uid'];
+		if ($projectUuids) {
+			$packageVersionSharings = array();
+			foreach ($projectUuids as $projectUuid) {
 				$packageVersionSharing = new PackageVersionSharing(array(
 					'package_version_uuid' => $packageVersionUuid,
-					'project_uuid' => $projectUid
+					'project_uuid' => $projectUuid
 				));
 				$packageVersionSharing->save();
 				$packageVersionSharings[] = $packageVersionSharing;
 			}
-		}
-		*/
+		}	
+
 		return $packageVersionSharings;
 	}
 
