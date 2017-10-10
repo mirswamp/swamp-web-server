@@ -18,8 +18,10 @@
 
 namespace App\Models\Executions;
 
-use Illuminate\Database\Eloquent\SoftDeletingTrait;
-use App\Models\TimeStamps\CreateStamped;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+use App\Models\TimeStamps\TimeStamped;
+use App\Models\Projects\Project;
 use App\Models\Packages\Package;
 use App\Models\Packages\PackageVersion;
 use App\Models\Tools\Tool;
@@ -27,14 +29,14 @@ use App\Models\Tools\ToolVersion;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 use App\Models\Assessments\AssessmentResult;
+use PDO;
 
-class ExecutionRecord extends CreateStamped {
+class ExecutionRecord extends TimeStamped {
 
 	/**
 	 * enable soft delete
 	 */	
-	//use SoftDeletingTrait;
-	//protected $dates = ['delete_date'];
+	use SoftDeletes;
 
 	/**
 	 * database attributes
@@ -203,12 +205,51 @@ class ExecutionRecord extends CreateStamped {
 		}
 	}
 	
-	public function getVmReadyFlagAttribute(){
+	public function getVmReadyFlagAttribute() {
 		return 
 			($this->vm_hostname != '') && 
 			($this->vm_username != '') && 
 			($this->vm_password != '') &&
 			($this->vm_ip_address != '')
 			? 1 : 0;
+	}
+
+	//
+	// querying methods
+	//
+
+	public function getProject() {
+		return Project::where('project_uid', '=', $this->project_uuid)->first();
+	}
+
+	//
+	// methods
+	//
+
+	public function kill() {
+
+		// create stored procedure call
+		//
+		$connection = DB::connection('assessment');
+		$pdo = $connection->getPdo();
+		$stmt = $pdo->prepare("CALL kill_assessment_run(:execution_record_uuid, @return_string);");
+
+		// bind params
+		//
+		$execution_record_uuid = $this->execution_record_uuid;
+		$returnString = null;
+		$stmt->bindParam(":execution_record_uuid", $execution_record_uuid, PDO::PARAM_STR, 45);
+
+		// call stored procedure
+		//
+		$stmt->execute();
+
+		// fetch return parameters
+		//
+		$select = $pdo->query('SELECT @return_string');
+		$results = $select->fetchAll();
+		$returnString = $results[0]["@return_string"];
+
+		return $returnString;
 	}
 }

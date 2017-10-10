@@ -328,7 +328,6 @@ class UsersController extends BaseController {
 				'email_verified_flag' => Input::get('email_verified_flag'),
 				'forcepwreset_flag' => Input::get('forcepwreset_flag'),
 				'hibernate_flag' => Input::get('hibernate_flag'),
-				'owner_flag' => Input::get('owner_flag'),
 				'user_type' => Input::get('user_type')
 			);
 

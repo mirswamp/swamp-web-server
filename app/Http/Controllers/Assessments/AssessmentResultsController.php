@@ -152,7 +152,20 @@ class AssessmentResultsController extends BaseController {
 			array('viewer_instance_uuid' => $viewerInstanceUuid)
 		);
 
-		if (StringUtils::endsWith($returnPath, '.html')) {
+		if (StringUtils::endsWith($returnPath, 'index.html')) {
+
+			// return a link to the results web page
+			//
+			$resultsUrl = str_replace('/swamp/outgoing', Config::get('app.url').'/results', $returnPath);
+			return array(
+				"assessment_results_uuid" => $assessmentResultsUuid,
+				"results_url" => $resultsUrl,
+				"results_status" => $returnString
+			);
+		} else if (StringUtils::endsWith($returnPath, '.html')) {
+
+			// return native results data
+			//
 			$options=array(
 				"ssl"=>array(
 					"verify_peer"=>false,

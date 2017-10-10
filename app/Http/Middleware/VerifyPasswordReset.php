@@ -52,15 +52,15 @@ class VerifyPasswordReset {
 
 					// not logged in
 					//
-					if ((!$request->has('password_reset_key')) || (!$request->has('password_reset_id'))) {
-						return response('Unable to modify user.', 401);
+					if ((!$request->has('password_reset_key'))) {
+						return response('Password reset key required.', 401);
 					}
 
 					// check for password reset
 					//
-					$passwordReset = PasswordReset::where('password_reset_id', '=', $request->input('password_reset_id'))->first();
-					if (!$passwordReset || !Hash::check($request->input('password_reset_key'), $passwordReset->password_reset_key)) {
-						return response('Unable to modify user.', 401);
+					$passwordReset = PasswordReset::where('password_reset_key', '=', $request->input('password_reset_key'))->first();
+					if (!$passwordReset) {
+						return response('Invalid password reset key.', 401);
 					}
 
 					// check for password reset expiration
@@ -73,7 +73,7 @@ class VerifyPasswordReset {
 
 					// logged in
 					//
-					if (($request->has('password_reset_key')) && ($request->has('password_reset_id'))) {
+					if ($request->has('password_reset_key')) {
 						break;
 					}
 					if (!$request->has('user_uid')) {

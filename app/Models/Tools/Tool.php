@@ -224,21 +224,9 @@ class Tool extends UserStamped {
 	}
 
 	public function getPermissionCode() {
-
-		// parasoft tools
-		//
-		if (stripos($this->name, 'parasoft') !== false) {
-			return stripos($this->name, 'C++') !== false ? 'parasoft-user-c-test' : 'parasoft-user-j-test';
-
-		// red lizard tools
-		//
-		} else if (stripos($this->name, 'red lizard') !== false) {
-			return 'red-lizard-user';
-
-		//codesonar tools
-		//
-		} else if (stripos($this->name, 'codesonar') !== false) {
-			return 'codesonar-user';
+		$permission = Permission::where('policy_code', '=', $this->policy_code)->first();
+		if ($permission) {
+			return $permission->permission_code;
 		}
 	}
 

@@ -75,24 +75,47 @@ class SWAMPStatus {
 		return $data_nodes;
 	}
 
+	// currently these translation values come from vmu_ViewerSupport.pm
+	// and must reconcile with the VIEWER_STATE values therein
+	private static function state_to_name($state) {
+		if ($state == 0) {
+			return "null";
+		}
+		if ($state == 1) {
+			return "launching";
+		}
+		if ($state == 2) {
+			return "ready";
+		}
+		if ($state == -1) {
+			return "stopping";
+		}
+		if ($state == -2) {
+			return "jobdir";
+		}
+		if ($state == -3) {
+			return "shutdown";
+		}
+	}
+
 	public static function get_collector_records($collector_host, $title) {
 		$global_fields['assessment'] = [
 			'Name', 
 			'SWAMP_vmu_assessment_vmhostname', 
-			'SWAMP_vmu_assessment_status'
+			'SWAMP_vmu_assessment_projectid',
+			'SWAMP_vmu_assessment_status',
 		];
 		$global_constraint['assessment'] = "-constraint \"isString(SWAMP_vmu_assessment_status)\"";
 		$global_fields['viewer'] = [
-			'Name',
 			'SWAMP_vmu_viewer_vmhostname',
 			'SWAMP_vmu_viewer_name',
 			'SWAMP_vmu_viewer_state',
 			'SWAMP_vmu_viewer_status',
 			'SWAMP_vmu_viewer_vmip',
-			'SWAMP_vmu_viewer_project',
+			'SWAMP_vmu_viewer_projectid',
 			'SWAMP_vmu_viewer_instance_uuid',
 			'SWAMP_vmu_viewer_apikey',
-			'SWAMP_vmu_viewer_url_uuid'
+			'SWAMP_vmu_viewer_url_uuid',
 		];
 		$global_constraint['viewer'] = "-constraint \"isString(SWAMP_vmu_viewer_status)\"";
 		$fieldnames = [];
@@ -110,7 +133,13 @@ class SWAMPStatus {
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
 			$prefix = "SWAMP_vmu_" . $title . "_";
-			$fieldnames[0] = 'execrunuid';
+			// special case to convert Name to execrunuid
+			if ($fields[0] == 'Name') {
+				$fieldnames[0] = 'execrunuid';
+			}
+			else {
+				$fieldnames[0] = str_replace($prefix, '', $fields[0]);
+			}
 			for ($i = 1; $i < sizeof($fields); $i++) {
 				$fieldnames[$i] = str_replace($prefix, '', $fields[$i]);
 			}
@@ -120,6 +149,9 @@ class SWAMPStatus {
 				for ($n = 0; $n < sizeof($fieldnames); $n++) {
 					$fieldname = $fieldnames[$n];
 					$crecord[$fieldname] = str_replace(array('"', ','), '',  trim($temp[$n]));
+					if ($fieldname === 'state') {
+						$crecord[$fieldname] = SWAMPStatus::state_to_name($crecord[$fieldname]);
+					}
 				}
 				$crecords[] = $crecord;
 			}
@@ -144,17 +176,28 @@ class SWAMPStatus {
 		$jobs = [];
 		$summary = [];
 		$command = "condor_q -allusers";
+		$localhost = true;
 		if ($submit_node != $hostname) {
 			// modify command to use pool and name
 			$command .= " -pool $condor_manager -name $submit_node";
+			$localhost = false;
 		}
 		$time_now = time();
-		$command .= " -long -attributes Owner,Match_UidDomain,ClusterId,ProcId,Cmd,RemoteHost,QDate,JobStartDate,JobStatus,JobPrio,ImageSize,DiskUsage,SWAMP_arun_execrunuid,SWAMP_mrun_execrunuid,SWAMP_vrun_execrunuid";
+		$command .= " -long -attributes Owner,Match_UidDomain,ClusterId,ProcId,Cmd";
+		if ($localhost === false) {
+			$command .= ",RemoteHost";
+		}
+		$command .= ",QDate,JobStartDate,JobStatus,JobPrio,ImageSize,DiskUsage,SWAMP_arun_execrunuid,SWAMP_mrun_execrunuid,SWAMP_vrun_execrunuid";
 		exec($command, $output, $returnVar);
 		// echo "Output: "; print_r($output); echo "\n";
 		// echo "returnVar: "; print_r($returnVar); echo "\n";
 		if (($returnVar == 0) && (! empty($output))) {
-			$fieldnames = ['EXECRUNUID', 'JOBID', 'CMD', 'SUBMITTED', 'RUN TIME', 'ST', 'PRI', 'IMAGE', 'DISK', 'HOST', 'VM'];
+			// $fieldnames = ['EXECRUNUID', 'JOBID', 'CMD', 'SUBMITTED', 'RUN TIME', 'ST', 'PRI', 'IMAGE', 'DISK'];
+			$fieldnames = ['EXECRUNUID', 'CMD', 'SUBMITTED', 'RUN TIME', 'ST', 'PRI', 'IMAGE', 'DISK'];
+			if ($localhost === false) {
+				$fieldnames[] = 'HOST';
+			}
+			$fieldnames[] = 'VM';
 			$summary = array(
 				'jobs'		=> 0,
 				'completed'	=> 0,
@@ -173,7 +216,7 @@ class SWAMPStatus {
 			for ($i = 0; $i < sizeof($output); $i++) {
 				// start_new_job on empty line
 				if (empty($output[$i])) {
-					$job['JOBID'] = $clusterid . '.' . $procid;
+					// $job['JOBID'] = $clusterid . '.' . $procid;
 					// echo "JOBID: ", $job['JOBID'], "\n";
 					if (! empty($owner) && ! empty($uid_domain)) {
 						$job['VM'] = $owner . '_' . $uid_domain . '_' . $clusterid . '_' . $procid;
@@ -335,12 +378,11 @@ class SWAMPStatus {
 		$vmuA = [];
 		$vmuV = [];
 		$vmu = [];
-		$java = [];
 		$other = [];
-		$command = "ps aux | egrep 'PID|vmu_|/bin/java' | grep -v grep";
+		$command = "ps aux | egrep 'PID|vmu_' | grep -v grep";
 		if ($host != $hostname) {
 			// multi-host currently not implemented
-			$processes = array_merge($vmuA, $vmuV, $vmu, $java, $other);
+			$processes = array_merge($vmuA, $vmuV, $vmu, $other);
 			$ra = array('fieldnames' => $fieldnames, 'data' => $processes);
 			return $ra;
 			// modify command to use ssh or other remote access method
@@ -373,9 +415,6 @@ class SWAMPStatus {
 					elseif (preg_match("/vmu_.*.pl/", $process[$commandfield])) {
 						$vmu[] = $process;
 					}
-					elseif (preg_match("/java/", $process[$commandfield])) {
-						$java[] = $process;
-					}
 					else {
 						$other[] = $process;
 					}
@@ -384,7 +423,7 @@ class SWAMPStatus {
 			// sort vmuA and vmuV on clusterid at end of COMMAND field
 			usort($vmuA, SWAMPStatus::_sort_on_clusterid($commandfield));
 			usort($vmuV, SWAMPStatus::_sort_on_clusterid($commandfield));
-			$processes = array_merge($vmuA, $vmuV, $vmu, $java, $other);
+			$processes = array_merge($vmuA, $vmuV, $vmu, $other);
 		}
 		// if there are no processes in final list then clear fieldnames for consistency
 		if (empty($processes)) $fieldnames = [];
@@ -531,25 +570,62 @@ class SWAMPStatus {
 				$brcount = 2;
 				if ($title == 'Condor Queue') {
 					$brcount = 1;
-				}
-				// annotate execrunuid with link to Assessment Run Status page
-				// /#runs/<execrunuid>/status
-				elseif ($title == 'Collector Assessment Records') {
+					$fieldnames = &$table[$machine]['fieldnames'];
 					$data = &$table[$machine]['data'];
+					// Log::info("*****");
+					// Log::info("queue fieldnames: " . serialize($fieldnames));
+					// Log::info("queue data: " . serialize($data));
+					// Log::info("*****");
 					for ($n = 0; $n < sizeof($data); $n++) {
-						$execrunuid = $data[$n]['execrunuid'];
-						$link = '/#runs/' . $execrunuid . '/status';
-						$data[$n]['execrunuid'] = "<a href=\"$link\" target=\"_blank\">$execrunuid</a>";
+						// EXECRUNUID is the 0th element
+						$execrunuid = $data[$n][0];
+						// execrunuid is an mrun - do not annotate
+						if (preg_match("/^M-/", $execrunuid)) {
+							continue;
+						}
+						// execrunuid is a vrun - annotate execrunuid with link to Project page
+						if (preg_match("/^vrun_/", $execrunuid)) {
+							$execrunuid = preg_replace('/^vrun_/', '', $execrunuid);
+							$execrunuid = preg_replace('/_.*$/', '', $execrunuid);
+							$link = '/#projects/' . $execrunuid;
+						}
+						// execrunuid is an arun - annotate execrunuid with link to Run Status page
+						else {
+							$link = '/#runs/' . $execrunuid . '/status';
+						}
+						$data[$n][0] = "<a href=\"$link\" target=\"_blank\">$execrunuid</a>";
 					}
 				}
-				// annotate projectuid with link to Project page
-				// /#projects/<projectuid>
+				elseif ($title == 'Collector Assessment Records') {
+					$fieldnames = &$table[$machine]['fieldnames'];
+					$data = &$table[$machine]['data'];
+					// Log::info("=====");
+					// Log::info("collector fieldnames: " . serialize($fieldnames));
+					// Log::info("collector data: " . serialize($data));
+					// Log::info("=====");
+					for ($n = 0; $n < sizeof($data); $n++) {
+						$execrunuid = $data[$n]['execrunuid'];
+						// execrunuid is an mrun - do not annotate
+						if (preg_match("/^M-/", $execrunuid)) {
+							continue;
+						}
+						// annotate execrunuid with link to Run Status page
+						$link = '/#runs/' . $execrunuid . '/status';
+						$data[$n]['execrunuid'] = "<a href=\"$link\" target=\"_blank\">$execrunuid</a>";
+						// annotate projectid with link to Project page
+						$projectid = $data[$n]['projectid'];
+						$link = '/#projects/' . $projectid;
+						$data[$n]['projectid'] = "<a href=\"$link\" target=\"_blank\">$projectid</a>";
+					}
+				}
+				// annotate projectid with link to Project page
+				// /#projects/<projectid>
 				elseif ($title == 'Collector Viewer Records') {
 					$data = &$table[$machine]['data'];
 					for ($n = 0; $n < sizeof($data); $n++) {
-						$projectuid = $data[$n]['project'];
-						$link = '/#projects/' . $projectuid;
-						$data[$n]['project'] = "<a href=\"$link\" target=\"_blank\">$projectuid</a>";
+						$projectid = $data[$n]['projectid'];
+						$link = '/#projects/' . $projectid;
+						$data[$n]['projectid'] = "<a href=\"$link\" target=\"_blank\">$projectid</a>";
 					}
 				}
 				$rstring .= SWAMPStatus::html_table($table[$machine], $brcount);
@@ -669,10 +745,16 @@ class SWAMPStatus {
 		if (isset($all_vm)) {
 			$ra['Virtual Machines'] = $all_vm;
 		}
+
 		// Return the data table object
-		// return $ra;
-		// Return an html decorated string
-		return SWAMPStatus::html_results($ra);
+		//
+		return $ra;
 	}
 
+	public static function getCurrentHtml() {
+
+		// Return an html decorated string
+		//
+		return self::html_results(self::getCurrent());
+	}
 }

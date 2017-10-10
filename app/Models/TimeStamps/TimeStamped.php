@@ -19,27 +19,22 @@
 
 namespace App\Models\TimeStamps;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Input;
-use App\Models\BaseModel;
+use App\Models\TimeStamps\CreateStamped;
 
-class TimeStamped extends BaseModel {
-
-	// attributes
-	//
-	public $timestamps = true;
+class TimeStamped extends CreateStamped {
 
 	// use non-standard timestamp field names
 	//
 	const CREATED_AT = 'create_date';
 	const UPDATED_AT = 'update_date';
+	const DELETED_AT = 'delete_date';
 
 	protected $visible = array(
 
 		// timestamp attributes
 		//
 		'create_date',
-		'update_date'
+		'update_date',
+		'delete_date'
 	);
 }

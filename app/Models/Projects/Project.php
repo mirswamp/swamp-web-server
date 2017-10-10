@@ -77,7 +77,7 @@ class Project extends CreateStamped {
 	);
 
 	/**
-	 * methods
+	 * querying methods
 	 */
 
 	public function getEvents() {
@@ -119,6 +119,10 @@ class Project extends CreateStamped {
 			->exists();
 	}
 
+	public function isTrialProject() {
+		return strval($this->trial_project_flag) == '1';
+	}
+
 	/**
 	 * permission methods
 	 */
@@ -136,7 +140,7 @@ class Project extends CreateStamped {
 	 */
 
 	public function isOwnedBy($user) {
-		return $this->project_owner_uid == $user->user_uid;
+		return $user && $this->project_owner_uid == $user->user_uid;
 	}
 
 	public function isReadableBy($user) {

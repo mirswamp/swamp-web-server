@@ -51,61 +51,65 @@ class PasswordResetsController extends BaseController {
 		//
 		PasswordReset::where('user_uid', '=', $user->user_uid)->delete();
 
-		// create new password reset
+		// create and send password reset
 		//
-		$passwordResetNonce = $nonce = Guid::create();
+		$nonce = uniqid('', true);
 		$passwordReset = new PasswordReset(array(
-			'password_reset_key' => Hash::make($passwordResetNonce),
+			'password_reset_uuid' => Guid::create(),
+			'password_reset_key' => Hash::make($nonce),
 			'user_uid' => $user->user_uid
 		));
 		$passwordReset->save();
-
-		// send password reset email
-		//
 		$passwordReset->send($nonce);
 
-		return response()->json(array(
-			'success' => true
-		));
+		return Response::json(array('success' => true));
+	}
+
+	// get by index
+	//
+	public function getIndex($passwordResetUuid) {
+		return PasswordReset::where('password_reset_uuid', '=', $passwordResetUuid)->first();
 	}
 
 	// get by key
 	//
-	public function getIndex($passwordResetNonce, $passwordResetId){
-		$passwordReset = PasswordReset::where('password_reset_id', '=', $passwordResetId)->first();
+	public function getByKey($passwordResetKey) {
+		return PasswordReset::where('password_reset_key', '=', $passwordResetKey)->first();
+	}
+
+	// get by index and nonce
+	//
+	public function getByIndexAndNonce($passwordResetUuid, $passwordResetNonce) {
+		$passwordReset = $this->getIndex($passwordResetUuid);
 
 		if (!$passwordReset) {
-			return response('Password reset key not found.', 401);
+			return Response::make('Password reset key not found.', 401);
 		}
 
 		if (!Hash::check($passwordResetNonce, $passwordReset->password_reset_key)) {
-			return response('Password reset key invalid.', 401);
+			return Response::make('Password reset key invalid.', 401);
 		}
 
-		$time = new DateTime( $passwordReset->create_date, new DateTimeZone('GMT') );
+		$time = new DateTime($passwordReset->create_date, new DateTimeZone('GMT'));
 		if ((gmdate('U') - $time->getTimestamp()) > 1800) {
-			return response('Password reset key expired.', 401);
+			return Response::make('Password reset key expired.', 401);
 		}
-
-		unset($passwordReset->user_uid );
-		unset($passwordReset->email );
-		unset($passwordReset->create_date);
-		unset($passwordReset->password_reset_key);
 
 		return $passwordReset;
 	}
 
 	// update password
 	//
-	public function updateIndex($passwordResetId) {
+	public function updateIndex() {
 
 		// get input parameters
 		//
 		$password = Input::get('password');
+		$passwordResetKey = Input::get('password_reset_key');
 
 		// get models
 		//
-		$passwordReset = PasswordReset::where('password_reset_id', '=', $passwordResetId)->first();
+		$passwordReset = $this->getByKey($passwordResetKey);
 		$user = User::getIndex($passwordReset->user_uid);
 
 		if ($user) {
@@ -170,10 +174,10 @@ class PasswordResetsController extends BaseController {
 		return response()->json(array('success' => true));
 	}
 
-	// delete by key
+	// delete by index
 	//
-	public function deleteIndex($passwordResetNonce) {
-		$passwordReset = PasswordReset::where('password_reset_key', '=', Hash::make( $passwordResetNonce ))->first();
+	public function deleteIndex($passwordResetUuid) {
+		$passwordReset = $this->getIndex($passwordResetUuid);
 		$passwordReset->delete();
 		return $passwordReset;
 	}

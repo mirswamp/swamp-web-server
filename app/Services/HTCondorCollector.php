@@ -26,15 +26,19 @@ use App\Models\Viewers\ViewerInstance;
 use Illuminate\Support\Facades\Config;
 
 class HTCondorCollector {
-	public static function getVMIP($proxyUrl) {
-		$vm_ip = "";
+	public static function getViewerData($proxyUrl) {
+		$retval = "";
 		$HTCONDOR_COLLECTOR_HOST = Config::get('app.htcondorcollectorhost');
-		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_viewer_vmip -constraint SWAMP_vmu_viewer_url_uuid==\\\"$proxyUrl\\\"";
+		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_viewer_vmip SWAMP_vmu_viewer_projectid -constraint SWAMP_vmu_viewer_url_uuid==\\\"$proxyUrl\\\"";
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
-			$vm_ip = str_replace('"', '', $output[0]);
+			$retval = preg_split("/,/", $output[0]);
+			foreach ($retval as &$value) {
+				$value = trim($value);
+				$value = str_replace('"', '', $value);
+			}
 		}
-		return $vm_ip;
+		return $retval;
 	}
 
 	public static function getViewerInstance($viewerInstanceUuid) {

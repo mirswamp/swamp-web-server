@@ -61,6 +61,12 @@ class VerifyProject {
 				if (!$projectUid) {
 					$projectUid = $request->route()->getParameter('project_uuid');	
 				}
+
+				// skip checking if no project is specified
+				//
+				if (!$projectUid) {
+					break;
+				}
 				
 				if (!strpos($projectUid, '+')) {
 

@@ -1,6 +1,7 @@
 # Laravel ignores
 # we will no longer be ignoring laravel files
 #vendor
+/storage/
 
 # Vim ignores
 [._]*.s[a-w][a-z]
@@ -11,6 +12,11 @@
 *.DS_Store
 *.env
 *.env.local
+public/version.json
 
 # environment ignores
 /.env
+
+# testing files
+app/Http/Controllers/Utilities/status.json
+app/Http/Controllers/Assessments/output.json

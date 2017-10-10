@@ -40,23 +40,11 @@ class ProjectsController extends BaseController {
 	//
 	public function postCreate() {
 
-		// check project owner permission
+		// create new project
 		//
-		$currentUserUid = Session::get('user_uid');
-		$currentUser = User::getIndex($currentUserUid);
-		if (!$currentUser->hasOwnerPermission()) {
-			return response("This user does not have permission to create projects.", 401);
-		} else {
-			$permission = $currentUser->getOwnerPermission();
-			$status = $permission->getStatus();
-			if ($status != 'granted') {
-				return response("This user's project owner permission is ".$status.".", 401);
-			}
-		}
-
 		$project = new Project(array(
 			'project_uid' => Guid::create(),
-			'project_owner_uid' => $currentUserUid,
+			'project_owner_uid' => Session::get('user_uid'),
 			'full_name' => Input::get('full_name'),
 			'short_name' => Input::get('short_name'),
 			'description' => Input::get('description'),

@@ -80,9 +80,8 @@ Route::group(['middleware' => 'verify.config'], function () {
 	//
 	Route::group(['middleware' => 'verify.password_reset'], function () {
 		Route::post('password_resets', 'Users\PasswordResetsController@postCreate');
-		Route::get('password_resets/{password_reset_key}/{password_reset_id}', 'Users\PasswordResetsController@getIndex');
-		Route::put('password_resets/{password_reset_id}/reset', 'Users\PasswordResetsController@updateIndex');
-		Route::delete('password_resets/{password_reset_key}/{password_reset_id}', 'Users\PasswordResetsController@deleteIndex');
+		Route::get('password_resets/{password_reset_uuid}/{password_reset_nonce}', 'Users\PasswordResetsController@getByIndexAndNonce');
+		Route::put('password_resets/reset', 'Users\PasswordResetsController@updateIndex');
 	});
 
 	// oauth2 login routes
@@ -106,8 +105,10 @@ Route::group(['middleware' => 'verify.config'], function () {
 	Route::group(['middleware' => 'auth'], function () {
 
 		// proxy routes
-		// 
-		Route::any('{all}', 'Proxies\ProxyController@proxyCodeDxRequest')->where('all', '^proxy-.*');
+		//
+		Route::group(['middleware' => 'verify.project'], function () {
+			Route::any('{all}', 'Proxies\ProxyController@proxyCodeDxRequest')->where('all', '^proxy-.*');
+		});
 
 		// linked account routes
 		//
@@ -483,6 +484,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 			Route::get('execution_records/all', 'Executions\ExecutionRecordsController@getAll');
 			Route::get('execution_records/{execution_record_uuid}', 'Executions\ExecutionRecordsController@getIndex');
 			Route::get('execution_records/{execution_record_uuid}/ssh_access', 'Executions\ExecutionRecordsController@getSshAccess');
+			Route::put('execution_records/{execution_record_uuid}/kill', 'Executions\ExecutionRecordsController@killIndex');
 			Route::delete('execution_records/{execution_record_uuid}', 'Executions\ExecutionRecordsController@deleteIndex');
 		});
 

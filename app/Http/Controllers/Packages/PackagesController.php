@@ -79,7 +79,7 @@ class PackagesController extends BaseController {
 
 	// get all for admin user
 	//
-	public function getAll(){
+	public function getAll() {
 		$user = User::getIndex(Session::get('user_uid'));
 		if ($user && $user->isAdmin()) {
 

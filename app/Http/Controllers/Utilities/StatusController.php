@@ -23,6 +23,12 @@ use App\Services\SWAMPStatus;
 
 class StatusController extends BaseController {
 	public function getCurrent() {
-		return SWAMPStatus::getCurrent();
+
+		// read from local JSON file (testing)
+		//
+		//$string = file_get_contents(__DIR__ .'/status.json');
+		//return json_decode($string, true);
+
+		return SWAMPStatus::getCurrentHtml();
 	}
 }

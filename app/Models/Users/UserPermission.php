@@ -54,6 +54,7 @@ class UserPermission extends CreateStamped {
 	protected $visible = array(
 		'user_uid',
 		'permission_code',
+		'auto_approve_flag',
 		'user_comment',
 		'admin_comment',
 		'request_date',
@@ -72,6 +73,7 @@ class UserPermission extends CreateStamped {
 	protected $appends = array(
 		'status',
 		'permission',
+		'auto_approve_flag',
 		'user_full_name'
 	);
 
@@ -90,6 +92,13 @@ class UserPermission extends CreateStamped {
 		}
 	}
 
+	public function getAutoApproveFlagAttribute() {
+		$permission = Permission::where('permission_code', '=', $this->permission_code)->first();
+		if ($permission) {
+			return $permission->auto_approve_flag;
+		}
+	}
+
 	public function getUserFullNameAttribute() {
 		$user = User::getIndex($this->user_uid);
 		if ($user) {
@@ -98,23 +107,73 @@ class UserPermission extends CreateStamped {
 	}
 
 	/**
+	 * setting methods
+	 */
+
+	public function setStatus($status) {
+		switch ($status) {
+			case 'revoked':
+				$this->delete_date = gmdate('Y-m-d H:i:s');
+				$this->expiration_date = null;
+				$this->grant_date = null;
+				$this->denial_date = null;
+			break;
+			case 'denied':
+				$this->delete_date = null;
+				$this->expiration_date = null;
+				$this->grant_date = null;
+				$this->denial_date = gmdate('Y-m-d H:i:s');
+			break;
+			case 'granted':
+				$this->delete_date = null;
+				$this->expiration_date = gmdate('Y-m-d H:i:s', time() + ( 60 * 60 * 24 * 365 ));
+				$this->grant_date = gmdate('Y-m-d H:i:s');
+				$this->denial_date = null;
+			break;
+			case 'expired':
+				$this->expiration_date = gmdate('Y-m-d H:i:s', time() - 60);
+				$this->denial_date = null;
+			break;
+			case 'pending':
+				$this->delete_date = null;
+				$this->expiration_date = null;
+				$this->grant_date = null;
+				$this->denial_date = null;
+				$this->request_date = gmdate('Y-m-d H:i:s');
+			break;
+		}
+	}
+
+	/**
 	 * querying methods
 	 */
 
+	public function isDenied() {
+		return $this->denial_date && (gmdate('Y-m-d H:i:s') >= $this->denial_date);
+	}
+
+	public function isExpired() {
+		return $this->expiration_date && (gmdate('Y-m-d H:i:s') >= $this->expiration_date);
+	}
+
+	public function isRevoked() {
+		return $this->delete_date && (gmdate('Y-m-d H:i:s') >= $this->delete_date);
+	}
+
+	public function isGranted() {
+		return $this->grant_date && (gmdate('Y-m-d H:i:s') >= $this->grant_date);
+	}
+
 	public function getStatus() {
-		if( $this->denial_date && ( gmdate('Y-m-d H:i:s') > $this->denial_date ) ){
+		if ($this->isDenied()) {
 			return 'denied';
-		}
-		else if( $this->expiration_date && ( gmdate('Y-m-d H:i:s') > $this->expiration_date ) ){
+		} else if ($this->isExpired()) {
 			return 'expired';
-		}
-		else if( $this->delete_date && ( gmdate('Y-m-d H:i:s') > $this->delete_date ) ){
+		} else if ($this->isRevoked()) {
 			return 'revoked';
-		}
-		else if( $this->grant_date && ( gmdate('Y-m-d H:i:s') > $this->grant_date ) ){
+		} else if ($this->isGranted()) {
 			return 'granted';
-		}
-		else {
+		} else {
 			return 'pending';
 		}
 	}

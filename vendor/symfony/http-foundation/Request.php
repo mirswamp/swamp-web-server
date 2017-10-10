@@ -850,7 +850,7 @@ class Request
      * ("Client-Ip" for instance), configure it via "setTrustedHeaderName()" with
      * the "client-ip" key.
      *
-     * @return string The client IP address
+     * @return string|null The client IP address
      *
      * @see getClientIps()
      * @see http://en.wikipedia.org/wiki/X-Forwarded-For
@@ -956,13 +956,13 @@ class Request
      * If your reverse proxy uses a different header name than "X-Forwarded-Port",
      * configure it via "setTrustedHeaderName()" with the "client-port" key.
      *
-     * @return string
+     * @return int|string can be a string if fetched from the server bag
      */
     public function getPort()
     {
         if ($this->isFromTrustedProxy()) {
             if (self::$trustedHeaders[self::HEADER_CLIENT_PORT] && $port = $this->headers->get(self::$trustedHeaders[self::HEADER_CLIENT_PORT])) {
-                return $port;
+                return (int) $port;
             }
 
             if (self::$trustedHeaders[self::HEADER_CLIENT_PROTO] && 'https' === $this->headers->get(self::$trustedHeaders[self::HEADER_CLIENT_PROTO], 'http')) {
@@ -1211,9 +1211,9 @@ class Request
     public function getHost()
     {
         if ($this->isFromTrustedProxy() && self::$trustedHeaders[self::HEADER_CLIENT_HOST] && $host = $this->headers->get(self::$trustedHeaders[self::HEADER_CLIENT_HOST])) {
-            $elements = explode(',', $host);
+            $elements = explode(',', $host, 2);
 
-            $host = $elements[count($elements) - 1];
+            $host = $elements[0];
         } elseif (!$host = $this->headers->get('HOST')) {
             if (!$host = $this->server->get('SERVER_NAME')) {
                 $host = $this->server->get('SERVER_ADDR', '');
@@ -1502,7 +1502,7 @@ class Request
     public function getContent($asResource = false)
     {
         $currentContentIsResource = is_resource($this->content);
-        if (PHP_VERSION_ID < 50600 && false === $this->content) {
+        if (\PHP_VERSION_ID < 50600 && false === $this->content) {
             throw new \LogicException('getContent() can only be called once when using the resource return type and PHP below 5.6.');
         }
 
@@ -1774,6 +1774,9 @@ class Request
 
         // Does the baseUrl have anything in common with the request_uri?
         $requestUri = $this->getRequestUri();
+        if ($requestUri !== '' && $requestUri[0] !== '/') {
+            $requestUri = '/'.$requestUri;
+        }
 
         if ($baseUrl && false !== $prefix = $this->getUrlencodedPrefix($requestUri, $baseUrl)) {
             // full $baseUrl matches
@@ -1846,8 +1849,11 @@ class Request
         }
 
         // Remove the query string from REQUEST_URI
-        if ($pos = strpos($requestUri, '?')) {
+        if (false !== $pos = strpos($requestUri, '?')) {
             $requestUri = substr($requestUri, 0, $pos);
+        }
+        if ($requestUri !== '' && $requestUri[0] !== '/') {
+            $requestUri = '/'.$requestUri;
         }
 
         $pathInfo = substr($requestUri, strlen($baseUrl));

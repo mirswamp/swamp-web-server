@@ -18,16 +18,9 @@
 
 namespace App\Models\TimeStamps;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Input;
 use App\Models\BaseModel;
 
 class CreateStamped extends BaseModel {
-
-	// attributes
-	//
-	public $timestamps = true;
 
 	// use non-standard timestamp field names
 	//
@@ -39,20 +32,4 @@ class CreateStamped extends BaseModel {
 		//
 		'create_date'
 	);
-
-	//
-	// methods
-	//
-
-	public function setUpdatedAt($value)
-	{
-		// do nothing
-		//
-	}
-
-	public function getUpdatedAtColumn()
-	{
-		// do nothing
-		//
-	}
 }

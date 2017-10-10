@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use App\Models\Projects\Project;
 use App\Models\Executions\ExecutionRecord;
 use App\Models\Packages\PackageVersion;
@@ -49,7 +50,7 @@ class ExecutionRecordsController extends BaseController {
 	// get ssh access
 	//
 	public function getSshAccess($executionRecordUuid){
- 		$permission = UserPermission::where('user_uid','=',Session::get('user_uid'))->where('permission_code','=','ssh-access')->first();
+		$permission = UserPermission::where('user_uid','=',Session::get('user_uid'))->where('permission_code','=','ssh-access')->first();
 		if (!$permission) {
 			return response('You do not have permission to access SSH information.', 401);
 		}
@@ -67,11 +68,24 @@ class ExecutionRecordsController extends BaseController {
 
 		if( ! $vm_ip ) return response('Request timed out.',500);
 
-		// floodlight rules
-		//
 		$address = Config::get('app.floodlight') . '/wm/core/controller/switches/json';
 		$result = `curl -X GET $address`;
 		$switches = json_decode( $result );
+		// floodlight controller switch result is not available
+		// this could be a non floodlight controlled environment
+		// return vm_* data and warn user that they must be in ip space
+		// that allows access to vm via ssh for it to succeed
+		if (! $switches || ! is_array($switches)) {
+			return array(
+				'src_ip'		=> $_SERVER['REMOTE_ADDR'],
+				'vm_hostname'	=> $record->vm_hostname,
+				'vm_ip'			=> $vm_ip,
+				'vm_username'	=> $record->vm_username,
+				'vm_password'	=> $record->vm_password
+			);
+		}
+		// setup floodlight rules for vm_ip
+		//
 		$results = array();		
 		$id = 1;
 		foreach( $switches as $switch ){
@@ -134,36 +148,40 @@ class ExecutionRecordsController extends BaseController {
 			//
 			$executionRecordsQuery = ExecutionRecord::where('project_uuid', '=', $projectUuid);
 		
-			// add filters
+			// add triplet filter
 			//
-			$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
 			$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, $projectUuid);
 		} else {
 
 			// get by multiple projects
 			//
 			$projectUuids = explode('+', $projectUuid);
-			foreach ($projectUuids as $projectUuid) {
+			$executionRecordsQuery =ExecutionRecord::where(function($query) use ($projectUuids) {
+				foreach ($projectUuids as $projectUuid) {
 
-				// check for inactive or non-existant project
-				//
-				$project = Project::where('project_uid', '=', $projectUuid)->first();
-				if (!$project || !$project->isActive()) {
-					continue;
-				}
+					// check for inactive or non-existant project
+					//
+					$project = Project::where('project_uid', '=', $projectUuid)->first();
+					if (!$project || !$project->isActive()) {
+						continue;
+					}
 
-				if (!isset($executionRecordsQuery)) {
-					$executionRecordsQuery = ExecutionRecord::where('project_uuid', '=', $projectUuid);
-				} else {
-					$executionRecordsQuery = $executionRecordsQuery->orWhere('project_uuid', '=', $projectUuid);
+					if (!isset($query)) {
+						$query = ExecutionRecord::where('project_uuid', '=', $projectUuid);
+					} else {
+						$query = $query->orWhere('project_uuid', '=', $projectUuid);
+					}
+
+					// add triplet filter
+					//
+					$query = TripletFilter2::apply($query, $projectUuid);
 				}
-			
-				// add filters
-				//
-				$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
-				$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, $projectUuid);
-			}
+			});
 		}
+
+		// add date filter
+		//
+		$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
 
 		// order results before applying filter
 		//
@@ -172,10 +190,6 @@ class ExecutionRecordsController extends BaseController {
 		// add limit filter
 		//
 		$executionRecordsQuery = LimitFilter::apply($executionRecordsQuery);
-
-		// allow soft delete
-		//
-		$executionRecordsQuery = $executionRecordsQuery->whereNull('delete_date');
 
 		// execute query
 		//
@@ -193,37 +207,40 @@ class ExecutionRecordsController extends BaseController {
 			//
 			$executionRecordsQuery = ExecutionRecord::where('project_uuid', '=', $projectUuid);
 		
-			// add filters
+			// add triplet filter
 			//
-			$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
 			$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, $projectUuid);
 		} else {
 
 			// get by multiple projects
 			//
 			$projectUuids = explode('+', $projectUuid);
-			$executionRecordsQuery = ExecutionRecord::where('project_uuid', '=', $projectUuids[0]);
-			
-			// add filters
-			//
-			$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
-			$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, $projectUuid);
+			$executionRecordsQuery =ExecutionRecord::where(function($query) use ($projectUuids) {
+				foreach ($projectUuids as $projectUuid) {
 
-			// add queries for each successive project in list
-			//
-			for ($i = 1; $i < sizeof($projectUuids); $i++) {
-				$executionRecordsQuery = $executionRecordsQuery->orWhere('project_uuid', '=', $projectUuids[$i]);
-			
-				// add filters
-				//
-				$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
-				$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, $projectUuid);
-			}
+					// check for inactive or non-existant project
+					//
+					$project = Project::where('project_uid', '=', $projectUuid)->first();
+					if (!$project || !$project->isActive()) {
+						continue;
+					}
+
+					if (!isset($query)) {
+						$query = ExecutionRecord::where('project_uuid', '=', $projectUuid);
+					} else {
+						$query = $query->orWhere('project_uuid', '=', $projectUuid);
+					}
+
+					// add triplet filter
+					//
+					$query = TripletFilter2::apply($query, $projectUuid);
+				}
+			});
 		}
 
-		// allow soft delete
+		// add date filter
 		//
-		$executionRecordsQuery = $executionRecordsQuery->whereNull('delete_date');
+		$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
 
 		// execute query
 		//
@@ -242,14 +259,31 @@ class ExecutionRecordsController extends BaseController {
 			$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
 			$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, null);
 			$executionRecordsQuery = LimitFilter::apply($executionRecordsQuery);
-
-			// allow soft delete
-			//
-			$executionRecordsQuery = $executionRecordsQuery->whereNull('delete_date');
 			
 			// Use HTCondor Collector
 			$result = $executionRecordsQuery->get();
 			return HTCondorCollector::insertStatuses($result);
+		}
+	}
+
+	// kill by index
+	//
+	public function killIndex($executionRecordUuid) {
+		$user = User::getIndex(Session::get('user_uid'));
+		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
+		$project = $executionRecord->getProject();
+
+		// check owner / membership
+		//
+		if ($user && ($project->isOwnedBy($user) || $project->hasMember($user)) || $user->isAdmin()) {
+
+			// kill execution record
+			//
+			$returnString = $executionRecord->kill();
+			$executionRecord->status = $returnString;
+			return $executionRecord;
+		} else {
+			return response('You do not have permission to kill this execution record.', 400);
 		}
 	}
 

@@ -19,11 +19,10 @@
 
 namespace App\Models\TimeStamps;
 
-use Illuminate\Support\Facades\Input;
 use App\Models\TimeStamps\TimeStamped;
 
 class UserStamped extends TimeStamped {
-
+	
 	/**
 	 * mass assignment policy
 	 */

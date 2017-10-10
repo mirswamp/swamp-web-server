@@ -634,6 +634,7 @@ class SessionController extends BaseController {
 		//
 		$passwordResetNonce = $nonce = Guid::create();
 		$passwordReset = new PasswordReset(array(
+			'password_reset_uuid' => Guid::create(),
 			'password_reset_key' => Hash::make($passwordResetNonce),
 			'user_uid' => $user->user_uid
 		));
@@ -659,6 +660,7 @@ class SessionController extends BaseController {
 		//
 		$passwordResetNonce = $nonce = Guid::create();
 		$passwordReset = new PasswordReset(array(
+			'password_reset_uuid' => Guid::create(),
 			'password_reset_key' => Hash::make($passwordResetNonce),
 			'user_uid' => $user->user_uid
 		));
@@ -810,7 +812,6 @@ class SessionController extends BaseController {
 					'user_uid' => $user->user_uid,
 					'promo_code_id' => null,
 					'enabled_flag' => 1,
-					'owner_flag' => 0,
 					'admin_flag' => 0,
 					'email_verified_flag' => Config::get('mail.enabled')? 1 : -1
 				));

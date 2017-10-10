@@ -54,6 +54,14 @@ class FeatureDetector
 
         $this->features = $features;
         $this->supported = $supported;
+
+        $this->isErrorClearLastSupported = function_exists('error_clear_last');
+
+        // @codeCoverageIgnoreStart
+        $this->nullErrorHandler = function () {
+            return false;
+        };
+        // @codeCoverageIgnoreEnd
     }
 
     /**
@@ -513,6 +521,18 @@ class FeatureDetector
             // @codeCoverageIgnoreEnd
         }
 
+        if (false === $result) {
+            if ($this->isErrorClearLastSupported) {
+                error_clear_last();
+                // @codeCoverageIgnoreStart
+            } else {
+                set_error_handler($this->nullErrorHandler);
+                @trigger_error('');
+                restore_error_handler();
+            }
+            // @codeCoverageIgnoreEnd
+        }
+
         error_reporting($reporting);
 
         return true === $result;
@@ -575,4 +595,6 @@ class FeatureDetector
     private $features;
     private $supported;
     private $runtime;
+    private $isErrorClearLastSupported;
+    private $nullErrorHandler;
 }

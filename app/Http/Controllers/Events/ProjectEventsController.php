@@ -44,7 +44,7 @@ class ProjectEventsController extends BaseController {
 
 			if ($projectUid != '') {
 				$project = Project::where('project_uid', '=', $projectUid)->first();
-				if ($project->isReadableBy($user)) {
+				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
 
 					// get events for a specific project
 					//
@@ -66,8 +66,9 @@ class ProjectEventsController extends BaseController {
 				if ($user) {
 					$projects = $user->getProjects();
 					for ($i = 0; $i < sizeOf($projects); $i++) {
-						if ($projects[$i] != null && $projects[$i]->isReadableBy($user)) {
-							$projectEventsQuery = $projects[$i]->getEventsQuery();
+						$project = $projects[$i];
+						if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
+							$projectEventsQuery = $project->getEventsQuery();
 
 							// apply filters
 							//
@@ -159,7 +160,7 @@ class ProjectEventsController extends BaseController {
 
 			if ($projectUid != '') {
 				$project = Project::where('project_uid', '=', $projectUid)->first();
-				if ($project->isReadableBy($user)) {
+				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
 
 					// get events for a specific project
 					//
@@ -181,8 +182,9 @@ class ProjectEventsController extends BaseController {
 				if ($user) {
 					$projects = $user->getProjects();
 					for ($i = 0; $i < sizeOf($projects); $i++) {
-						if ($projects[$i] != null && $projects[$i]->isReadableBy($user)) {
-							$userProjectEventsQuery = $projects[$i]->getUserEventsQuery();
+						$project = $projects[$i];
+						if ($projects && $project->isReadableBy($user) && !$project->isTrialProject()) {
+							$userProjectEventsQuery = $project->getUserEventsQuery();
 
 							// apply filters
 							//
@@ -218,7 +220,7 @@ class ProjectEventsController extends BaseController {
 
 			if ($projectUid != '') {
 				$project = Project::where('project_uid', '=', $projectUid)->first();
-				if ($project->isReadableBy($user)) {
+				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
 
 					// get events for a specific project
 					//
@@ -240,8 +242,9 @@ class ProjectEventsController extends BaseController {
 				if ($user) {
 					$projects = $user->getProjects();
 					for ($i = 0; $i < sizeOf($projects); $i++) {
-						if ($projects[$i] != null && $projects[$i]->isReadableBy($user)) {
-							$userProjectEventsQuery = $projects[$i]->getUserEventsQuery();
+						$project = $projects[$i];
+						if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
+							$userProjectEventsQuery = $project->getUserEventsQuery();
 
 							// apply filters
 							//

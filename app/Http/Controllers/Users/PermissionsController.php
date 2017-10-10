@@ -44,103 +44,123 @@ class PermissionsController extends BaseController {
 	// get projects by id
 	//
 	public function getPermissions($userUid) {
-		$active_user = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(Session::get('user_uid'));
 		$user = User::getIndex($userUid);
-		$permissions = Permission::all();
-		$user_permissions = UserPermission::where('user_uid', '=', $userUid)->get();
+		$permissions = Permission::orderBy('title', 'ASC')->get();
+		$userPermissions = UserPermission::where('user_uid', '=', $userUid)->get();
 		$results = array();
-		foreach( $permissions as $p ){
+
+		foreach ($permissions as $permission) {
 
 			// Only show admin assigned permissions to users to already have them
 			// Always show to admins
 			//
-			if( ! $active_user->isAdmin() && $p->admin_only_flag ){
-				$user_owned = false;
-				foreach( $user_permissions as $up )
-					if( $up->permission_code == $p->permission_code )
-						$user_owned = true;
-				if( ! $user_owned && ! $user->isAdmin() )
+			if (!$currentUser->isAdmin() && $permission->admin_only_flag) {
+				$userOwned = false;
+				foreach ($userPermissions as $userPermission) {
+					if ($userPermission->permission_code == $permission->permission_code) {
+						$userOwned = true;
+					}
+				}
+				if (!$userOwned && !$user->isAdmin()) {
 					continue;
+				}
 			}
 
 			$item = array();
 			$item['user_uid'] = $userUid;
-			$item['permission_code'] = $p->permission_code;
-			$item['title'] = $p->title;
-			$item['description'] = $p->description;
-			$item['policy_code'] = $p->policy_code;
+			$item['permission_code'] = $permission->permission_code;
+			$item['auto_approve_flag'] = $permission->auto_approve_flag;
+			$item['title'] = $permission->title;
+			$item['description'] = $permission->description;
+			$item['user_info'] = $permission->user_info;
+			$item['user_info_policy_text'] = $permission->user_info_policy_text;
+			$item['policy_code'] = $permission->policy_code;
 			$item['status'] = null;
-			foreach( $user_permissions as $up ){
-				if( $up->permission_code == $p->permission_code ){
-					$item['user_permission_uid'] = $up->user_permission_uid;
-					$item['expiration_date'] = $up->expiration_date;
-					$item['user_comment'] = $up->user_comment;
-					$item['admin_comment'] = $up->admin_comment;
-					$item['meta_information'] = $up->meta_information;
-					$item['status'] = $up->getStatus();
+
+			foreach ($userPermissions as $userPermission) {
+				if ($userPermission->permission_code == $permission->permission_code) {
+					$item['user_permission_uid'] = $userPermission->user_permission_uid;
+					$item['auto_approve_flag'] = $permission->auto_approve_flag;
+					$item['expiration_date'] = $userPermission->expiration_date;
+					$item['user_comment'] = $userPermission->user_comment;
+					$item['admin_comment'] = $userPermission->admin_comment;
+					$item['meta_information'] = $userPermission->meta_information;
+					$item['status'] = $userPermission->getStatus();
 				}
 			}
-			array_push( $results, $item );
+
+			array_push($results, $item);
 		}
 		
-		// Log the permissions request event
-		Log::info("Get permissions for user.",
-			array(
-				'requested_user_uid' => $userUid,
-			)
-		);
+		// log the permissions request event
+		//
+		Log::info("Get permissions for user.", array(
+			'requested_user_uid' => $userUid,
+		));
 
 		return $results;
 	}
 
-	public function lookupPermission($userUid, $permissionCode){
+	public function lookupPermission($userUid, $permissionCode) {
 		return UserPermission::where('user_uid', '=', $userUid)->where('permission_code', '=', $permissionCode)->first();
 	}
 
-	public function requestPermission($userUid, $permissionCode ){
+	public function requestPermission($userUid, $permissionCode) {
 
 		// Lookup relevant data
 		//
-		$active_user = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(Session::get('user_uid'));
 		$user = User::getIndex($userUid);
 		$permissions = Permission::all();
+		$permission = Permission::where('permission_code', '=', $permissionCode)->first();
 
-		$valid_permissions = [];
-		foreach( $permissions as $p )
-			$valid_permissions[] = $p->permission_code;
-		if( ! in_array($permissionCode, $valid_permissions ) )
+		// check for valid permission
+		//
+		if (!$permission) {
+			return response('No permission found corresponding to permission code.', 404);
+		}
+
+		// find valid permissions - requests for permissions that 
+		// the user already owns or do not exist should flag an error.
+		//
+		$validPermissions = [];
+		foreach ($permissions as $permission) {
+			$validPermissions[] = $permission->permission_code;
+		}
+
+		// report errors
+		//
+		if (!in_array($permissionCode, $validPermissions)) {
 			return response('Invalid permission code detected.', 400);
-
-		if( UserPermission::where('user_uid', '=', $userUid)->where('permission_code','=',$permissionCode)->first() )
+		}
+		if (UserPermission::where('user_uid', '=', $userUid)->where('permission_code', '=', $permissionCode)->first()) {
 			return response('Permission entry already exists.', 400);
+		}
 
-		$perm = new UserPermission(array(
+		$userPermission = new UserPermission(array(
 			'user_permission_uid' => Guid::create(),
 			'user_uid' => $userUid,
 			'permission_code' => $permissionCode,
-			'request_date' => gmdate('Y-m-d H:i:s'),
-			'user_comment' => ''
+			'request_date' => gmdate('Y-m-d H:i:s')
 		));
-		$perm->save();
+		$userPermission->save();
 
 		// send notification to admins that permission has been requested
 		//
-		if (Config::get('mail.enabled')) {
+		if (!$currentUser->isAdmin() && !$permission->isAutoApprove() && Config::get('mail.enabled')) {
 			$admins = UserAccount::where('admin_flag', '=', 1)->get();
-			foreach( $admins as $admin ){
+			foreach ($admins as $admin) {
 				$admin = User::getIndex($admin->user_uid);
 				if ($admin && $admin->email && filter_var($admin->email, FILTER_VALIDATE_EMAIL)) {
-
-					$cfg = array(
-						'new_permissions' => array( $permissionCode ),
+					Mail::send('emails.permission-request', array(
+						'new_permissions' => array($permissionCode),
 						'updated_permissions' => array(),
 						'meta_information' => false,
 						'url' => Config::get('app.cors_url') ?: '',
 						'comment' => '',
 						'user' => $user
-					);
-
-					Mail::send('emails.permission-request', $cfg, function($message) use ($admin) {
+					), function($message) use ($admin) {
 						$message->to($admin->email, $admin->getFullName());
 						$message->subject('SWAMP Permission Request');
 					});
@@ -148,103 +168,146 @@ class PermissionsController extends BaseController {
 			}
 		}
 
-		// Log the permissions request event
+		// log the permissions request event
+		//
 		Log::info("Request permission for user with permission code.",
 			array(
 				'requested_user_uid' => $userUid,
-				'user_permission_uid' => $perm->user_permission_uid,
+				'user_permission_uid' => $userPermission->user_permission_uid,
 				'permission_code' => $permissionCode,
 			)
 		);
 
-		return $perm;
+		return $userPermission;
 	}
 
 	public function requestPermissions($userUid) {
 
+		// get parameters
+		//
+		$permissionCode = Input::get('permission_code');
+		$title = Input::get('title');
+		$comment = Input::get('comment');
+
 		// Lookup relevant data
 		//
-		$active_user = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(Session::get('user_uid'));
 		$user = User::getIndex($userUid);
 		$permissions = Permission::all();
-		$user_permissions = UserPermission::where('user_uid', '=', $userUid)->get();
+		$userPermissions = UserPermission::where('user_uid', '=', $userUid)->get();
+		$permission = Permission::where('permission_code', '=', $permissionCode)->first();
+		$notifyAdmins = false;
+
+		// check for valid permission
+		//
+		if (!$permission) {
+			return response('No permission found corresponding to permission code.', 404);
+		}
 
 		// Permission classification holders
 		//
-		$new_permissions = array();
-		$updated_permissions = array();
+		$newPermissions = array();
+		$updatedPermissions = array();
 
-		// Requests for permissions the user already owns or do not exist should flag an error
+		// find valid permissions - requests for permissions that 
+		// the user already owns or do not exist should flag an error.
 		//
-		$valid_permissions = [];
-		foreach( $permissions as $p )
-			$valid_permissions[] = $p->permission_code;
+		$validPermissions = [];
+		foreach ($permissions as $item) {
+			$validPermissions[] = $item->permission_code;
+		}
 
-		if( ! in_array(Input::get('permission_code'), $valid_permissions ) ){
+		// report errors
+		//
+		if (!in_array($permissionCode, $validPermissions)) {
 			return response('Invalid permission code detected.', 400);
 		}
 
-		$record = false;
-		foreach( $user_permissions as $up ){
-			if( $up->permission_code == Input::get('permission_code') ){
-				$record = $up;
+		$userPermission = null;
+		foreach ($userPermissions as $item) {
+			if ($item->permission_code == $permissionCode) {
+				$userPermission = $item;
 				break;
 			}
 		}
 
-		// an existing entry did for the permission did not exist for the user
+		// check if user permission exists
 		//
-		if( ! $record ){
-			$record = new UserPermission(array(
+		if (!$userPermission) {
+
+			// create new user permission
+			//
+			$userPermission = new UserPermission(array(
 				'user_permission_uid' => Guid::create(),
 				'user_uid' => $userUid,
-				'permission_code' => Input::get('permission_code'),
+				'permission_code' => $permissionCode,
 				'request_date' => gmdate('Y-m-d H:i:s'),
-				'user_comment' => Input::get('comment')
+				'user_comment' => !$currentUser->isAdmin()? $comment : null,
+				'admin_comment' => $currentUser->isAdmin()? $comment : null
 			));
 
-			if( $meta = $this->getMetaFields() ){
-				$record->meta_information = $meta;
+			if ($currentUser->isAdmin()) {
+				$userPermission->setStatus('granted');
 			}
 
-			$record->save();
-			$new_permissions[] = Input::get('title');
+			if ($meta = $this->getMetaFields()) {
+				$userPermission->meta_information = $meta;
+			}
+
+			$userPermission->save();
+			$newPermissions[] = $title;
+			$notifyAdmins = !$currentUser->isAdmin() && !$permission->isAutoApprove();
 
 		// we found an existing entry and update the information
 		//
 		} else {
-
-			if( $record->status == 'denied' )
+			if ($userPermission->status == 'denied') {
 				return response('You may not request denied permissions.  Please contact SWAMP support staff if you feel permissions have been denied in error.', 400);
-
-			if( $meta = $this->getMetaFields() ){
-				$record->meta_information = $meta;
+			}
+			if ($meta = $this->getMetaFields()) {
+				$userPermission->meta_information = $meta;
 			}
 
-			$record->request_date = gmdate('Y-m-d H:i:s');
-			$record->user_comment = Input::get('comment');
-			$record->save();
-			$updated_permissions[] = Input::get('title');
+			$userPermission->request_date = gmdate('Y-m-d H:i:s');
+			$userPermission->user_comment = $comment;
+			$userPermission->save();
+			$updatedPermissions[] = $title;
+			$notifyAdmins = !$currentUser->isAdmin();
+		}
+
+		// send notification email to user that permission was requested
+		//
+		if ($currentUser->isAdmin() && Config::get('mail.enabled')) {
+			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+				Mail::send('emails.permission-granted', array(
+					'status' => $userPermission->status,
+					'new_permissions' => $newPermissions,
+					'url' => Config::get('app.cors_url') ?: '',
+					'comment' => $comment,
+					'meta_information' => json_decode($userPermission->meta_information, true),
+					'user' => $user
+				), function($message) use ($user, $userPermission) {
+					$message->to($user->email, $user->getFullName());
+					$message->subject('SWAMP Permission '. ucwords($userPermission->status));
+				});
+			}
 		}
 
 		// send notification to admins that permission has been requested
 		//
-		if (Config::get('mail.enabled')) {
+		if ($notifyAdmins && Config::get('mail.enabled')) {
 			$admins = UserAccount::where('admin_flag', '=', 1)->get();
-			foreach( $admins as $admin ){
+			foreach ($admins as $admin) {
 				$admin = User::getIndex($admin->user_uid);
 				if ($admin && $admin->email && filter_var($admin->email, FILTER_VALIDATE_EMAIL)) {
-
-					$cfg = array(
-						'new_permissions' => $new_permissions,
-						'updated_permissions' => $updated_permissions,
+					Mail::send('emails.permission-request', array(
+						'new_permissions' => $newPermissions,
+						'updated_permissions' => $updatedPermissions,
 						'url' => Config::get('app.cors_url') ?: '',
-						'comment' => Input::get('comment'),
-						'meta_information' => json_decode( $record->meta_information, true ),
+						'comment' => $comment,
+						'meta_information' => json_decode($userPermission->meta_information, true),
 						'user' => $user
-					);
-
-					Mail::send('emails.permission-request', $cfg, function($message) use ($admin) {
+					), function($message) use ($admin) {
 						$message->to($admin->email, $admin->getFullName());
 						$message->subject('SWAMP Permission Request');
 					});
@@ -252,45 +315,52 @@ class PermissionsController extends BaseController {
 			}
 		}
 
-		// Log the permissions request event
+		// log the permissions request event
 		//
-		Log::info("Request permissions for user.",
-			array(
-				'requested_user_uid' => $userUid,
-				'user_permission_uid' => $record->user_permission_uid,
-				'permission_code' => Input::get('permission_code'),
-				'new_permissions' => !empty($new_permissions)? $new_permissions[0] : null,
-				'updated_permissions' => !empty($updated_permissions)? $updated_permissions[0] : null
-			)
-		);
+		Log::info("Request permissions for user.", array(
+			'requested_user_uid' => $userUid,
+			'user_permission_uid' => $userPermission->user_permission_uid,
+			'permission_code' => $permissionCode,
+			'new_permissions' => !empty($newPermissions)? $newPermissions[0] : null,
+			'updated_permissions' => !empty($updatedPermissions)? $updatedPermissions[0] : null
+		));
 
 		// record accepted policy
 		//
-		$permission = Permission::where('permission_code','=',Input::get('permission_code'))->first();
-		if( $permission->policy_code ){
-			$up = UserPolicy::where('user_uid','=',$user->user_uid)->where('policy_code','=',$permission->policy_code)->first();
-			if( ! $up ){
-				$up = new UserPolicy(array(
-					'user_policy_uid' => Guid::create(),
-					'user_uid' => $user->user_uid,
-					'policy_code' => $permission->policy_code
-				));
+		if (!$currentUser->isAdmin()) {
+			$permission = Permission::where('permission_code', '=', $permissionCode)->first();
+			if ($permission->policy_code) {
+
+				// get user policy
+				//
+				$userPolicy = UserPolicy::where('user_uid','=',$user->user_uid)->where('policy_code','=',$permission->policy_code)->first();
+
+				// create new user policy, if necessary
+				//
+				if (!$userPolicy) {
+					$userPolicy = new UserPolicy(array(
+						'user_policy_uid' => Guid::create(),
+						'user_uid' => $user->user_uid,
+						'policy_code' => $permission->policy_code
+					));
+				}
+
+				$userPolicy->accept_flag = 1;
+				$userPolicy->save();
 			}
-			$up->accept_flag = 1;
-			$up->save();
 		}
 	}
 
-	private function getMetaFields(){
+	private function getMetaFields() {
 		$meta_fields = array('user_type', 'name', 'email', 'organization', 'project_url');
 		$input_has_meta = false;
 		$found = array();
-		foreach( $meta_fields as $field ){
-			if( Input::has($field) ){
-				$found[$field] = Input::get( $field );
+		foreach ($meta_fields as $field) {
+			if (Input::has($field)) {
+				$found[$field] = Input::get($field);
 			}
 		}
-		return sizeof( $found ) > 0 ? json_encode( $found ) : false;
+		return sizeof($found) > 0 ? json_encode($found) : false;
 	}
 
 	public function getPending() {
@@ -311,103 +381,79 @@ class PermissionsController extends BaseController {
 
 	public function setPermissions($userUid) {
 
+		// get parameters
+		//
+		$permissionCode = Input::get('permission_code');
+		$comment = Input::get('comment');
+		$status = Input::has('status')? Input::get('status') : null;
+
 		// lookup relevant data
 		//
-		$active_user = User::getIndex(Session::get('user_uid'));
-		if (!$active_user->isAdmin()) {
+		$currentUser = User::getIndex(Session::get('user_uid'));
+		if (!$currentUser->isAdmin()) {
 			return response('Non administrators may not alter permissions!', 401);
 		}
 		$user = User::getIndex($userUid);
 		$permissions = Permission::all();
-		$user_permissions = UserPermission::where('user_uid', '=', $userUid)->get();
+		$userPermissions = UserPermission::where('user_uid', '=', $userUid)->get();
+		$permission = Permission::where('permission_code', '=', $permissionCode)->first();
 
-		// requests for permissions the user already owns or do not exist should flag an error
+		// check for valid permission
 		//
-		$valid_permissions = [];
-		foreach ($permissions as $p) {
-			$valid_permissions[] = $p->permission_code;
+		if (!$permission) {
+			return response('No permission found corresponding to permission code.', 404);
 		}
-		if (!in_array(Input::get('permission_code'), $valid_permissions)) {
+
+		// find valid permissions - requests for permissions that 
+		// the user already owns or do not exist should flag an error.
+		//
+		$validPermissions = [];
+		foreach ($permissions as $item) {
+			$validPermissions[] = $item->permission_code;
+		}
+		if (!in_array($permissionCode, $validPermissions)) {
 			return response('Invalid permission code detected.', 400);
 		}
-		$record = false;
-		foreach($user_permissions as $up) {
-			if( $up->permission_code == Input::get('permission_code') ){
-				$record = $up;
+		$userPermission = null;
+		foreach ($userPermissions as $item) {
+			if ($item->permission_code == $permissionCode) {
+				$userPermission = $item;
 				break;
 			}
 		}
 
-		// an existing entry did for the permission did not exist for the user
+		// check if new user permission must be created
 		//
-		if (Input::has('status')) {
-			if (!$record) {
-				$record = new UserPermission(array(
-					'user_permission_uid' => Guid::create(),
-					'user_uid' => $userUid,
-					'permission_code' => Input::get('permission_code'),
-					'request_date' => gmdate('Y-m-d H:i:s'),
-					'update_date' => gmdate('Y-m-d H:i:s'),
-					'admin_comment' => Input::get('comment')
-				));
+		if (!$userPermission) {
+			$userPermission = new UserPermission(array(
+				'user_permission_uid' => Guid::create(),
+				'user_uid' => $userUid,
+				'permission_code' => $permissionCode,
+				'request_date' => gmdate('Y-m-d H:i:s'),
+				'update_date' => gmdate('Y-m-d H:i:s'),
+				'admin_comment' => $comment
+			));
 
-			// we found an existing entry and update the information
-			//
-			} else {
-				$record->request_date = gmdate('Y-m-d H:i:s');
-				$record->delete_date = null;
-				$record->admin_comment = Input::get('comment');
-			}
-
-			// status application
-			//
-			switch (Input::get('status')) {
-				case 'revoked':
-					$record->delete_date = gmdate('Y-m-d H:i:s');
-					$record->expiration_date = null;
-					$record->grant_date = null;
-					$record->denial_date = null;
-				break;
-				case 'denied':
-					$record->delete_date = null;
-					$record->expiration_date = null;
-					$record->grant_date = null;
-					$record->denial_date = gmdate('Y-m-d H:i:s');
-				break;
-				case 'granted':
-					$record->delete_date = null;
-					$record->expiration_date = gmdate('Y-m-d H:i:s', time() + ( 60 * 60 * 24 * 365 ));
-					$record->grant_date = gmdate('Y-m-d H:i:s');
-					$record->denial_date = null;
-				break;
-				case 'expired':
-					$record->expiration_date = gmdate('Y-m-d H:i:s', time() - 60);
-					$record->denial_date = null;
-				break;
-				case 'pending':
-					$record->delete_date = null;
-					$record->expiration_date = null;
-					$record->grant_date = null;
-					$record->denial_date = null;
-					$record->request_date = gmdate('Y-m-d H:i:s');
-				break;
-			}
-
-			// status application
-			//
-			$record->save();
+		// update existing user permission
+		//
+		} else {
+			$userPermission->admin_comment = $comment;
 		}
 
-		// send notification email that permission was requested
+		// status application
+		//
+		$userPermission->setStatus($status);
+		$userPermission->save();
+
+		// send notification email that permission was set
 		//
 		if (Config::get('mail.enabled')) {
 			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-				$data = array(
+				Mail::send('emails.permission-reviewed', array(
 					'url' => Config::get('app.cors_url') ?: '',
 					'user' => $user,
-					'comment' => Input::get('comment')
-				);
-				Mail::send('emails.permission-reviewed', $data, function($message) use ($user) {
+					'comment' => $comment
+				), function($message) use ($user) {
 					$message->to($user->email, $user->getFullName());
 					$message->subject('SWAMP Permission Request');
 				});
@@ -415,74 +461,76 @@ class PermissionsController extends BaseController {
 		}
 
 		// Log the permissions event
-		Log::info("Set permissions.",
-			array(
-				'status' => Input::get('status'),
-				'requested_user_uid' => $userUid,
-				'user_permission_uid' => $record->user_permission_uid,
-				'permission_code' => $record->permission_code,
-			)
-		);
+		//
+		Log::info("Set permissions.", array(
+			'status' => $status,
+			'requested_user_uid' => $userUid,
+			'user_permission_uid' => $userPermission->user_permission_uid,
+			'permission_code' => $userPermission->permission_code,
+		));
 	}
 
-	public function deletePermission( $userPermissionUid ){
+	public function deletePermission($userPermissionUid) {
 
-		$active_user = User::getIndex(Session::get('user_uid'));
-		$user_permission = UserPermission::where('user_permission_uid', '=', $userPermissionUid)->first();
-		$user = User::getIndex($user_permission->user_uid);
+		// get models
+		//
+		$currentUser = User::getIndex(Session::get('user_uid'));
+		$userPermission = UserPermission::where('user_permission_uid', '=', $userPermissionUid)->first();
+		$user = User::getIndex($userPermission->user_uid);
 
-		if( ( $user->user_uid == $active_user->user_uid ) || $active_user->isAdmin() ){
-			$user_permission->delete_date = gmdate('Y-m-d H:i:s');
-			$user_permission->expiration_date = null;
-			$user_permission->save();
+		if (($user->user_uid == $currentUser->user_uid ) || $currentUser->isAdmin()) {
+			$userPermission->delete_date = gmdate('Y-m-d H:i:s');
+			$userPermission->expiration_date = null;
+			$userPermission->save();
 
-			// Log the permissions delete event
-			Log::info("Delete permission.",
-				array(
-					'user_permission_uid' => $userPermissionUid,
-				)
-			);
+			// log the permissions delete event
+			//
+			Log::info("Delete permission.", array(
+				'user_permission_uid' => $userPermissionUid,
+			));
 
 			return response('The user permission has been deleted.', 204);
 		} else {
 			return response('Unable to revoke this permission.  Insufficient privileges.', 400);
 		}
-
 	}
 
-	public function designateProject( $userPermissionUid, $projectUid ){
+	public function designateProject($userPermissionUid, $projectUid) {
 
-		$up = UserPermission::where('user_permission_uid','=',$userPermissionUid)->first();
-		$p = Project::where('project_uid','=',$projectUid)->first();
+		// get models
+		//
+		$userPermission = UserPermission::where('user_permission_uid','=',$userPermissionUid)->first();
+		$project = Project::where('project_uid','=',$projectUid)->first();
 		$user = User::getIndex(Session::get('user_uid'));
 
-		if( ! ( $up && $p && $user ) ){
+		// check for valid permissions
+		//
+		if (!($userPermission && $project && $user)) {
 			return response('Unable to find permission information.', 404);
 		}
-
-		if( ! $user->isAdmin() && ( $user->user_uid != $p->owner['user_uid'] ) ){
+		if (!$user->isAdmin() && ($user->user_uid != $project->owner['user_uid'])) {
 			return response('User does not have permission to designate a project.', 401);
 		}
 
-		$upp = new UserPermissionProject(array(
+		// create new user permission project
+		//
+		$userPermissionProject = new UserPermissionProject(array(
 			'user_permission_project_uid' => Guid::create(),
 			'user_permission_uid' => $userPermissionUid,
 			'project_uid' => $projectUid
 		));
-		$upp->save();
+		$userPermissionProject->save();
 
-		// Log the designate project event
-		Log::info("Designate project.",
-			array(
-				'user_permission_uid' => $userPermissionUid,
-				'project_uid' => $projectUid,
-			)
-		);
+		// log the designate project event
+		//
+		Log::info("Designate project.", array(
+			'user_permission_uid' => $userPermissionUid,
+			'project_uid' => $projectUid,
+		));
 
-		return $upp;
-
+		return $userPermissionProject;
 	}
 
-	public function designatePackage( $userPermissionUid, $packageUid ){
+	public function designatePackage($userPermissionUid, $packageUid) {
 	}
 }

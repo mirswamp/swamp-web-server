@@ -35,8 +35,14 @@ class Permission extends CreateStamped {
 	 */
 	protected $fillable = array(
 		'permission_code',
+		'title',
+		'description',
+		'admin_only_flag',
+		'auto_approve_flag',
 		'policy_code',
-		'description'
+		'description',
+		'user_info',
+		'user_info_policy_text'
 	);
 
 	/**
@@ -44,9 +50,15 @@ class Permission extends CreateStamped {
 	 */
 	protected $visible = array(
 		'permission_code',
+		'title',
+		'description',
+		'admin_only_flag',
+		'auto_approve_flag',
 		'policy_code',
 		'description',
-		'create_date'
+		'create_date',
+		'user_info',
+		'user_info_policy_text'
 	);
 
 	/**
@@ -56,8 +68,24 @@ class Permission extends CreateStamped {
 		'policy'
 	);
 
-	public function getPolicyAttribute(){
+	/**
+	 * accessor methods
+	 */
+
+	public function getPolicyAttribute() {
 		$policy = Policy::where('policy_code','=',$this->policy_code)->first();
 		return $policy ? $policy->policy : '';
+	}
+
+	/**
+	 * querying methods
+	 */
+
+	public function isAdminOnly() {
+		return strval($this->admin_only_flag) == '1';
+	}
+
+	public function isAutoApprove() {
+		return strval($this->auto_approve_flag) == '1';
 	}
 }

@@ -93,7 +93,6 @@ class User extends TimeStamped {
 		'email_verified_flag',
 		'forcepwreset_flag',
 		'hibernate_flag',
-		'owner_flag',
 		'ssh_access_flag',
 		'has_linked_account',
 
@@ -115,7 +114,6 @@ class User extends TimeStamped {
 		'email_verified_flag',
 		'forcepwreset_flag',
 		'hibernate_flag',
-		'owner_flag',
 		'ssh_access_flag',
 		'has_linked_account',
 		'user_type',
@@ -297,14 +295,6 @@ class User extends TimeStamped {
 		return UserAccount::where('user_uid', '=', $this->user_uid)->first();
 	}
 
-	public function hasOwnerPermission() {
-		return UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', 'project-owner')->exists();
-	}
-
-	public function getOwnerPermission() {
-		return UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', 'project-owner')->first();
-	}
-
 	public function getTrialProject() {
 		return Project::where('project_owner_uid', '=', $this->user_uid)->where('trial_project_flag', '=', 1)->first();
 	}
@@ -357,6 +347,12 @@ class User extends TimeStamped {
 	}
 
 	public function isMemberOf($project) {
+
+		// check to see that project exists
+		//
+		if (!$project) {
+			return false;
+		}
 
 		// check to see if user is the owner
 		//
@@ -805,7 +801,6 @@ class User extends TimeStamped {
 			'user_uid' => $this->user_uid,
 			'promo_code_id' => $promoCodeId,
 			'enabled_flag' => 1,
-			'owner_flag' => 0,
 			'admin_flag' => 0,
 			'email_verified_flag' => Config::get('mail.enabled')? 0 : -1
 		));
@@ -950,11 +945,6 @@ class User extends TimeStamped {
 		if ($userAccount) {
 			return $userAccount->penultimate_login_date;
 		}
-	}
-
-	public function getOwnerFlagAttribute() {
-		$ownerPermission = $this->getOwnerPermission();
-		return $ownerPermission ? ($ownerPermission->getStatus() == 'granted' ? 1 : 0) : 0;
 	}
 
 	public function getSshAccessFlagAttribute() {

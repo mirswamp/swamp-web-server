@@ -18,9 +18,15 @@
 
 namespace App\Models\Assessments;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\TimeStamps\UserStamped;
 
 class AssessmentResult extends UserStamped {
+
+	/**
+	 * enable soft delete
+	 */	
+	use SoftDeletes;
 
 	/**
 	 * database attributes

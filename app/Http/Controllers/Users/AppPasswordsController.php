@@ -114,6 +114,7 @@ class AppPasswordsController extends BaseController {
 			//
 			$app_password_arr = $app_password->toArray();
 			$app_password_arr['password'] = $the_password;
+			$app_password_arr['create_date'] = $app_password->create_date;
 			$retresponse = response()->json($app_password_arr, 200);
 
 		} else {

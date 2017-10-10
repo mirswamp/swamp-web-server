@@ -26,28 +26,43 @@ use App\Models\Users\User;
 
 class PasswordReset extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'password_reset';
-	protected $primaryKey = 'password_reset_id';
+	public $primaryKey = 'password_reset_uuid';
+	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
+	// mass assignment policy
+	//
 	protected $fillable = array(
+		'password_reset_uuid',
 		'password_reset_key',
 		'user_uid'
 	);
 
-	/**
-	 * constructor
-	 */
-	public function __construct(array $attributes = array()) {
+	// array / json conversion whitelist
+	//
+	protected $visible = array(
+		'password_reset_uuid',
+		'password_reset_key',
+		'username'
+	);
 
-		// call superclass constructor
-		//
-		BaseModel::__construct($attributes);
+	// array / json appended model attributes
+	//
+	protected $appends = array(
+		'username'
+	);
+
+	/**
+	 * accessor methods
+	 */
+
+	public function getUsernameAttribute() {
+		$user = User::getIndex($this->user_uid);
+		if ($user) {
+			return $user->username;
+		}
 	}
 
 	/**
@@ -68,7 +83,7 @@ class PasswordReset extends BaseModel {
 			$data = array(
 				'user' => $this->user,
 				'password_reset' => $this,
-				'password_reset_url' => Config::get('app.cors_url').'/#reset-password/'.$passwordResetNonce.'/'.$this->password_reset_id
+				'password_reset_url' => Config::get('app.cors_url').'/#reset-password/'.$this->password_reset_uuid.'/'.$passwordResetNonce
 			);
 			Mail::send(array('text' => 'emails.reset-password-plaintext'), $data, function($message) {
 			    $message->to($this->user->email, $this->user->getFullName());

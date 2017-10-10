@@ -746,33 +746,36 @@ class PackageVersionsController extends BaseController {
 				} else {
 					$result = `mkdir $workdir;
 				 	cd $workdir;
-				 	git clone --recursive $external_url`;
+				 	mkdir $dirname;
+				 	cd $dirname;
+				 	git clone --recursive $external_url;
+				 	cd ..; cd ..`;
 				}
 
 				$files = scandir($workdir);
-				if (sizeof( $files ) !== 3) {
+				if (sizeof($files) !== 3) {
 					`rm -rf $workdir;`;
 					return response('Not a single directory.', 404);
 				}
 
-				`tar -zcf $workdir/$files[2].tar.gz -C $workdir/$files[2] .`;
+				`tar -zcf $workdir/$dirname.tar.gz -C $workdir .`;
 
-				if (!file_exists("$workdir/$files[2].tar.gz")) {
+				if (!file_exists("$workdir/$dirname.tar.gz")) {
 					return response('Unable to tar project directory', 404);
 				}
 
-				$filename = Filename::sanitize($files[2]).'.tar.gz';
-				$path = "$workdir/$files[2].tar.gz";
+				$filename = Filename::sanitize($dirname).'.tar.gz';
+				$path = "$workdir/$dirname.tar.gz";
 				$extension = 'tar.gz';
 				$mime = 'applization/x-gzip';
-				$size = filesize("$workdir/$files[2].tar.gz");
+				$size = filesize("$workdir/$dirname.tar.gz");
 
 				// move file to destination
 				//
 				$destinationFolder = Guid::create();
 				$destinationPath = Config::get('app.incoming').$destinationFolder;
 				`mkdir -p $destinationPath`;
-				`mv $workdir/$files[2].tar.gz $destinationPath/$filename`;
+				`mv $workdir/$dirname.tar.gz $destinationPath/$filename`;
 				$uploadSuccess = file_exists("$destinationPath/$filename");
 			} else {
 				

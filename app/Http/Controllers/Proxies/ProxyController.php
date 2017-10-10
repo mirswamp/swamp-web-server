@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use App\Models\Viewers\ViewerInstance;
 use App\Models\Users\User;
+use App\Models\Projects\Project;
 use App\Http\Controllers\BaseController;
 use App\Services\HTCondorCollector;
 
@@ -162,20 +163,33 @@ class ProxyController extends BaseController {
 		}
 	}
 
-
 	public function proxyCodeDxRequest() {
 		$user = User::getIndex(Session::get('user_uid'));
 
 		// get viewer instance
 		//
 		$proxyUrl = Request::segment(1);
-		$vm_ip = HTCondorCollector::getVMIP($proxyUrl);
+		list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxyUrl);
 		$iterations = 0;
 		$maxIterations = 1000;
 		while (!$vm_ip && $iterations < $maxIterations) {
 			$iterations++;
 			usleep(10000);
-			$vm_ip = HTCondorCollector::getVMIP($proxyUrl);
+			list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxyUrl);
+		}
+
+		// check if associated project is valid
+		//	
+		$project = Project::where('project_uid', '=', $projectUid)->first();
+		if (!$project) {
+			return response('No valid project is associated with these results.', 400);
+		}
+
+		// check whether current user is a member of this project
+		//
+		$currentUser = User::getIndex(Session::get('user_uid'));
+		if (!$project->isOwnedBy($user) && !$currentUser->isMemberOf($project)) {
+			return response('The current user is not a member of this project', 400);
 		}
 
 		if ($vm_ip) {
