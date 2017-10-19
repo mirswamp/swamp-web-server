@@ -38,6 +38,9 @@ class EmailVerification extends CreateStamped {
 		'user_uid', 
 		'verification_key', 
 		'email',
+
+		// timestamps
+		//
 		'verify_date'
 	);
 
@@ -46,9 +49,13 @@ class EmailVerification extends CreateStamped {
 	 */
 	protected $visible = array(
 
-		// nothing visible
+		// appended fields
 		//
-		'user'
+		'user',
+
+		// timestamps
+		//
+		'verify_date'
 	);
 
 	/**
