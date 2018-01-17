@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -47,7 +47,7 @@ class UsersController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$user = new User(array(
+		$user = new User([
 			'first_name' => Input::get('first_name'),
 			'last_name' => Input::get('last_name'),
 			'preferred_name' => Input::get('preferred_name'),
@@ -56,7 +56,7 @@ class UsersController extends BaseController {
 			'user_uid' => Guid::create(),
 			'email' => Input::get('email'),
 			'affiliation' => Input::get('affiliation')
-		));
+		]);
 
 		// For LDAP extended error messages, check the exception message for the
 		// ldap_* method and check for pattern match. If so, then rather than
@@ -66,11 +66,13 @@ class UsersController extends BaseController {
 		try {
 			$user->add();
 			$user->isNew = true;
-		} catch (\ErrorException $e) {
-			if (preg_match('/^Constraint violation:/',$e->getMessage())) {
-				return response()->json(array('error' => $e->getMessage()), 409);
+		} catch (\ErrorException $exception) {
+			if (preg_match('/^Constraint violation:/',$exception->getMessage())) {
+				return response()->json([
+					'error' => $exception->getMessage()
+				], 409);
 			} else {
-			  throw $e;
+			  throw $exception;
 			}
 		}
 
@@ -82,7 +84,7 @@ class UsersController extends BaseController {
 	// check validity
 	//
 	public function postValidate() {
-		$user = new User(array(
+		$user = new User([
 			'user_uid' => Input::get('user_uid'),
 			'first_name' => Input::get('first_name'),
 			'last_name' => Input::get('last_name'),
@@ -91,13 +93,15 @@ class UsersController extends BaseController {
 			'password' => Input::get('password'),
 			'email' => Input::get('email'),
 			'affiliation' => Input::get('affiliation')
-		));
-		$errors = array();
+		]);
+		$errors = [];
 
 		// return response
 		//
 		if ($user->isValid($errors)) {
-			return response()->json(array('success' => true));
+			return response()->json([
+				'success' => true
+			]);
 		} else {
 			return response()->json($errors, 409);
 		}
@@ -111,7 +115,7 @@ class UsersController extends BaseController {
 		//
 		if ($userUid == 'current') {
 			$current = true;
-			$userUid = Session::get('user_uid');
+			$userUid = session('user_uid');
 		} else {
 			$current = false;
 		}
@@ -196,26 +200,29 @@ class UsersController extends BaseController {
 
 		// send email notification
 		//
-		if (Config::get('mail.enabled')) {
+		if (config('mail.enabled')) {
 			if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
-				Mail::send('emails.request-username', array( 'user' => $this->user ), function($message) {
-					$message->to( $this->user->email, $this->user->getFullName() );
+				Mail::send('emails.request-username', [
+					'user' => $this->user
+				], function($message) {
+					$message->to( $this->user->email, $this->user->getFullName());
 					$message->subject('SWAMP Username Request');
 				});
 
-				// Log the username request event
-				Log::info("Username requested.",
-					array(
-						'requested_user_uid' => $this->user->user_uid,
-						'email' => $email,
-					)
-				);
+				// log the username request event
+				//
+				Log::info("Username requested.", [
+					'requested_user_uid' => $this->user->user_uid,
+					'email' => $email
+				]);
 			}
 		}
 
 		// return response
 		//
-		return response()->json(array('success' => true));
+		return response()->json([
+			'success' => true
+		]);
 	}
 
 	// get all
@@ -227,7 +234,7 @@ class UsersController extends BaseController {
 
 				// check to see if we are to use LDAP
 				//
-				if (Config::get('ldap.enabled')) {
+				if (config('ldap.enabled')) {
 
 					// use LDAP
 					//
@@ -289,14 +296,14 @@ class UsersController extends BaseController {
 		//
 		$user_email = trim($user->email);
 		$input_email = trim(Input::get('email'));
-		if (Config::get('mail.enabled')) {
+		if (config('mail.enabled')) {
 			if ((filter_var($input_email, FILTER_VALIDATE_EMAIL)) &&
 				($user_email != $input_email)) {
-				$emailVerification = new EmailVerification(array(
+				$emailVerification = new EmailVerification([
 					'user_uid' => $user->user_uid,
 					'verification_key' => Guid::create(),
 					'email' => $input_email
-				));
+				]);
 				$emailVerification->save();
 				$emailVerification->send('#verify-email', true); 
 			}
@@ -317,19 +324,19 @@ class UsersController extends BaseController {
 
 		// update user's meta attributes (admin only)
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		if ($currentUser && $currentUser->isAdmin()) {
 
 			// get meta attributes
 			//
-			$attributes = array(
+			$attributes = [
 				'enabled_flag' => Input::get('enabled_flag'),
 				'admin_flag' => Input::get('admin_flag'),
 				'email_verified_flag' => Input::get('email_verified_flag'),
 				'forcepwreset_flag' => Input::get('forcepwreset_flag'),
 				'hibernate_flag' => Input::get('hibernate_flag'),
 				'user_type' => Input::get('user_type')
-			);
+			];
 
 			// update user account
 			//
@@ -342,24 +349,23 @@ class UsersController extends BaseController {
 		// append original email to changes (email change is still pending)
 		//
 		if (strlen($input_email) > 0) {
-			$changes = array_merge($changes, array(
+			$changes = array_merge($changes, [
 				'email' => $user_email
-			));
+			]);
 		}
 
 		// append change date to changes
 		//
-		$changes = array_merge($changes, array(
+		$changes = array_merge($changes, [
 			'update_date' => $user->update_date
-		));
+		]);
 
-		// Log the update user event
-		Log::info("User account updated.",
-			array(
-				'Updated_user_uid' => $userUid,
-				'update_date' => $user->update_date,
-			)
-		);
+		// log the update user event
+		//
+		Log::info("User account updated.", [
+			'Updated_user_uid' => $userUid,
+			'update_date' => $user->update_date,
+		]);
 
 		// return changes
 		//
@@ -369,7 +375,7 @@ class UsersController extends BaseController {
 	// change password
 	//
 	public function changePassword($userUid) {
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		$user = User::getIndex($userUid);
 
 		// The target password being changed is the current user's password
@@ -388,7 +394,9 @@ class UsersController extends BaseController {
 					$currentUser->modifyPassword($newPassword);
 				} catch (\ErrorException $e) {
 					if (preg_match('/^Constraint violation:/',$e->getMessage())) {
-						return response()->json(array('error' => $e->getMessage()), 409);
+						return response()->json([
+							'error' => $e->getMessage()
+						], 409);
 					} else {
 					  throw $e;
 					}
@@ -396,29 +404,29 @@ class UsersController extends BaseController {
 
 				// alert user via email that password has changed
 				//
-				if (Config::get('mail.enabled')) {
+				if (config('mail.enabled')) {
 					if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-						$cfg = array(
-							'url' => Config::get('app.cors_url') ?: '',
+						Mail::send('emails.password-changed', [
+							'url' => config('app.cors_url') ?: '',
 							'user' => $user
-						);
-						Mail::send('emails.password-changed', $cfg, function($message) use ($user) {
+						], function($message) use ($user) {
 							$message->to($user->email, $user->getFullName());
 							$message->subject('SWAMP Password Changed');
 						});
 					}
 				}
 
-				// Log the password change event
-				Log::info("Password changed.",
-					array(
-						'changed_user_uid' => $userUid,
-					)
-				);
+				// log the password change event
+				//
+				Log::info("Password changed.", [
+					'changed_user_uid' => $userUid,
+				]);
 
 				// return success
 				//
-				return response()->json(array('success' => true));	
+				return response()->json([
+					'success' => true
+				]);	
 			} else {
 
 				// old password is not valid
@@ -438,40 +446,42 @@ class UsersController extends BaseController {
 			//
 			try {
 				$user->modifyPassword($newPassword);
-			} catch (\ErrorException $e) {
-				if (preg_match('/^Constraint violation:/',$e->getMessage())) {
-					return response()->json(array('error' => $e->getMessage()), 409);
+			} catch (\ErrorException $exception) {
+				if (preg_match('/^Constraint violation:/',$exception->getMessage())) {
+					return response()->json([
+						'error' => $exception->getMessage()
+					], 409);
 				} else {
-				  throw $e;
+				  throw $exception;
 				}
 			}
 
 			// alert user via email that password has changed
 			//
-			if (Config::get('mail.enabled')) {
+			if (config('mail.enabled')) {
 				if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-					$cfg = array(
-						'url' => Config::get('app.cors_url') ?: '',
+					Mail::send('emails.password-changed', [
+						'url' => config('app.cors_url') ?: '',
 						'user' => $user
-					);
-					Mail::send('emails.password-changed', $cfg, function($message) use ($user) {
+					], function($message) use ($user) {
 						$message->to($user->email, $user->getFullName());
 						$message->subject('SWAMP Password Changed');
 					});
 				}
 			}
 
-			// Log the password change event
-			Log::info("Password changed by admin.",
-				array(
-					'changed_user_uid' => $userUid,
-					'admin_user_uid' => $currentUser->user_uid,
-				)
-			);
+			// log the password change event
+			//
+			Log::info("Password changed by admin.", [
+				'changed_user_uid' => $userUid,
+				'admin_user_uid' => $currentUser->user_uid,
+			]);
 
 			// return success
 			//
-			return response()->json(array('success' => true));
+			return response()->json([
+				'success' => true
+			]);
 
 		// current user is not the target user nor admin user
 		//
@@ -504,17 +514,16 @@ class UsersController extends BaseController {
 		//
 		$userAccount = $user->getUserAccount();
 		if ($userAccount) {
-			$currentUserUid = Session::get('user_uid');
-			$userAccount->setAttributes(array(
+			$currentUserUid = session('user_uid');
+			$userAccount->setAttributes([
 				'enabled_flag' => false
-			), $user, ($userUid == $currentUserUid));
+			], $user, ($userUid == $currentUserUid));
 
-			// Log the user account delete event
-			Log::info("User account deleted.",
-				array(
-					'deleted_user_uid' => $userUid,
-				)
-			);
+			// log the user account delete event
+			//
+			Log::info("User account deleted.", [
+				'deleted_user_uid' => $userUid,
+			]);
 		}
 
 

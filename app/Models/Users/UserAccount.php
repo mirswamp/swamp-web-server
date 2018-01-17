@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -24,16 +24,14 @@ use App\Models\TimeStamps\UserStamped;
 
 class UserAccount extends UserStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'user_account';
 	protected $primaryKey = 'user_uid';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid',
 		'enabled_flag',
 		'admin_flag',
@@ -45,12 +43,11 @@ class UserAccount extends UserStamped {
 		'ultimate_login_date', 
 		'penultimate_login_date',
 		'promo_code_id'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'user_uid',
 		'enabled_flag',
 		'admin_flag',
@@ -62,11 +59,11 @@ class UserAccount extends UserStamped {
 		'ultimate_login_date', 
 		'penultimate_login_date',
 		'promo_code_id'
-	);
+	];
 
-	/**
-	 * querying methods
-	 */
+	//
+	// querying methods
+	//
 
 	public function isPasswordResetRequired() {
 		return $this->forcepwreset_flag;
@@ -89,7 +86,7 @@ class UserAccount extends UserStamped {
 
 		// send email notification of changes in account status
 		//
-		if (Config::get('mail.enabled')) {
+		if (config('mail.enabled')) {
 
 			// check to see if enabled flag has changed
 			//
@@ -109,9 +106,9 @@ class UserAccount extends UserStamped {
 								$emailtemplate = 'emails.user-account-deleted';
 								$emailsubject = 'SWAMP User Account Deleted';
 							}
-							Mail::send($emailtemplate, array( 
+							Mail::send($emailtemplate, [
 								'user' => $user
-							), function($message) use ($user, $emailsubject) {
+							], function($message) use ($user, $emailsubject) {
 								$message->to($user->email, $user->getFullName());
 								$message->subject($emailsubject);
 							});
@@ -120,9 +117,9 @@ class UserAccount extends UserStamped {
 						// notify user that account has been enabled
 						//
 						case 1:
-							Mail::send('emails.user-account-enabled', array( 
+							Mail::send('emails.user-account-enabled', [
 								'user' => $user
-							), function($message) use ($user) {
+							], function($message) use ($user) {
 								$message->to($user->email, $user->getFullName());
 								$message->subject('SWAMP User Account Enabled');
 							});
@@ -139,11 +136,11 @@ class UserAccount extends UserStamped {
 					// send welcome email
 					//
 					if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-						Mail::send('emails.welcome', array(
+						Mail::send('emails.welcome', [
 							'user' => $user,
-							'logo' => Config::get('app.cors_url').'/images/logos/swamp-logo-small.png',
-							'manual' => Config::get('app.cors_url').'https://continuousassurance.org/swamp/SWAMP-User-Manual.pdf',
-						), function($message) use ($user) {
+							'logo' => config('app.cors_url').'/images/logos/swamp-logo-small.png',
+							'manual' => config('app.cors_url').'https://continuousassurance.org/swamp/SWAMP-User-Manual.pdf',
+						], function($message) use ($user) {
 							$message->to($user->email, $user->getFullName());
 							$message->subject('Welcome to the Software Assurance Marketplace');
 						});

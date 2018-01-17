@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -24,29 +24,28 @@ use App\Models\Users\User;
 
 class LinkedAccountProvider extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'linked_account_provider';
 	protected $primaryKey = 'linked_account_provider_code';
+	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'linked_account_provider_code', 
 		'title',
 		'description',
 		'enabled_flag',
-		'create_date',
-		'create_user',
-		'update_date',
-		'update_user'
-	);
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
-	);
+		// timestamp attributes
+		//
+		'create_date',
+		'update_date',
+
+		// userstamp attributes
+		//
+		'create_user',
+		'update_user'
+	];
 }

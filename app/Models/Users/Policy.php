@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -23,28 +23,29 @@ use App\Models\TimeStamps\CreateStamped;
 
 class Policy extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'policy';
 	protected $primaryKey = 'policy_code';
+	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'policy_code',
 		'policy',
 		'description'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'policy_code',
 		'policy',
 		'description',
+
+		// timestamp attributes
+		//
 		'create_date'
-	);
+	];
 }

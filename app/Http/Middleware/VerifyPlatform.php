@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -41,12 +41,12 @@ class VerifyPlatform {
 		// get current user
 		//
 		if (Session::has('user_uid')) {
-			$currentUser = User::getIndex(Session::get('user_uid'));
+			$currentUser = User::getIndex(session('user_uid'));
 		} else {
-			return response(array(
+			return response([
 				'status' => 'NO_SESSION',
 				'config' => new Configuration()
-			), 401);
+			], 401);
 		}
 
 		// check request by method
@@ -58,7 +58,7 @@ class VerifyPlatform {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$platformUuid = $request->route()->getParameter('platform_uuid');
+				$platformUuid = $request->route('platform_uuid');
 				if ($platformUuid && $platformUuid != 'all') {
 					$platform = Platform::where('platform_uuid', '=', $platformUuid)->first();
 					if (!$platform) {

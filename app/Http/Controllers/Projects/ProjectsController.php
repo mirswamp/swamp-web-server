@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Projects;
@@ -42,9 +42,9 @@ class ProjectsController extends BaseController {
 
 		// create new project
 		//
-		$project = new Project(array(
+		$project = new Project([
 			'project_uid' => Guid::create(),
-			'project_owner_uid' => Session::get('user_uid'),
+			'project_owner_uid' => session('user_uid'),
 			'full_name' => Input::get('full_name'),
 			'short_name' => Input::get('short_name'),
 			'description' => Input::get('description'),
@@ -53,26 +53,25 @@ class ProjectsController extends BaseController {
 			'exclude_public_tools_flag' => Input::get('exclude_public_tools_flag') ? true : false,
 			'denial_date' => Input::get('denial_date'),
 			'deactivation_date' => Input::get('deactivation_date')
-		));
+		]);
 		$project->save();
 
 		// automatically create new project membership for owner
 		//
-		$projectMembership = new ProjectMembership(array(
+		$projectMembership = new ProjectMembership([
 			'membership_uid' => Guid::create(),
 			'project_uid' => $project->project_uid,
 			'user_uid' => $project->project_owner_uid,
 			'admin_flag' => true
-		));
+		]);
 		$projectMembership->save();
 
-		// Log the project event
-		Log::info("Project created.",
-			array(
-				'project_uid' => $project->project_uid,
-				'project_owner_uid' => $project->project_owner_uid,
-			)
-		);
+		// log the project event
+		//
+		Log::info("Project created.", [
+			'project_uid' => $project->project_uid,
+			'project_owner_uid' => $project->project_owner_uid,
+		]);
 
 		return $project;
 	}
@@ -120,20 +119,19 @@ class ProjectsController extends BaseController {
 
 		// send email notifications of changes in project status
 		//
-		if (Config::get('mail.enabled')) {
+		if (config('mail.enabled')) {
 
 			// send an email to the project owner if it's revoked
 			//
 			if (!$project->denial_date && Input::get('denial_date')) {
 				$this->user = User::getIndex($project->project_owner_uid);
 				if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
-					$data = array(
-						'project' => array(
-						'owner'		=> $this->user->getFullName(),
-						'full_name'	=> $project->full_name
-						)
-					);
-					Mail::send('emails.project-denied', $data, function($message) {
+					Mail::send('emails.project-denied', [
+						'project' => [
+							'owner'	=> $this->user->getFullName(),
+							'full_name'	=> $project->full_name
+						]
+					], function($message) {
 						$message->to($this->user->email, $this->user->getFullName());
 						$message->subject('SWAMP Project Denied');
 					});
@@ -146,15 +144,14 @@ class ProjectsController extends BaseController {
 				if ($project->project_owner_uid) {
 					$this->user = User::getIndex($project->project_owner_uid);
 					if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
-						$data = array(
+						Mail::send('emails.user-project-reactivated', [
 							'user' => $this->user,
-							'project' => array(
-							'owner'     => $this->user->getFullName(),
-							'full_name' => $project->full_name
-							)
-						);
-						Mail::send('emails.user-project-reactivated', $data, function($message){
-							$message->to( $this->user->email, $this->user->getFullName() );
+							'project' => [
+								'owner' => $this->user->getFullName(),
+								'full_name' => $project->full_name
+							]
+						], function($message){
+							$message->to($this->user->email, $this->user->getFullName());
 							$message->subject('SWAMP User Project Reactivated');
 						});
 					}
@@ -178,12 +175,11 @@ class ProjectsController extends BaseController {
 		$changes = $project->getDirty();
 		$project->save();
 
-		// Log the project event
-		Log::info("Project updated.",
-			array(
-				'project_uid' => $projectUid,
-			)
-		);
+		// log the project event
+		//
+		Log::info("Project updated.", [
+			'project_uid' => $projectUid,
+		]);
 
 		return $changes;
 	}
@@ -218,7 +214,8 @@ class ProjectsController extends BaseController {
 			$project->save();
 		}
 
-		// Log the project event
+		// log the project event
+		//
 		Log::info("Project update all.");
 
 		return response("Projects successfully updated.", 200);
@@ -235,18 +232,17 @@ public function deleteIndex($projectUid) {
 
 			// send notification email to project owner that project was deactivated
 			//
-			if (Config::get('mail.enabled')) {
+			if (config('mail.enabled')) {
 				if ($project->project_owner_uid) {
 					$this->user = User::getIndex($project->project_owner_uid);
 					if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
-						$data = array(
+						Mail::send('emails.user-project-deactivated', [
 							'user' => $this->user,
-							'project' => array(
-							'owner'     => $this->user->getFullName(),
-							'full_name' => $project->full_name
-							)
-						);
-						Mail::send('emails.user-project-deactivated', $data, function($message) {
+							'project' => [
+								'owner' => $this->user->getFullName(),
+								'full_name' => $project->full_name
+							]
+						], function($message) {
 							$message->to($this->user->email, $this->user->getFullName());
 							$message->subject('SWAMP User Project Deactivated');
 						});
@@ -254,13 +250,12 @@ public function deleteIndex($projectUid) {
 				}
 			}
 			
-			// Log the project event
-			Log::info("Project deleted.",
-				array(
-					'project_uid' => $project->project_uid,
-					'deactivation_date' => $project->deactivation_date,
-				)
-			);
+			// log the project event
+			//
+			Log::info("Project deleted.", [
+				'project_uid' => $project->project_uid,
+				'deactivation_date' => $project->deactivation_date,
+			]);
 
 			return $project;
 		} else {
@@ -283,13 +278,13 @@ public function deleteIndex($projectUid) {
 
 				// set public fields
 				//
-				$user = array(
+				$user = [
 					'first_name' => $user->first_name,
 					'last_name' => $user->last_name,
 					'email' => $user->email,
 					'username' => $user->username,
 					'affiliation' => $user->affiliation
-				);
+				];
 
 				// set metadata
 				//
@@ -306,9 +301,9 @@ public function deleteIndex($projectUid) {
 
 	public function confirm($projectUuid) {
 		$project = Project::where('project_uid', '=', $projectUuid)->first();
-		return array(
+		return [
 			'full_name' => $project->full_name
-		);
+		];
 	}
 
 	// get project memberships by index

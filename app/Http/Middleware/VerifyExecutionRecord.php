@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -44,13 +44,19 @@ class VerifyExecutionRecord {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$executionRecordUuid = $request->route()->getParameter('execution_record_uuid');
-				if ($executionRecordUuid) {
-					$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
-					if (!$executionRecord) {
-						return response('Execution record not found.', 404);
-					}
-				}
+                $executionRecordUuid = $request->route('execution_record_uuid');
+                $type = $request->input('type');
+
+                // if execution record is in the database, then verify that it exists
+                //
+                if (!$type || $type == 'arun') {
+                    if ($executionRecordUuid) {
+                        $executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
+                        if (!$executionRecord) {
+                            return response('Execution record not found.', 404);
+                        }
+                    }
+                }
 				break;
 		}
 

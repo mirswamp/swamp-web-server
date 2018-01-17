@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -25,16 +25,15 @@ use App\Models\Users\User;
 
 class UserPermission extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'user_permission';
 	protected $primaryKey = 'user_permission_uid';
+	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid',
 		'user_permission_uid',
 		'permission_code',
@@ -46,12 +45,11 @@ class UserPermission extends CreateStamped {
 		'expiration_date',
 		'delete_date',
 		'meta_information'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'user_uid',
 		'permission_code',
 		'auto_approve_flag',
@@ -65,21 +63,20 @@ class UserPermission extends CreateStamped {
 		'status',
 		'permission',
 		'user_full_name'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'status',
 		'permission',
 		'auto_approve_flag',
 		'user_full_name'
-	);
+	];
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getStatusAttribute() {
 		return $this->getStatus();
@@ -106,9 +103,9 @@ class UserPermission extends CreateStamped {
 		}
 	}
 
-	/**
-	 * setting methods
-	 */
+	//
+	// setting methods
+	//
 
 	public function setStatus($status) {
 		switch ($status) {
@@ -144,9 +141,9 @@ class UserPermission extends CreateStamped {
 		}
 	}
 
-	/**
-	 * querying methods
-	 */
+	//
+	// querying methods
+	//
 
 	public function isDenied() {
 		return $this->denial_date && (gmdate('Y-m-d H:i:s') >= $this->denial_date);

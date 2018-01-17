@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Events;
@@ -23,29 +23,26 @@ use App\Models\Users\User;
 
 class PersonalEvent extends Event {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'personal_events';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid',
 		'user'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $appends = array(
+	// array / json conversion whitelist
+	//
+	protected $appends = [
 		'user'
-	);
+	];
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getUserAttribute() {
 		$user = User::getIndex($this->user_uid);
@@ -53,11 +50,11 @@ class PersonalEvent extends Event {
 		// return a subset of user fields
 		//
 		if ($user) {
-			return array(
+			return [
 				'first_name' => $user->first_name,
 				'last_name' => $user->last_name,
 				'email' => $user->email
-			);
+			];
 		}
 	}
 }

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Tools;
@@ -23,18 +23,16 @@ use App\Models\Tools\Tool;
 
 class ToolVersion extends UserStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'tool_shed';
 	protected $table = 'tool_version';
 	protected $primaryKey = 'tool_version_uuid';
 	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'tool_version_uuid',
 		'tool_uuid',
 		'platform_uuid',
@@ -50,12 +48,11 @@ class ToolVersion extends UserStamped {
 		'tool_executable',
 		'tool_arguments',
 		'tool_directory'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'tool_version_uuid',
 		'tool_uuid',
 		'platform_uuid',
@@ -66,26 +63,38 @@ class ToolVersion extends UserStamped {
 		'release_date',
 		'retire_date',
 		'notes'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'package_type_names'
-	);
+	];
 
-	/**
-	 * querying methods
-	 */
+	//
+	// accessor methods
+	//
+
+	public function getPackageTypeNamesAttribute() {
+		$names = [];
+		$toolLanguages = ToolLanguage::where('tool_version_uuid', '=', $this->tool_version_uuid)->get();
+		for ($i = 0; $i < sizeOf($toolLanguages); $i++) {
+			array_push($names, $toolLanguages[$i]->package_type_name);
+		}
+		return $names;
+	}
+
+	//
+	// querying methods
+	//
 
 	function getTool() {
 		return Tool::where('tool_uuid', '=', $this->tool_uuid)->first();
 	}
 
-	/**
-	 * access control methods
-	 */
+	//
+	// access control methods
+	//
 
 	public function isOwnedBy($user) {
 		return $this->getTool()->isOwnedBy($user);
@@ -114,18 +123,5 @@ class ToolVersion extends UserStamped {
 		} else {
 			return false;
 		}
-	}
-
-	/**
-	 * accessor methods
-	 */
-
-	public function getPackageTypeNamesAttribute() {
-		$names = array();
-		$toolLanguages = ToolLanguage::where('tool_version_uuid', '=', $this->tool_version_uuid)->get();
-		for ($i = 0; $i < sizeOf($toolLanguages); $i++) {
-			array_push($names, $toolLanguages[$i]->package_type_name);
-		}
-		return $names;
 	}
 }

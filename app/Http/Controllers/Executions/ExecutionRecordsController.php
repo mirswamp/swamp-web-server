@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Executions;
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use App\Models\Projects\Project;
 use App\Models\Executions\ExecutionRecord;
 use App\Models\Packages\PackageVersion;
@@ -50,7 +50,7 @@ class ExecutionRecordsController extends BaseController {
 	// get ssh access
 	//
 	public function getSshAccess($executionRecordUuid){
-		$permission = UserPermission::where('user_uid','=',Session::get('user_uid'))->where('permission_code','=','ssh-access')->first();
+		$permission = UserPermission::where('user_uid','=',session('user_uid'))->where('permission_code','=','ssh-access')->first();
 		if (!$permission) {
 			return response('You do not have permission to access SSH information.', 401);
 		}
@@ -60,38 +60,45 @@ class ExecutionRecordsController extends BaseController {
 		// look up vm ip
 		//
 		do {
-			if( $attempts < 30 ) sleep( 1 );
+			if ($attempts < 30) {
+				sleep(1);
+			}
 			$record = ExecutionRecord::where('execution_record_uuid','=',$executionRecordUuid)->first();
 			$vm_ip = $record->vm_ip_address;
 			$attempts--;
-		} while( ! $vm_ip && $attempts > 0 );
+		} while (!$vm_ip && $attempts > 0);
 
-		if( ! $vm_ip ) return response('Request timed out.',500);
+		if (!$vm_ip) {
+			return response('Request timed out.', 500);
+		}
 
-		$address = Config::get('app.floodlight') . '/wm/core/controller/switches/json';
+		$address = config('app.floodlight') . '/wm/core/controller/switches/json';
 		$result = `curl -X GET $address`;
 		$switches = json_decode( $result );
+
 		// floodlight controller switch result is not available
 		// this could be a non floodlight controlled environment
 		// return vm_* data and warn user that they must be in ip space
 		// that allows access to vm via ssh for it to succeed
+		//
 		if (! $switches || ! is_array($switches)) {
-			return array(
+			return [
 				'src_ip'		=> $_SERVER['REMOTE_ADDR'],
 				'vm_hostname'	=> $record->vm_hostname,
 				'vm_ip'			=> $vm_ip,
 				'vm_username'	=> $record->vm_username,
 				'vm_password'	=> $record->vm_password
-			);
+			];
 		}
+		
 		// setup floodlight rules for vm_ip
 		//
-		$results = array();		
+		$results = [];		
 		$id = 1;
 		foreach( $switches as $switch ){
 			$results[] = $switch->switchDPID;
-			$address = Config::get('app.floodlight') . '/wm/staticflowpusher/json';
-			$data = json_encode(array(
+			$address = config('app.floodlight') . '/wm/staticflowpusher/json';
+			$data = json_encode([
 				'ip_proto'		=> 6,
 				'tcp_dst'		=> 22, # ssh port
 				'switch'		=> $switch->switchDPID,
@@ -102,10 +109,10 @@ class ExecutionRecordsController extends BaseController {
 				'eth_type'	=> '2048',
 				'active'		=> 'true',
 				'actions'		=> 'output=normal'
-			));
+			]);
 			$results[] = `curl -X POST -d '$data' $address`;
 			$id++;
-			$data = json_encode(array(
+			$data = json_encode([
 				'ip_proto'		=> 6,
 				'tcp_src'		=> 22, # ssh port
 				'switch'		=> $switch->switchDPID,
@@ -116,20 +123,20 @@ class ExecutionRecordsController extends BaseController {
 				'eth_type'		=> '2048',
 				'active'		=> 'true',
 				'actions'		=> 'output=normal'
-			));
+			]);
 			$results[] = `curl -X POST -d '$data' $address`;
 			$id++;
 		}
 
 		// make floodlight request
 		//
-		return array(
+		return [
 			'src_ip'		=> $_SERVER['REMOTE_ADDR'],
 			'vm_hostname'	=> $record->vm_hostname,
 			'vm_ip'			=> $vm_ip,
 			'vm_username'	=> $record->vm_username,
 			'vm_password'	=> $record->vm_password
-		);
+		];
 	}
 
 	// get by project
@@ -141,7 +148,7 @@ class ExecutionRecordsController extends BaseController {
 			//
 			$project = Project::where('project_uid', '=', $projectUuid)->first();
 			if (!$project || !$project->isActive()) {
-				return array();
+				return [];
 			}
 
 			// get by a single project
@@ -250,7 +257,7 @@ class ExecutionRecordsController extends BaseController {
 	// get all
 	//
 	public function getAll() {
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 		if ($user && $user->isAdmin()) {
 			$executionRecordsQuery = ExecutionRecord::orderBy('create_date', 'DESC');
 
@@ -269,13 +276,41 @@ class ExecutionRecordsController extends BaseController {
 	// kill by index
 	//
 	public function killIndex($executionRecordUuid) {
-		$user = User::getIndex(Session::get('user_uid'));
-		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
-		$project = $executionRecord->getProject();
+		$user = User::getIndex(session('user_uid'));
+		$type = Input::get('type'); 
 
-		// check owner / membership
-		//
-		if ($user && ($project->isOwnedBy($user) || $project->hasMember($user)) || $user->isAdmin()) {
+		switch ($type) {
+
+			case 'execrunuid':
+
+				// assessment runs
+				//
+				$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
+				$project = $executionRecord->getProject();
+				$hasPermission = ($user && ($project->isOwnedBy($user) || $project->hasMember($user)) || $user->isAdmin()); 
+				break;
+			case 'projectuid':
+
+				// viewer runs
+				//
+				$executionRecord = new ExecutionRecord([
+					'execution_record_uuid' => $executionRecordUuid
+				]);
+				$project = Project::where('project_uid', '=', $executionRecordUuid)->first();
+				$hasPermission = ($user && ($project->isOwnedBy($user) || $project->hasMember($user)) || $user->isAdmin());
+				break;
+			default:
+
+				// metric runs
+				// 
+				$executionRecord = new ExecutionRecord([
+					'execution_record_uuid' => $executionRecordUuid
+				]);
+				$hasPermission = true;
+				break;
+		}
+
+		if ($hasPermission) {
 
 			// kill execution record
 			//
@@ -285,6 +320,31 @@ class ExecutionRecordsController extends BaseController {
 		} else {
 			return response('You do not have permission to kill this execution record.', 400);
 		}
+	}
+
+	// notify by index
+	//
+	public function notifyIndex($executionRecordUuid) {
+		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
+
+		// look up execution record user
+		//
+		$user = $executionRecord->getUser();
+		if (!$user) {
+			return response('Execution record user not found', 404);
+		}
+
+		Mail::send('emails.assessment-completed', [
+			'user' => $user,
+			'package' => $executionRecord->package,
+			'tool' => $executionRecord->tool,
+			'platform' => $executionRecord->platform,
+			'completionDate' => $executionRecord->completion_date,
+			'status' => $executionRecord->status
+		], function($message) use ($user) {
+			$message->to($user->email, $user->getFullName());
+			$message->subject('SWAMP Assessment Completed');
+		});
 	}
 
 	// delete by index

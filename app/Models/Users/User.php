@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -48,16 +48,14 @@ use App\Utilities\Ldap\Ldap;
 
 class User extends TimeStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'user';
 	protected $primaryKey = 'user_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid',
 
 		// personal attributes
@@ -69,12 +67,11 @@ class User extends TimeStamped {
 		'password',
 		'email', 
 		'affiliation'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'user_uid',
 
 		// personal attributes
@@ -101,14 +98,16 @@ class User extends TimeStamped {
 		'user_type',
 		'ultimate_login_date', 
 		'penultimate_login_date',
+
+		// timestamp attributes
+		//
 		'create_date',
 		'update_date'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'enabled_flag',
 		'admin_flag',
 		'email_verified_flag',
@@ -119,13 +118,101 @@ class User extends TimeStamped {
 		'user_type',
 		'ultimate_login_date', 
 		'penultimate_login_date',
+
+		// timestamp attributes
+		//
 		'create_date',
 		'update_date'
-	);
+	];
 
-	/**
-	 * user comparison method (can't use default because of LDAP)
-	 */
+	//
+	// accessor methods
+	//
+
+	public function getEnabledFlagAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->enabled_flag;
+		} else {
+			return false;
+		}
+	}
+
+	public function getAdminFlagAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->admin_flag;
+		}
+	}
+
+	public function getEmailVerifiedFlagAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->email_verified_flag;
+		}
+	}
+
+	public function getForcePWResetFlagAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->forcepwreset_flag;
+		}
+	}
+
+	public function getHibernateFlagAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->hibernate_flag;
+		}
+	}
+
+	public function getUserTypeAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->user_type;
+		}
+	}
+
+	public function getUltimateLoginDateAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->ultimate_login_date;
+		}
+	}
+
+	public function getPenultimateLoginDateAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->penultimate_login_date;
+		}
+	}
+
+	public function getSshAccessFlagAttribute() {
+		$sshAccessPermission = UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', 'ssh-access')->first();
+		return $sshAccessPermission ? ($sshAccessPermission->getStatus() == 'granted' ? 1 : 0) : 0;
+	}
+
+	public function getHasLinkedAccountAttribute() {
+		return LinkedAccount::where('user_uid', '=', $this->user_uid)->exists();
+	}
+
+	public function getCreateDateAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->create_date;
+		}
+	}
+
+	public function getUpdateDateAttribute() {
+		$userAccount = $this->getUserAccount();
+		if ($userAccount) {
+			return $userAccount->update_date;
+		}
+	}
+
+	//
+	// user comparison method (can't use default because of LDAP)
+	//
 
 	public function isSameAs($user) {
 		return $user && $this['user_uid'] == $user['user_uid'];
@@ -135,146 +222,16 @@ class User extends TimeStamped {
 		return $this['user_uid'] == NULL;
 	}
 
-	/**
-	 * Get the unique identifier for the user.
-	 *
-	 * @return mixed
-	 */
+	//
+	// querying methods
+	//
+
 	public function getFullName() {
 		return $this->first_name.' '.$this->last_name;
 	}
 
-	/**
-	 * user validation method
-	 */
-
-	public static function emailInUse($email) {
-		$values = array();
-		if (preg_match("/(\w*)(\+.*)(@.*)/", $email, $values)) {
-			$email = $values[1] . $values[3];
-		}
-
-		foreach (self::getAll() as $registered_user) {
-			$values = array();
-			if (preg_match("/(\w*)(\+.*)(@.*)/", $registered_user->email, $values)) {
-				$registered_user->email = $values[1] . $values[3];
-			}
-			if (strtolower($email) == strtolower( $registered_user->email)) {
-				return true;
-			}
-		}
-		return false;		
-	}
-
-	public function isValid(&$errors, $anyEmail = false) {
-
-		// check username
-		//
-		if ($this->isNew()) {
-
-			// check to see if username has been taken
-			//
-			if ($this->username) {
-				if (User::getByUsername($this->username)) {
-					$errors[] = 'The username "'.$this->username.'" is already in use.';
-				}
-			}
-		} else {
-
-			// check to see if username has changed
-			//
-			$user = User::getIndex($this->user_uid);
-			if ($user && $this->username != $user->username) {
-
-				// check to see if username has been taken
-				//
-				if ($this->username) {
-					if (User::getByUsername($this->username)) {
-						$errors[] = 'The username "'.$this->username.'" is already in use.';
-					}
-				}
-			}
-		}
-
-		// check email address
-		//
-		if ($this->isNew()) {
-
-			// check to see if email has been taken
-			//
-			if ($this->email) {
-				if (self::emailInUse($this->email)) {
-					$errors[] = 'The email address "'.$this->email.'" is already in use. Try linking to the account instead.';
-				}
-			}
-		} else {
-
-			// check to see if email has changed
-			//
-			$user = User::getIndex($this->user_uid);
-			if ($user && $this->email != $user->email) {
-
-				// check to see if email has been taken
-				//
-				if ($this->email) {
-					if (self::emailInUse($this->email)) {
-						$errors[] = 'The email address "'.$this->email.'" is already in use. Try linking to the account instead.';
-					}
-				}
-			}
-		}
-
-		// promo code presence check
-		//
-		$promo_found = false;
-		if (Input::has('promo')) {
-			$pdo = DB::connection('mysql')->getPdo();
-			$sth = $pdo->prepare('SELECT * FROM project.promo_code WHERE promo_code = :promo AND expiration_date > NOW()');
-			$sth->execute(array(':promo' => Input::get('promo')));
-			$result = $sth->fetchAll(PDO::FETCH_ASSOC);
-			if (($result == false) || (sizeof($result) < 1)) {
-				if (!Input::has('email-verification')) {
-					$errors[] = '"'. Input::get('promo') . '" is not a valid SWAMP promotional code or has expired.';
-				}
-			} else {
-				$promo_found = true;
-			}
-		}
-
-		// user_external_id presense check
-		//
-		$user_external_id = Input::has('user_external_id');
-
-		// check to see if the domain name is valid
-		//
-		if (!$promo_found && ! $user_external_id && ($anyEmail !== true)) {
-			$domain = User::getEmailDomain($this->email);
-			if (!User::isValidEmailDomain($domain)) {
-				$errors[] = 'Email addresses from "'.$domain.'" are not allowed.';
-			}
-		}
-
-		return (sizeof($errors) == 0);
-	}
-
-	/**
-	 * user verification methods
-	 */
-
-	public function getEmailVerification() {
-		return EmailVerification::where('user_uid', '=', $this->user_uid)->first();
-	}
-
-	public function hasBeenVerified() {
-		return $this->email_verified_flag == '1' || $this->email_verified_flag == '-1';
-	}
-
-	/**
-	 * querying methods
-	 */
-
 	public function isCurrent() {
-		return $this->user_uid == Session::get('user_uid');
+		return $this->user_uid == session('user_uid');
 	}
 
 	public function isAdmin() {
@@ -300,7 +257,7 @@ class User extends TimeStamped {
 	}
 
 	public function getProjects() {
-		if (Config::get('model.database.use_stored_procedures')) {
+		if (config('model.database.use_stored_procedures')) {
 
 			// execute stored procedure
 			//
@@ -388,9 +345,136 @@ class User extends TimeStamped {
 		return false;
 	}
 
-	/**
-	 * permission methods
-	 */
+	//
+	// user validation methods
+	//
+
+	public static function emailInUse($email) {
+		$values = [];
+		if (preg_match("/(\w*)(\+.*)(@.*)/", $email, $values)) {
+			$email = $values[1] . $values[3];
+		}
+
+		foreach (self::getAll() as $registered_user) {
+			$values = [];
+			if (preg_match("/(\w*)(\+.*)(@.*)/", $registered_user->email, $values)) {
+				$registered_user->email = $values[1] . $values[3];
+			}
+			if (strtolower($email) == strtolower( $registered_user->email)) {
+				return true;
+			}
+		}
+		return false;		
+	}
+
+	public function isValid(&$errors, $anyEmail = false) {
+
+		// check username
+		//
+		if ($this->isNew()) {
+
+			// check to see if username has been taken
+			//
+			if ($this->username) {
+				if (User::getByUsername($this->username)) {
+					$errors[] = 'The username "'.$this->username.'" is already in use.';
+				}
+			}
+		} else {
+
+			// check to see if username has changed
+			//
+			$user = User::getIndex($this->user_uid);
+			if ($user && $this->username != $user->username) {
+
+				// check to see if username has been taken
+				//
+				if ($this->username) {
+					if (User::getByUsername($this->username)) {
+						$errors[] = 'The username "'.$this->username.'" is already in use.';
+					}
+				}
+			}
+		}
+
+		// check email address
+		//
+		if ($this->isNew()) {
+
+			// check to see if email has been taken
+			//
+			if ($this->email) {
+				if (self::emailInUse($this->email)) {
+					$errors[] = 'The email address "'.$this->email.'" is already in use. Try linking to the account instead.';
+				}
+			}
+		} else {
+
+			// check to see if email has changed
+			//
+			$user = User::getIndex($this->user_uid);
+			if ($user && $this->email != $user->email) {
+
+				// check to see if email has been taken
+				//
+				if ($this->email) {
+					if (self::emailInUse($this->email)) {
+						$errors[] = 'The email address "'.$this->email.'" is already in use. Try linking to the account instead.';
+					}
+				}
+			}
+		}
+
+		// promo code presence check
+		//
+		$promo_found = false;
+		if (Input::has('promo')) {
+			$pdo = DB::connection('mysql')->getPdo();
+			$sth = $pdo->prepare('SELECT * FROM project.promo_code WHERE promo_code = :promo AND expiration_date > NOW()');
+			$sth->execute([
+				':promo' => Input::get('promo')
+			]);
+			$result = $sth->fetchAll(PDO::FETCH_ASSOC);
+			if (($result == false) || (sizeof($result) < 1)) {
+				if (!Input::has('email-verification')) {
+					$errors[] = '"'. Input::get('promo') . '" is not a valid SWAMP promotional code or has expired.';
+				}
+			} else {
+				$promo_found = true;
+			}
+		}
+
+		// user_external_id presense check
+		//
+		$user_external_id = Input::has('user_external_id');
+
+		// check to see if the domain name is valid
+		//
+		if (!$promo_found && ! $user_external_id && ($anyEmail !== true)) {
+			$domain = User::getEmailDomain($this->email);
+			if (!User::isValidEmailDomain($domain)) {
+				$errors[] = 'Email addresses from "'.$domain.'" are not allowed.';
+			}
+		}
+
+		return (sizeof($errors) == 0);
+	}
+
+	//
+	// user verification methods
+	//
+
+	public function getEmailVerification() {
+		return EmailVerification::where('user_uid', '=', $this->user_uid)->first();
+	}
+
+	public function hasBeenVerified() {
+		return $this->email_verified_flag == '1' || $this->email_verified_flag == '-1';
+	}
+
+	//
+	// permission methods
+	//
 
 	public function getPolicy($policyCode) {
 		return UserPolicy::where('user_uid', '=', $this->user_uid)->where('policy_code', '=', $policyCode)->where('accept_flag', '=', 1)->first();
@@ -427,27 +511,27 @@ class User extends TimeStamped {
 		//
 		if ($this->getPolicy($permission->policy_code)) {
 			if ($userPermission) {
-				return response()->json(array(
+				return response()->json([
 					'status' => 'granted',
 					'user_permission_uid' => $userPermission->user_permission_uid
-				), 200);
+				], 200);
 			} else {
-				return response()->json(array(
+				return response()->json([
 					'status' => 'granted'
-				), 200);
+				], 200);
 			}
 		} else {
-			return response()->json(array(
+			return response()->json([
 				'status' => 'no_user_policy',
 				'policy' => $permission->policy,
 				'policy_code' => $permission->policy_code
-			), 404);
+			], 404);
 		}
 	}
 
-	/**
-	 * access control methods
-	 */
+	//
+	// access control methods
+	//
 
 	public function isReadableBy($user) {
 		if ($user->isAdmin()) {
@@ -517,6 +601,14 @@ class User extends TimeStamped {
 	// utility functions
 	//
 
+	public function setSession() {
+		session([
+			'user_uid' => $this->user_uid,
+			'timestamp' => time()
+		]);
+		Session::save();
+	}
+
 	static function getEmailDomain($email) {
 		$domain = implode('.',
 			array_slice( preg_split("/(\.|@)/", $email), -2)
@@ -527,12 +619,6 @@ class User extends TimeStamped {
 	static function isValidEmailDomain($domain) {
 		$restrictedDomainNames = RestrictedDomain::getRestrictedDomainNames();
 		return !in_array($domain, $restrictedDomainNames);
-	}
-
-	public static function setUserUidInSession($userUid) {
-		Session::set('timestamp', time());
-		Session::set('user_uid', $userUid);
-		Session::save();
 	}
 
 	//
@@ -625,16 +711,14 @@ class User extends TimeStamped {
 		// If LDAP is enabled, and application level password encryption is disabled 
 		// then validate the password by binding to LDAP with username and password.
 		//
-		if (Config::get('ldap.enabled') && Config::get('ldap.password_validation')) {
+		if (config('ldap.enabled') && config('ldap.password_validation')) {
 			if (Ldap::validatePassword($this->user_uid, $password)) {
 
 				// Log successful password hash authentications
 				//
-				Log::info("Password authenticated by LDAP.",
-					array(
-						'user_uid' => $this->user_uid,
-					)
-				);
+				Log::info("Password authenticated by LDAP.", [
+					'user_uid' => $this->user_uid
+				]);
 
 				return true;
 			}
@@ -646,11 +730,9 @@ class User extends TimeStamped {
 
 				// Log successful password hash authentications
 				//
-				Log::info("Password hash authenticated.",
-					array(
-						'user_uid' => $this->user_uid,
-					)
-				);
+				Log::info("Password hash authenticated.", [
+					'user_uid' => $this->user_uid
+				]);
 
 				return true;
 			}
@@ -667,11 +749,9 @@ class User extends TimeStamped {
 
 					// Log successful app password authentications
 					//
-					Log::info("App password authenticated.",
-						array(
-							'user_uid' => $this->user_uid,
-						)
-					);
+					Log::info("App password authenticated.", [
+						'user_uid' => $this->user_uid
+					]);
 
 					return true;	
 				}
@@ -682,14 +762,14 @@ class User extends TimeStamped {
 	}
 
 	//
-	// querying methods
+	// static querying methods
 	//
 
 	public static function getIndex($userUid) {
 
 		// check to see if we are to use LDAP
 		//
-		if (Config::get('ldap.enabled')) {
+		if (config('ldap.enabled')) {
 
 			// use LDAP
 			//
@@ -706,7 +786,7 @@ class User extends TimeStamped {
 
 		// check to see if we are to use LDAP
 		//
-		if (Config::get('ldap.enabled')) {
+		if (config('ldap.enabled')) {
 
 			// use LDAP
 			//
@@ -723,7 +803,7 @@ class User extends TimeStamped {
 
 		// check to see if we are to use LDAP
 		//
-		if (Config::get('ldap.enabled')) {
+		if (config('ldap.enabled')) {
 
 			// use LDAP
 			//
@@ -740,7 +820,7 @@ class User extends TimeStamped {
 
 		// check to see if we are to use LDAP
 		//
-		if (Config::get('ldap.enabled')) {
+		if (config('ldap.enabled')) {
 
 			// use LDAP
 			//
@@ -758,7 +838,7 @@ class User extends TimeStamped {
 	//
 
 	public function add() {
-		$encryption = Config::get('app.password_encryption_method');
+		$encryption = config('app.password_encryption_method');
 
 		// encrypt password
 		//
@@ -771,7 +851,7 @@ class User extends TimeStamped {
 
 		// check to see if we are to use LDAP
 		//
-		if (Config::get('ldap.enabled')) {
+		if (config('ldap.enabled')) {
 
 			// use LDAP
 			//
@@ -789,44 +869,46 @@ class User extends TimeStamped {
 		if (Input::has('promo')) {
 			$pdo = DB::connection('mysql')->getPdo();
 			$sth = $pdo->prepare('SELECT * FROM project.promo_code WHERE promo_code = :promo AND expiration_date > NOW()');
-			$sth->execute(array(':promo' => Input::get('promo')));
+			$sth->execute([
+				':promo' => Input::get('promo')
+			]);
 			$result = $sth->fetchAll(PDO::FETCH_ASSOC);
 			$promoCodeId = ($result != false) && (sizeof($result) > 0) ? $result[0]['promo_code_id'] : null;
 		}
 
 		// create new user account
 		//
-		$userAccount = new UserAccount(array(
+		$userAccount = new UserAccount([
 			'ldap_profile_update_date' => gmdate('Y-m-d H:i:s'),
 			'user_uid' => $this->user_uid,
 			'promo_code_id' => $promoCodeId,
 			'enabled_flag' => 1,
 			'admin_flag' => 0,
-			'email_verified_flag' => Config::get('mail.enabled')? 0 : -1
-		));
+			'email_verified_flag' => config('mail.enabled')? 0 : -1
+		]);
 		$userAccount->save();
 
 		// create linked account
 		//
 		if (Input::has('user_external_id') && Input::has('linked_account_provider_code')) {
-			$linkedAccount = new LinkedAccount(array(
+			$linkedAccount = new LinkedAccount([
 				'user_external_id' => Input::get('user_external_id'),
 				'linked_account_provider_code' => Input::get('linked_account_provider_code'),
 				'enabled_flag' => 1,
 				'user_uid' => $this->user_uid,
 				'create_date' => gmdate('Y-m-d H:i:s')
-			));
+			]);
 			$linkedAccount->save();
 			$idp = new IdentityProvider();
-			$userEvent = new UserEvent(array(
+			$userEvent = new UserEvent([
 				'user_uid' => $this->user_uid,
 				'event_type' => 'linkedAccountCreated',
-				'value' => json_encode(array( 
+				'value' => json_encode([
 					'linked_account_provider_code' => $idp->linked_provider, 
 					'user_external_id' => $linkedAccount->user_external_id, 
 					'user_ip' => $_SERVER['REMOTE_ADDR']
-				))
-			));
+				])
+			]);
 			$userEvent->save();
 		}
 
@@ -837,7 +919,7 @@ class User extends TimeStamped {
 
 		// check to see if we are to use LDAP
 		//
-		if (Config::get('ldap.enabled')) {
+		if (config('ldap.enabled')) {
 
 			// use LDAP
 			//
@@ -853,7 +935,7 @@ class User extends TimeStamped {
 	}
 
 	public function modifyPassword($password) {
-		$encryption = Config::get('app.password_encryption_method');
+		$encryption = config('app.password_encryption_method');
 
 		// encrypt password
 		//
@@ -871,7 +953,7 @@ class User extends TimeStamped {
 
 		// check to see if we are to use LDAP
 		//
-		if (Config::get('ldap.enabled')) {
+		if (config('ldap.enabled')) {
 
 			// use LDAP
 			//
@@ -882,91 +964,6 @@ class User extends TimeStamped {
 			//
 			$this->save();
 			return $this;
-		}
-	}
-
-	/**
-	 * accessor methods
-	 */
-
-	public function getEnabledFlagAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->enabled_flag;
-		} else {
-			return false;
-		}
-	}
-
-	public function getAdminFlagAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->admin_flag;
-		}
-	}
-
-	public function getEmailVerifiedFlagAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->email_verified_flag;
-		}
-	}
-
-	public function getForcePWResetFlagAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->forcepwreset_flag;
-		}
-	}
-
-	public function getHibernateFlagAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->hibernate_flag;
-		}
-	}
-
-	public function getUserTypeAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->user_type;
-		}
-	}
-
-	public function getUltimateLoginDateAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->ultimate_login_date;
-		}
-	}
-
-	public function getPenultimateLoginDateAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->penultimate_login_date;
-		}
-	}
-
-	public function getSshAccessFlagAttribute() {
-		$sshAccessPermission = UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', 'ssh-access')->first();
-		return $sshAccessPermission ? ($sshAccessPermission->getStatus() == 'granted' ? 1 : 0) : 0;
-	}
-
-	public function getHasLinkedAccountAttribute() {
-		return LinkedAccount::where('user_uid', '=', $this->user_uid)->exists();
-	}
-
-	public function getCreateDateAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->create_date;
-		}
-	}
-
-	public function getUpdateDateAttribute() {
-		$userAccount = $this->getUserAccount();
-		if ($userAccount) {
-			return $userAccount->update_date;
 		}
 	}
 
@@ -984,12 +981,12 @@ class User extends TimeStamped {
 		$stmt = $pdo->prepare("CALL list_projects_by_member(:userUuidIn, @returnString);");
 		$stmt->bindParam(':userUuidIn', $userUuidIn, PDO::PARAM_STR, 45);
 		$stmt->execute();
-		$results = array();
+		$results = [];
 
 		do {
 			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
 				$results[] = $row;
-		} while ( $stmt->nextRowset() );
+		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');
 		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];

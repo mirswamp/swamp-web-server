@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -25,25 +25,23 @@ use App\Models\Platforms\PlatformVersion;
 
 class PackagePlatform extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'package_store';
 	protected $table = 'package_platform';
 	public $primaryKey = 'package_platform_id';
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'package',
 		'platform',
 		'platform_version'
-	);
+	];
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getPackageAttribute() {
 		if ($this->package_uuid) {

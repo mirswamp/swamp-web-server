@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Admin;
@@ -36,11 +36,11 @@ class AdminInvitationsController extends BaseController {
 
 			// create a single admin invitation
 			//
-			$adminInvitation = new AdminInvitation(array(
+			$adminInvitation = new AdminInvitation([
 				'invitation_key' => Guid::create(),
 				'inviter_uid' => Input::get('inviter_uid'),
 				'invitee_uid' => Input::get('invitee_uid'),
-			));
+			]);
 			$adminInvitation->save();
 			$adminInvitation->send(Input::get('invitee_name'), Input::get('confirm_route'));
 			return $adminInvitation;
@@ -52,11 +52,11 @@ class AdminInvitationsController extends BaseController {
 			$adminInvitations = new Collection;
 			for ($i = 0; $i < sizeOf($invitations); $i++) {
 				$invitation = $invitations[$i];
-				$adminInvitation = new AdminInvitation(array(
+				$adminInvitation = new AdminInvitation([
 					'invitation_key' => Guid::create(),
 					'inviter_uid' => $invitation['inviter_uid'],
 					'invitee_uid' => $invitation['invitee_uid'],
-				));
+				]);
 				$adminInvitations->push($adminInvitation);
 				$adminInvitation->save();
 				$adminInvitation->send();
@@ -71,20 +71,22 @@ class AdminInvitationsController extends BaseController {
 	public function getIndex($invitationKey) {
 		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
 
-		if( ! $adminInvitation ){
+		if (!$adminInvitation) {
 			return response('Could not load invitation.', 404);
 		}
 
-		$inviter = User::getIndex( $adminInvitation->inviter_uid );
-		$inviter = ( ! $inviter || ! $inviter->isEnabled() ) ? false : $inviter;
-		if( $inviter )
+		$inviter = User::getIndex($adminInvitation->inviter_uid);
+		$inviter = (!$inviter || !$inviter->isEnabled()) ? false : $inviter;
+		if ($inviter) {
 			$inviter['user_uid'] = $adminInvitation->inviter_uid;
+		}
 		$adminInvitation->inviter = $inviter;
 
-		$invitee = User::getIndex( $adminInvitation->invitee_uid );
-		$invitee = ( ! $invitee || ! $invitee->isEnabled() ) ? false : $invitee;
-		if( $invitee )
+		$invitee = User::getIndex($adminInvitation->invitee_uid);
+		$invitee = (!$invitee || !$invitee->isEnabled()) ? false : $invitee;
+		if ($invitee) {
 			$invitee['user_uid'] = $adminInvitation->invitee_uid;
+		}
 		$adminInvitation->invitee = $invitee;
 
 		return $adminInvitation;
@@ -175,7 +177,9 @@ class AdminInvitationsController extends BaseController {
 			$userAccount->admin_flag = 1;
 			$userAccount->save();
 			
-			return response()->json(array('success' => 'true'));
+			return response()->json([
+				'success' => 'true'
+			]);
 		} else {
 			return response('Admin invitation not found', 404);
 		}
@@ -192,7 +196,9 @@ class AdminInvitationsController extends BaseController {
 			$adminInvitation->decline_date = gmdate('Y-m-d H:i:s');
 			$adminInvitation->save();
 
-			return response()->json(array('success' => 'true'));
+			return response()->json([
+				'success' => 'true'
+			]);
 		} else {
 			return response('Admin invitation not found', 404);
 		}

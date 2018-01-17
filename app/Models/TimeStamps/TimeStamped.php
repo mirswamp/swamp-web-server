@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\TimeStamps;
@@ -29,12 +29,12 @@ class TimeStamped extends CreateStamped {
 	const UPDATED_AT = 'update_date';
 	const DELETED_AT = 'delete_date';
 
-	protected $visible = array(
+	protected $visible = [
 
 		// timestamp attributes
 		//
 		'create_date',
 		'update_date',
 		'delete_date'
-	);
+	];
 }

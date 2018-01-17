@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\RunRequests;
@@ -43,12 +43,12 @@ class RunRequestsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$runRequest = new RunRequest(array(
+		$runRequest = new RunRequest([
 			'run_request_uuid' => Guid::create(),
 			'project_uuid' => Input::get('project_uuid'),
 			'name' => Input::get('name'),
 			'description' => Input::get('description')
-		));
+		]);
 		$runRequest->save();
 		return $runRequest;
 	}
@@ -69,9 +69,13 @@ class RunRequestsController extends BaseController {
 			foreach( $assessmentRunUuids as $assessmentRunUuid ) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
 				if ($assessmentRun != NULL) {
-					$result = $this->checkPermissions($assessmentRun);
+					$user = User::getIndex(session('user_uid'));
+					$result = $assessmentRun->checkPermissions($user);
+
+					// if not true, return permissions error
+					//
 					if ($result !== true) {
-						return $result;
+						return response()->json($result, 403);
 					}
 				}
 			}
@@ -81,115 +85,18 @@ class RunRequestsController extends BaseController {
 			for ($i = 0; $i < sizeOf($assessmentRunUuids); $i++) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])->first();
 				if ($assessmentRun != NULL) {
-					$assessmentRunRequest = new AssessmentRunRequest(array(
+					$assessmentRunRequest = new AssessmentRunRequest([
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
 						'run_request_id' => $runRequest->run_request_id,
-						'user_uuid' => Session::get('user_uid'),
+						'user_uuid' => session('user_uid'),
 						'notify_when_complete_flag' => $notifyWhenComplete == 'true'? 1 : 0
-					));
+					]);
 					$assessmentRunRequest->save();
 					$assessmentRunRequests->push($assessmentRunRequest);
 				}
 			}
 		}
 		return $assessmentRunRequests;
-	}
-
-	private function checkPermissions($assessmentRun) {
-		$tool = Tool::where('tool_uuid','=',$assessmentRun->tool_uuid)->first();
-
-		// return if no tool
-		//
-		$tool = Tool::where('tool_uuid','=',$assessmentRun->tool_uuid)->first();
-		if (!$tool) {
-			return response('approved', 200);
-		}
-
-		// check restricted tools
-		//
-		if ($tool->isRestricted()) {
-			$user = User::getIndex( Session::get('user_uid') );
-			$permission = Permission::where('policy_code','=', $tool->policy_code)->first();
-			$project = Project::where('project_uid', '=', $assessmentRun->project_uuid)->first();
-			$projectOwner = $project->owner;
-
-			// check for no permission, project, or owner
-			//
-			if (!$permission || !$project || !$projectOwner) {
-				return response()->json(array(
-					'status' => 'error'
-				), 404);
-			}
-
-			// if the permission doesn't exist or isn't valid, return error
-			//
-			/*
-			if ($tool->isRestrictedByProjectOwner()) {
-				$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $projectOwner['user_uid'])->first();
-				if (!$userPermission) {
-					return response()->json(array(
-						'status' => 'owner_no_permission',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					), 404);
-				}
-				if ($userPermission->status !== 'granted') {
-					return response()->json(array(
-						'status' => 'owner_no_permission',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					), 401);
-				}
-			}
-			*/
-
-			// if the project hasn't been designated, return error
-			//
-			/*
-			if ($tool->isRestrictedByProject()) {
-				$userPermissionProject = UserPermissionProject::where('user_permission_uid','=',$userPermission->user_permission_uid)->where('project_uid','=',$project->project_uid)->first();
-				if (!$userPermissionProject) {
-					return response()->json(array(
-						'status' => 'no_project',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					), 404);
-				}
-			}
-			*/
-
-			// check user permission
-			//
-			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $user['user_uid'])->first();
-			if (!$userPermission) {
-				return response()->json(array(
-					'status' => 'tool_no_permission',
-					'project_name' => $project->full_name,
-					'tool_name' => $tool->name
-				), 404);
-			}
-			if ($userPermission->status !== 'granted') {
-				return response()->json(array(
-					'status' => 'tool_no_permission',
-					'project_name' => $project->full_name,
-					'tool_name' => $tool->name
-				), 401);
-			}
-
-			// if the policy hasn't been accepted, return error
-			//
-			$userPolicy	= UserPolicy::where('policy_code','=',$tool->policy_code)->where('user_uid','=',$user->user_uid)->first();
-			if (!$userPolicy || $userPolicy->accept_flag != '1') {
-				return response()->json(array(
-					'status' => 'no_policy',
-					'policy' => $tool->policy,
-					'policy_code' => $tool->policy_code,
-					'tool' => $tool
-				), 404);
-			}
-		}
-
-		return true;
 	}
 
 	public function postAssessmentRunRequests($runRequestUuid) {
@@ -204,9 +111,13 @@ class RunRequestsController extends BaseController {
 			foreach( $assessmentRunUuids as $aru ) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $aru)->first();
 				if ($assessmentRun != NULL) {
-					$result = $this->checkPermissions($assessmentRun);
+					$user = User::getIndex(session('user_uid'));
+					$result = $assessmentRun->checkPermissions($user);
+
+					// if not true, return permissions error
+					//
 					if ($result !== true) {
-						return $result;
+						return response()->json($result, 403);
 					}
 				}
 			}
@@ -216,12 +127,12 @@ class RunRequestsController extends BaseController {
 			for ($i = 0; $i < sizeOf($assessmentRunUuids); $i++) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])->first();
 				if ($assessmentRun != NULL) {
-					$assessmentRunRequest = new AssessmentRunRequest(array(
+					$assessmentRunRequest = new AssessmentRunRequest([
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
 						'run_request_id' => $runRequest->run_request_id,
-						'user_uuid' => Session::get('user_uid'),
+						'user_uuid' => session('user_uid'),
 						'notify_when_complete_flag' => $notifyWhenComplete == 'true'? 1 : 0
-					));
+					]);
 					$assessmentRunRequest->save();
 					$assessmentRunRequests->push($assessmentRunRequest);
 				}
@@ -246,7 +157,7 @@ class RunRequestsController extends BaseController {
 			//
 			$project = Project::where('project_uid', '=', $projectUuid)->first();
 			if (!$project || !$project->isActive()) {
-				return array();
+				return [];
 			}
 
 			// get by a single project

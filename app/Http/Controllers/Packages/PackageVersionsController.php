@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
@@ -32,7 +32,6 @@ use App\Utilities\Uuids\Guid;
 use App\Models\Packages\Package;
 use App\Models\Packages\PackageVersion;
 use App\Models\Packages\PackageVersionSharing;
-use App\Models\Packages\PackageVersionDependency;
 use App\Models\Packages\CPackageVersion;
 use App\Models\Packages\JavaSourcePackageVersion;
 use App\Models\Packages\JavaBytecodePackageVersion;
@@ -157,9 +156,9 @@ class PackageVersionsController extends BaseController {
 
 		// create package appropriate to package type
 		//
-		$packageVersion = new PackageVersion(array(
+		$packageVersion = new PackageVersion([
 			'package_path' => Input::get('package_path')
-		));
+		]);
 
 		return $packageVersion->getRoot();
 	}
@@ -173,9 +172,9 @@ class PackageVersionsController extends BaseController {
 
 		// create package appropriate to package type
 		//
-		$packageVersion = new PackageVersion(array(
+		$packageVersion = new PackageVersion([
 			'package_path' => Input::get('package_path')
-		));
+		]);
 
 		if ($packageVersion) {
 			return response()->json($packageVersion->contains($dirname, $filename, $recursive));
@@ -191,9 +190,9 @@ class PackageVersionsController extends BaseController {
 
 		// create new package version
 		//
-		$packageVersion = new PackageVersion(array(
+		$packageVersion = new PackageVersion([
 			'package_path' => Input::get('package_path')
-		));
+		]);
 
 		return $packageVersion->getFileTypes($dirname);
 	}
@@ -206,9 +205,9 @@ class PackageVersionsController extends BaseController {
 
 		// create new package version
 		//
-		$packageVersion = new PackageVersion(array(
+		$packageVersion = new PackageVersion([
 			'package_path' => Input::get('package_path')
-		));
+		]);
 
 		return $packageVersion->getFileInfoList($dirname, $filter);
 	}
@@ -222,9 +221,9 @@ class PackageVersionsController extends BaseController {
 
 		// create new package version
 		//
-		$packageVersion = new PackageVersion(array(
+		$packageVersion = new PackageVersion([
 			'package_path' => $packagePath
-		));
+		]);
 
 		return $packageVersion->getFileInfoTree($dirname, $filter);
 	}
@@ -237,9 +236,9 @@ class PackageVersionsController extends BaseController {
 
 		// create new package version
 		//
-		$packageVersion = new PackageVersion(array(
+		$packageVersion = new PackageVersion([
 			'package_path' => Input::get('package_path')
-		));
+		]);
 
 		return $packageVersion->getDirectoryInfoList($dirname, $filter);
 	}
@@ -252,9 +251,9 @@ class PackageVersionsController extends BaseController {
 
 		// create new package version
 		//
-		$packageVersion = new PackageVersion(array(
+		$packageVersion = new PackageVersion([
 			'package_path' => Input::get('package_path')
-		));
+		]);
 
 		return $packageVersion->getDirectoryInfoTree($dirname, $filter);
 	}
@@ -272,10 +271,17 @@ class PackageVersionsController extends BaseController {
 		$attributes = self::getAttributes();
 		$packageTypeId = self::getPackageTypeId($attributes);
 		$packageVersion = self::getNewPackageVersion($packageTypeId, $attributes);
+
 		if ($packageVersion) {
-			return $packageVersion->getBuildSystem();
+			$buildSystem = $packageVersion->getBuildSystem();
+
+			if ($buildSystem) {
+				return response($buildSystem, 200);
+			} else {
+				return response("Unable to find build system for package type ".$packageTypeId.".", 404);
+			}
 		} else {
-			return response("Unable to get build system for package type ".$packageTypeId.".", 400);
+			return response("Unable to find package version for package type ".$packageTypeId.".", 404);
 		}
 	}
 
@@ -395,10 +401,17 @@ class PackageVersionsController extends BaseController {
 		//
 		$packageTypeId = $packageVersion->package_type_id;
 		$packageVersion = $this->getNewPackageVersion($packageTypeId, null);
+		
 		if ($packageVersion) {
-			return $packageVersion->getBuildSystem();
+			$archive = new Archive($packageVersion->getPackagePath());
+			$buildSystem = $packageVersion->getBuildSystem($archive);
+			if ($buildSystem) {
+				return response($buildSystem, 200);
+			} else {
+				return response("Unable to find build system for package type ".$packageTypeId.".", 404);
+			}
 		} else {
-			return response("Unable to get build system for package type ".$packageTypeId.".", 400);
+			return response("Unable to find package version for package type ".$packageTypeId.".", 404);
 		}
 	}
 
@@ -410,7 +423,7 @@ class PackageVersionsController extends BaseController {
 	//
 	public function getSharing($packageVersionUuid) {
 		$packageVersionSharing = PackageVersionSharing::where('package_version_uuid', '=', $packageVersionUuid)->get();
-		$projectUuids = array();
+		$projectUuids = [];
 		for ($i = 0; $i < sizeof($packageVersionSharing); $i++) {
 			array_push($projectUuids, $packageVersionSharing[$i]->project_uuid);
 		}
@@ -435,14 +448,14 @@ class PackageVersionsController extends BaseController {
 		//
 		$projects = Input::get('projects');
 		if ($projects) {
-			$packageVersionSharings = array();
+			$packageVersionSharings = [];
 			if ($projects) {
 				foreach($projects as $project) {
 					$projectUid = $project['project_uid'];
-					$packageVersionSharing = new PackageVersionSharing(array(
+					$packageVersionSharing = new PackageVersionSharing([
 						'package_version_uuid' => $packageVersionUuid,
 						'project_uuid' => $projectUid
-					));
+					]);
 					$packageVersionSharing->save();
 					$packageVersionSharings[] = $packageVersionSharing;
 				}
@@ -453,12 +466,12 @@ class PackageVersionsController extends BaseController {
 		//
 		$projectUuids = Input::get('project_uuids');
 		if ($projectUuids) {
-			$packageVersionSharings = array();
+			$packageVersionSharings = [];
 			foreach ($projectUuids as $projectUuid) {
-				$packageVersionSharing = new PackageVersionSharing(array(
+				$packageVersionSharing = new PackageVersionSharing([
 					'package_version_uuid' => $packageVersionUuid,
 					'project_uuid' => $projectUuid
-				));
+				]);
 				$packageVersionSharing->save();
 				$packageVersionSharings[] = $packageVersionSharing;
 			}
@@ -548,9 +561,9 @@ class PackageVersionsController extends BaseController {
 		// set download parameters
 		//
 		$filename = basename($packagePath);
-		$headers = array(
+		$headers = [
 			  'content-type: application/octet-stream'
-		);
+		];
 
 		// download and return file
 		//
@@ -656,7 +669,7 @@ class PackageVersionsController extends BaseController {
 	}
 
 	private static function getAttributes() {
-		return array(
+		return [
 			'package_version_uuid' => Input::get('package_version_uuid'),
 			'package_uuid' => Input::get('package_uuid'),
 
@@ -711,7 +724,7 @@ class PackageVersionsController extends BaseController {
 			'android_lint_target' => Input::get('android_lint_target'),
 			'android_redo_build' => Input::get('android_redo_build'),
 			'android_maven_plugin' => Input::get('android_maven_plugin')
-		);
+		];
 	}
 
 
@@ -773,7 +786,7 @@ class PackageVersionsController extends BaseController {
 				// move file to destination
 				//
 				$destinationFolder = Guid::create();
-				$destinationPath = Config::get('app.incoming').$destinationFolder;
+				$destinationPath = config('app.incoming').$destinationFolder;
 				`mkdir -p $destinationPath`;
 				`mv $workdir/$dirname.tar.gz $destinationPath/$filename`;
 				$uploadSuccess = file_exists("$destinationPath/$filename");
@@ -782,7 +795,7 @@ class PackageVersionsController extends BaseController {
 				// create destination folder
 				//
 				$destinationFolder = Guid::create();
-				$destinationPath = Config::get('app.incoming').$destinationFolder;
+				$destinationPath = config('app.incoming').$destinationFolder;
 				`mkdir $destinationPath`;
 
 				// replace spaces in filename with dashes
@@ -834,7 +847,7 @@ class PackageVersionsController extends BaseController {
 			// move file to destination
 			//
 			$destinationFolder = Guid::create();
-			$destinationPath = Config::get('app.incoming').$destinationFolder;
+			$destinationPath = config('app.incoming').$destinationFolder;
 			$uploadSuccess = $file->move($destinationPath, $filename);
 		}
 
@@ -843,14 +856,14 @@ class PackageVersionsController extends BaseController {
 		}
 
 		if ($uploadSuccess) {
-			return array(
+			return [
 				'filename' => $filename,
 				'path' => $path,
 				'extension' => $extension,
 				'mime' => $mime,
 				'size' => $size,
 				'destination_path' => $destinationFolder
-			);
+			];
 		} else {
 			return response("Could not upload file.", 500);
 		}
@@ -895,8 +908,8 @@ class PackageVersionsController extends BaseController {
 
 		// remove file and directory
 		//
-		unlink(Config::get('app.incoming').$packagePath);
-		rmdir(dirname(Config::get('app.incoming').$packagePath));
+		unlink(config('app.incoming').$packagePath);
+		rmdir(dirname(config('app.incoming').$packagePath));
 
 		// return values
 		//
@@ -941,8 +954,8 @@ class PackageVersionsController extends BaseController {
 
 		// remove file and directory
 		//
-		// unlink(Config::get('app.incoming').$packagePath);
-		// rmdir(dirname(Config::get('app.incoming').$packagePath));
+		// unlink(config('app.incoming').$packagePath);
+		// rmdir(dirname(config('app.incoming').$packagePath));
 
 		// create new package version if successful
 		//

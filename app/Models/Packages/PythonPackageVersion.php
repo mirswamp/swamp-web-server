@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -30,29 +30,28 @@ class PythonPackageVersion extends PackageVersion {
 	//
 
 	function getBuildSystem() {
-	
-		// create archive from package
+
+		// check in package path and build path
 		//
+		$archive = new Archive($this->getPackagePath());
 		$packagePath = $this->getPackagePath();
-		$archive = new Archive($packagePath);
 		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
 
 		// check for setuptools
 		//
 		if (StringUtils::endsWith($packagePath, '.whl')) {
-			return response("wheels", 200);
+			return 'wheels';
 
 		// check for ant
 		//
 		} else if ($archive->found($buildPath, 'setup.py')) {
-			return response("setuptools", 200);
+			return 'setuptools';
 
-		// default case
+		// build system not found
 		//
 		} else {
-			return response("Could not determine build system.", 404);
+			return null;
 		}
-
 	}
 
 	function checkBuildSystem() {

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Assessments;
@@ -26,19 +26,19 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
-use App\Models\Assessments\AssessmentResult;
-use App\Models\Assessments\AssessmentRun;
-use App\Models\Executions\ExecutionRecord;
-use App\Models\Tools\Tool;
-use App\Models\Viewers\Viewer;
-use App\Models\Viewers\ViewerInstance;
 use App\Models\Users\User;
-use App\Models\Users\Permission;
 use App\Models\Users\UserPolicy;
+use App\Models\Users\Permission;
 use App\Models\Users\UserPermission;
 use App\Models\Users\UserPermissionProject;
 use App\Models\Projects\Project;
+use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
+use App\Models\Assessments\AssessmentResult;
+use App\Models\Assessments\AssessmentRun;
+use App\Models\Executions\ExecutionRecord;
+use App\Models\Viewers\Viewer;
+use App\Models\Viewers\ViewerInstance;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\TripletFilter;
@@ -49,6 +49,11 @@ use App\Services\HTCondorCollector;
 
 
 class AssessmentResultsController extends BaseController {
+
+	// return sample JSON results data
+	//
+	const sampleResults = null;
+	// const sampleResults = 'nativereport.json';
 
 	// get by index
 	//
@@ -64,7 +69,7 @@ class AssessmentResultsController extends BaseController {
 		//
 		$project = Project::where('project_uid', '=', $projectUuid)->first();
 		if (!$project || !$project->isActive()) {
-			return array();
+			return [];
 		}
 
 		$assessmentResultsQuery = AssessmentResult::where('project_uuid', '=', $projectUuid);
@@ -87,9 +92,8 @@ class AssessmentResultsController extends BaseController {
 		return $assessmentResultsQuery->get();
 	}
 
-	// get results for viewer
-	//
-	public function getResults($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+	static public function launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+		// Log::info("launchViewer - aRU: $assessmentResultsUuid vU: $viewerUuid pU: $projectUuid");
 
 		// get latest version of viewer
 		//
@@ -97,25 +101,12 @@ class AssessmentResultsController extends BaseController {
 		$viewerVersion = $viewer->getLatestVersion();
 		$viewerVersionUuid = $viewerVersion->viewer_version_uuid;
 
-		if ($assessmentResultsUuid != "none") {
-			foreach( explode( ',',$assessmentResultsUuid ) as $resultUuid ){
-				$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$resultUuid)->first();
-
-				// check permissions on result
-				//
-				$result = $this->checkPermissions($assessmentResult);
-				if ($result !== true) {
-					return $result;
-				}
-			}
-		}
-
 		// create stored procedure call
 		//
 		$connection = DB::connection('assessment');
 		$pdo = $connection->getPdo();
 		$stmt = $pdo->prepare("CALL launch_viewer(:assessmentResultsUuid, :userUuidIn, :viewerVersionUuid, :projectUuid, :destinationBasePath, @returnPath, @returnString, @viewerInstanceUuid);");
-		$resultsDestination = Config::get('app.outgoing');
+		$resultsDestination = config('app.outgoing');
 
 		// bind params
 		//
@@ -125,12 +116,7 @@ class AssessmentResultsController extends BaseController {
 		$stmt->bindParam(":projectUuid", $projectUuid, PDO::PARAM_STR, 45);
 		$stmt->bindParam(":destinationBasePath", $resultsDestination, PDO::PARAM_STR, 45);
 
-		// set param values
-		//
-		if ($assessmentResultsUuid == 'none') {
-			$assessmentResultsUuid = '';
-		}
-		$userUuidIn = Session::get('user_uid');
+		$userUuidIn = session('user_uid');
 		$returnString = null;
 		$viewerInstanceUuid = null;
 
@@ -142,36 +128,115 @@ class AssessmentResultsController extends BaseController {
 		//
 		$select = $pdo->query('SELECT @returnPath, @returnString, @viewerInstanceUuid');
 		$results = $select->fetchAll();
-		$returnPath = $results[0]["@returnPath"];
-		$returnString = $results[0]["@returnString"];
-		$viewerInstanceUuid = $results[0]["@viewerInstanceUuid"];
+		// Log::info("launchViewer returns: " . print_r($results, true));
+		return $results;
+	}
+
+	// get results for viewer
+	//
+	public function getResults($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+
+		// check project permissions
+		//
+		$result = $this->checkProject($projectUuid);
+		if ($result !== true) {
+			return $result;
+		}
+
+		// check results permissions
+		//
+		if ($assessmentResultsUuid != "none") {
+			foreach (explode( ',',$assessmentResultsUuid ) as $resultUuid) {
+				$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$resultUuid)->first();
+
+				// check permissions on result
+				//
+				$user = User::getIndex(session('user_uid'));
+				$result = $assessmentResult->checkPermissions($user);
+
+				// if not true, return permissions error
+				//
+				if ($result !== true) {
+					return response()->json($result, 403);
+				}
+			}
+		}
+
+		// check for sample (test) results
+		//
+		if (!self::sampleResults) {
+			$viewer = Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
+
+			// check for cached results in storage directory
+			//
+			if (strtolower($viewer->name) == 'native') {
+				$resultsDir = config('app.outgoing').'/'.$assessmentResultsUuid.'/'.'nativereport.json';
+				if (file_exists($resultsDir)) {
+					$results = file_get_contents($resultsDir, $assessmentResultsUuid);
+
+					// return results
+					//
+					return [
+						"assessment_results_uuid" => $assessmentResultsUuid,
+						"results" => $this->getJSON($results, $assessmentResultsUuid),
+						"results_status" => 'SUCCESS'
+					];
+				}
+			}
+
+			// call stored procedure
+			//
+			// Log::info("calling launchViewer - aRU: $assessmentResultsUuid vU: $viewerUuid pU: $projectUuid");
+			$results = self::launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid);
+
+			// get stored procedure results
+			//
+			// Log::info("results from stored procedure = ".print_r($results, true));
+
+			// set param values
+			//
+			if ($assessmentResultsUuid == 'none') {
+				$assessmentResultsUuid = '';
+			}
+
+			$returnPath = $results[0]["@returnPath"];
+			$returnString = $results[0]["@returnString"];
+			$viewerInstanceUuid = $results[0]["@viewerInstanceUuid"];
+		} else {
+
+			// retun test results
+			//
+			$returnPath = __DIR__.'/'.self::sampleResults;
+			$returnString = "SUCCESS";
+			$viewerInstanceUuid = null;
+		}
 
 		// log viewer launching
 		//
-		Log::info("Launching viewer.",
-			array('viewer_instance_uuid' => $viewerInstanceUuid)
-		);
+		Log::info("Launching viewer.", [
+			'viewer_instance_uuid' => $viewerInstanceUuid
+		]);
 
 		if (StringUtils::endsWith($returnPath, 'index.html')) {
 
 			// return a link to the results web page
 			//
-			$resultsUrl = str_replace('/swamp/outgoing', Config::get('app.url').'/results', $returnPath);
-			return array(
+			$resultsUrl = str_replace('/swamp/outgoing', config('app.url').'/results', $returnPath);
+			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
 				"results_url" => $resultsUrl,
 				"results_status" => $returnString
-			);
-		} else if (StringUtils::endsWith($returnPath, '.html')) {
+			];
+		} else if (StringUtils::endsWith($returnPath, '.html') || StringUtils::endsWith($returnPath, '.json')) {
 
 			// return native results data
 			//
-			$options=array(
-				"ssl"=>array(
-					"verify_peer"=>false,
-					"verify_peer_name"=>false
-				)
-			);
+			$options = [
+				"ssl" => [
+					"verify_peer" => false,
+					"verify_peer_name" => false
+				]
+			];
 			$results = @file_get_contents($returnPath, false, stream_context_create($options));
 
 			// remove results file
@@ -192,38 +257,48 @@ class AssessmentResultsController extends BaseController {
 				self::rrmdir(dirname($returnPath));
 			}
 
+			// parse json
+			//
+			if (StringUtils::endsWith($returnPath, '.json')) {
+				$results = $this->getJSON($results, $assessmentResultsUuid);
+			}
+
 			if ($results) {
 
 				// return results
 				//
-				return array(
+				return [
 					"assessment_results_uuid" => $assessmentResultsUuid,
 					"results" => $results,
 					"results_status" => $returnString
-				);
+				];
 			} else {
 				return response('Could not return results from '.$returnPath, 500);
 			}
 			
 			// return results
 			//
-			return array(
+			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
 				"results" => file_get_contents($returnUrl),
 				"results_status" => $returnString
-			);
+			];
 		} else {
 
 			// get url/status from viewer instance if present
 			// otherwise just use what database gave us.
 			// FIXME viewer is always present when url has no .html?
+			//
 			if ($viewerInstanceUuid) {
 				$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
+
 				// TODO what is return value of status when returns immediately
 
 				// if proxy url, return it
 				//
 				if ($instance->state && ($instance->state == 2) && $instance->proxy_url) {
+					$connection = DB::connection('assessment');
+					$pdo = $connection->getPdo();
 					$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 					$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
 					if ($base_url) {
@@ -231,36 +306,36 @@ class AssessmentResultsController extends BaseController {
 
 						// log success
 						//
-						Log::info("Successfully launched viewer.",
-							array('viewer_instance_uuid' => $viewerInstanceUuid)
-						);
+						Log::info("Successfully launched viewer.", [
+							'viewer_instance_uuid' => $viewerInstanceUuid
+						]);
 
-						return array(
+						return [
 							"assessment_results_uuid" => $assessmentResultsUuid,
 							"results_url" => $returnUrl,
 							"results_status" => $returnString
-						);
+						];
 					}
 				}
 
 				// otherwise return viewer status
 				//
 				else {
-					return array(
+					return [
 						"results_viewer_status" => $instance->status,
 						"results_status" => "LOADING",
 						"viewer_instance" => $viewerInstanceUuid
-					);
+					];
 				}
 			}
 
 			// return results url
 			//
-			return array(
+			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results_url" => Config::get('app.url').'/'.$returnPath,
+				"results_url" => config('app.url').'/'.$returnPath,
 				"results_status" => $returnString
-			);
+			];
 		}
 	}
 
@@ -281,10 +356,58 @@ class AssessmentResultsController extends BaseController {
 		rmdir($dir);
 	}
 
+	// parse JSON results
+	//
+	public function getJSON($results, $assessmentResultUuid) {
+		$results = json_decode($results, true);
+		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
+
+		// find bug count
+		//
+		if (isset($results['AnalyzerReport']['BugInstances'])) {
+			$bugCount = sizeof($results['AnalyzerReport']['BugInstances']);
+		} else {
+			$bugCount = 0;
+		}
+
+		// select results
+		//
+		if ($bugCount > 1) {
+			if (Input::has('from') && Input::has('to')) {
+				$from = Input::get('from');
+				$to = Input::get('to');
+				$results['AnalyzerReport']['BugInstances'] = array_slice($results['AnalyzerReport']['BugInstances'], $from - 1, $to - $from + 1);
+			} else if (Input::has('from')) {
+				$from = Input::get('from');
+				$results['AnalyzerReport']['BugInstances'] = array_slice($results['AnalyzerReport']['BugInstances'], $from - 1);
+			} else if (Input::has('to')) {
+				$to = Input::get('to');
+				$results['AnalyzerReport']['BugInstances'] = array_slice($results['AnalyzerReport']['BugInstances'], 0, $to);
+			}
+		}
+
+		// append bug count
+		//
+		$results['AnalyzerReport']['BugCount'] = $bugCount;
+
+		// append triplet info to results
+		//
+		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
+	
+		$results['AnalyzerReport']['package'] = $executionRecord->package;
+		$results['AnalyzerReport']['tool'] = $executionRecord->tool;
+		$results['AnalyzerReport']['platform'] = $executionRecord->platform;
+
+		// append create date
+		//
+		$results['AnalyzerReport']['create_date'] = $assessmentResult->create_date;
+
+		return $results;
+	}
+
 	// Get SCARF results as XML file
 	//
 	public function getScarf($assessmentResultsUuid) {
-
 		if ($assessmentResultsUuid != "none") {
 			foreach( explode( ',',$assessmentResultsUuid ) as $resultUuid ){
 				try {
@@ -292,29 +415,20 @@ class AssessmentResultsController extends BaseController {
 					$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
 					$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $executionRecord->assessment_run_uuid)->first();
 				} catch (\ErrorException $e) {
-					return response()->json(array(
+					return response()->json([
 						'error' => 'not_found',
 						'error_description' => 'No results found for the provided assessment result UUID.'
-						),404);
+					], 404);
 				}
 				
 				if ($assessmentRun) {
-					$result = $this->checkPermissions($assessmentResult);
+					$user = User::getIndex(session('user_uid'));
+					$result = $assessmentResult->checkPermissions($user);
 
+					// if not true, return permissions error
+					//
 					if ($result !== true) {
-
-						// Check reponse contents. If JSON, return it, otherwise make new JSON response.
-						//
-						$content = @$result->getContent();
-						json_decode($content);
-						if ((json_last_error() == JSON_ERROR_NONE) && (strlen($content) > 0)) {
-							return $result;
-						} else {
-							return response()->json(array(
-								'error' => 'internal_error',
-								'error_description' => 'The SWAMP server encountered an internal error when processing the request.'
-								),500);
-						}
+						return response()->json($result, 403);
 					}
 				}
 			}
@@ -328,10 +442,10 @@ class AssessmentResultsController extends BaseController {
 
 		// set param values
 		//
-		if( $assessmentResultsUuid == 'none' ){
+		if ($assessmentResultsUuid == 'none') {
 			$assessmentResultsUuid = '';
 		}
-		$userUuidIn = Session::get('user_uid');
+		$userUuidIn = session('user_uid');
 		$returnType = 'scarf';
 		$returnUrl = null;
 		$returnFile = null;
@@ -357,69 +471,81 @@ class AssessmentResultsController extends BaseController {
 
 		// log returned download url
 		//
-		Log::info("In downloadResults.",
-			array(
-				'returnUrl' => $returnUrl, 
-				'returnFile' => $returnFile,
-				'returnString' => $returnString
-			)
-		);
+		Log::info("In downloadResults.", [
+			'returnUrl' => $returnUrl, 
+			'returnFile' => $returnFile,
+			'returnString' => $returnString
+		]);
 
 		if (strcmp($returnString,'SUCCESS') == 0) {
 			if (strlen($returnFile) > 0) {
-				if (substr_compare($returnFile,'.xml',-4,4,true) == 0) {
+				if (substr_compare($returnFile, '.xml', -4, 4, true) == 0) {
+
 					// ALL GOOD! Download the XML file as 'scarf.xml'
-					$headers = array(
+					//
+					$headers = [
 						'Content-Type: text/xml',
 						'charset=UTF-8',
-						);
+					];
 					if (strcasecmp(Request::header('Accept-Encoding'),'gzip') == 0) {
 						$headers[] = 'Content-Encoding: gzip';
 					}
 					return response()->download($returnFile,'scarf.xml',$headers);
-				} else { // File type is not XML
-					return response()->json(array(
+				} else { 
+
+					// file type is not XML
+					//
+					return response()->json([
 						'error' => 'not_found',
 						'error_description' => 'The results were not SCARF-formatted XML.'
-						),404);
+					], 404);
 				}
-			} else { // $returnFile is blank
-				return response()->json(array(
+			} else { 
+
+				// return file is blank
+				//
+				return response()->json([
 					'error' => 'not_found',
 					'error_description' => 'No results found for the provided assessment result UUID.'
-					),404);
+				], 404);
 			}
-		} else { // $returnString is not SUCCESS - return the error message if set
+		} else {
+
+			// return string is not SUCCESS - return the error message if set
+			//
 			if (strcmp($returnString,'ERROR: RESULT NOT FOUND') == 0) {
-				return response()->json(array(
+				return response()->json([
 					'error' => 'not_found',
 					'error_description' => 'No results found for the provided assessment result UUID.'
-					),404);
+				], 404);
 			} elseif (strcmp($returnString,'ERROR: PROJECT NOT FOUND') == 0) {
-				return response()->json(array(
+				return response()->json([
 					'error' => 'not_found',
 					'error_description' => 'No project found for the provided assessment result UUID.'
-					),404);
+				], 404);
 			} elseif (strcmp($returnString,'ERROR: USER ACCOUNT NOT VALID') == 0) {
-				return response()->json(array(
+				return response()->json([
 					'error' => 'permission_denied',
 					'error_description' => 'The client does not have permission to access the assessment result.'
-					),403);
+				], 403);
 			} elseif (strcmp($returnString,'ERROR: USER PROJECT PERMISSION NOT VALID') == 0) {
-				return response()->json(array(
+				return response()->json([
 					'error' => 'permission_denied',
 					'error_description' => 'User project permissions for the assessment are invalid.'
-					),403);
+				], 403);
 			} elseif (strcmp($returnString,'ERROR: DOWNLOADING OF COMMERCIAL TOOL RESULTS NOT ALLOWED') == 0) {
-				return response()->json(array(
+				return response()->json([
 					'error' => 'permission_denied',
 					'error_description' => 'Downloading of results generated by commercial tools is not permitted.'
-					),403);
-			} else { // 'ERROR: UNSPECIFIED ERROR' or some other error response
-				return response()->json(array(
+				], 403);
+			} else {
+
+				// 'ERROR: UNSPECIFIED ERROR' or some other error response
+				//
+				return response()->json([
 					'error' => 'internal_error',
 					'error_description' => 'The SWAMP server encountered an internal error when processing the request.'
-					),500);
+				], 500);
 			}
 		}
 	}
@@ -440,7 +566,8 @@ class AssessmentResultsController extends BaseController {
 		//
 		foreach (explode( ',',$assessmentResultsUuid ) as $resultUuid) {
 			$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$resultUuid)->first();
-			$result = $this->checkPermissions($assessmentResult);
+			$user = User::getIndex(session('user_uid'));
+			$result = $assessmentResult->checkPermissions($user);
 
 			// if not true, return permissions error
 			//
@@ -450,122 +577,14 @@ class AssessmentResultsController extends BaseController {
 		}
 	}
 
-	private function checkPermissions($assessmentResult) {
-
-		// return if no tool
-		//
-		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
-		$toolVersion = ToolVersion::where('tool_version_uuid', '=', $executionRecord->tool_version_uuid)->first();
-		if ($toolVersion) {
-			$tool = Tool::where('tool_uuid', '=', $toolVersion->tool_uuid)->first();
-			if (!$tool) {
-				return true;
-			}
+	private function checkProject($projectUuid) {
+		$currentUser = User::getIndex(session('user_uid'));
+		$project = Project::where('project_uid', '=', $projectUuid)->first();
+		if ($project && !$project->isReadableBy($currentUser)) {
+			return response('Insufficient priveleges to access project.', 403);
 		} else {
-			return true;	
+			return true;
 		}
-
-		// check restricted tools
-		//
-		if ($tool->isRestricted()) {
-			$user = User::getIndex(Session::get('user_uid'));
-
-			// check for no tool permission
-			//
-			$permission = Permission::where('policy_code', '=', $tool->policy_code)->first();
-			/*
-			if (!$permission) {
-				return response()->json(array(
-					'status' => 'tool_no_permission',
-					'tool_name' => $tool->name
-				), 404);
-			}
-			*/
-
-			// check for no project
-			//
-			$project = Project::where('project_uid', '=', $assessmentResult->project_uuid)->first();
-			/*
-			if (!$project) {
-				return response()->json(array(
-					'status' => 'no_project'
-				), 404);
-			}
-			*/
-
-			// check for owner permission
-			//
-			/*
-			$owner = User::getIndex($project->project_owner_uid);
-			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $owner->user_uid)->first();
-
-			// if the permission doesn't exist or isn't valid, return error
-			//
-			if ($tool->isRestrictedByProjectOwner()) {
-				if (!$userPermission) {
-					return response()->json(array(
-						'status' => 'owner_no_permission',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					), 404);
-				}
-				if ($userPermission->status !== 'granted') {
-					return response()->json(array(
-						'status' => 'owner_no_permission',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					), 401);
-				}
-			}
-
-			// if the project hasn't been designated
-			//
-			if ($tool->isRestrictedByProject()) {
-				$userPermissionProject = UserPermissionProject::where('user_permission_uid', '=', $userPermission->user_permission_uid)->where('project_uid', '=', $assessmentRun->project_uuid)->first();
-				if (!$userPermissionProject) {
-					return response()->json(array(
-						'status' => 'no_project',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					), 404);
-				}
-			}
-			*/
-
-			// check user permission
-			//
-			/*
-			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $user['user_uid'])->first();
-			if (!$userPermission) {
-				return response()->json(array(
-					'status' => 'tool_no_permission',
-					'project_name' => $project->full_name,
-					'tool_name' => $tool->name
-				), 404);
-			}
-			if ($userPermission->status !== 'granted') {
-				return response()->json(array(
-					'status' => 'tool_no_permission',
-					'project_name' => $project->full_name,
-					'tool_name' => $tool->name
-				), 401);
-			}
-			*/
-
-			// if the policy hasn't been accepted, return error
-			//
-			$userPolicy	= UserPolicy::where('policy_code', '=', $tool->policy_code)->where('user_uid', '=', $user->user_uid)->first();
-			if (!$userPolicy || $userPolicy->accept_flag != '1') {
-				return response()->json(array(
-					'status' => 'no_policy',
-					'policy' => $tool->policy,
-					'policy_code' => $tool->policy_code,
-					'tool' => $tool
-				), 404);
-			}
-		}
-
-		return true;
 	}
 
 	// get status of launching viewer, and then return results
@@ -580,33 +599,33 @@ class AssessmentResultsController extends BaseController {
 
 		// if proxy url, return it
 		//
-		if($instance->state && ($instance->state == 2) && $instance->proxy_url) {
+		if ($instance->state && ($instance->state == 2) && $instance->proxy_url) {
 			$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 			$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
-			if($base_url) {
+			if ($base_url) {
 				$returnUrl = $base_url.$instance->proxy_url;
 
 				// log success
 				//
-				Log::info("Successfully launched viewer.",
-					array('viewer_instance_uuid' => $viewerInstanceUuid)
-				);
+				Log::info("Successfully launched viewer.", [
+					'viewer_instance_uuid' => $viewerInstanceUuid
+				]);
 
-				return array(
+				return [
 					"results_url" => $returnUrl,
 					"results_status" => "SUCCESS"
-				);
+				];
 			}
 		}
 
 		// otherwise return viewer status
 		//
 		else {
-			return array(
+			return [
 				"results_viewer_status" => $instance->status,
 				"results_status" => "LOADING",
 				"viewer_instance" => $viewerInstanceUuid
-			);
+			];
 		}
 	}
 }

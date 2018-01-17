@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -34,11 +34,11 @@ class EmailVerificationsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$emailVerification = new EmailVerification(array(
+		$emailVerification = new EmailVerification([
 			'user_uid' => Input::get('user_uid'),
 			'verification_key' => Guid::create(),
 			'email' => Input::get('email')
-		));
+		]);
 		$emailVerification->save();
 		$emailVerification->send(Input::get('verify_route'));
 		return $emailVerification;
@@ -101,7 +101,7 @@ class EmailVerificationsController extends BaseController {
 		unset( $user->owner );
 		unset( $user->username );
 
-		$errors = array();
+		$errors = [];
 
 		if (!$user->hasBeenVerified() || $user->isValid($errors)){
 			$user->username = $username;
@@ -116,16 +116,16 @@ class EmailVerificationsController extends BaseController {
 
 		// send email to notify that email is being verified
 		//
-		if (Config::get('mail.enabled')) {
-			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL) ) {
+		if (config('mail.enabled')) {
+			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
 				if (!$user->hasBeenVerified()) {
 
 					// automatically send welcome email
 					//
-					Mail::send('emails.welcome', array(
+					Mail::send('emails.welcome', [
 						'user' => $user,
-						'logo' => Config::get('app.cors_url').'/images/logos/swamp-logo-small.png'
-					), function($message) use ($user) {
+						'logo' => config('app.cors_url').'/images/logos/swamp-logo-small.png'
+					], function($message) use ($user) {
 						$message->to($user->email, $user->getFullName());
 						$message->subject('Welcome to the Software Assurance Marketplace');
 					});
@@ -134,16 +134,16 @@ class EmailVerificationsController extends BaseController {
 					// send notification if email has changed
 					//
 					if (filter_var($oldEmail, FILTER_VALIDATE_EMAIL)) {
-						$data = array(
+						$data = [
 							'fullName' => $user->getFullName(), 
 							'oldEmail' => $oldEmail
-						);
-						Mail::send('emails.email-verification-oldemail', array(
+						];
+						Mail::send('emails.email-verification-oldemail', [
 							'user' => $user,
-							'logo' => Config::get('app.cors_url').'/images/logos/swamp-logo-small.png'
-						), function($message) use($data) {
-								$message->to($data['oldEmail'], $data['fullName']);
-								$message->subject('SWAMP Email Changed');
+							'logo' => config('app.cors_url').'/images/logos/swamp-logo-small.png'
+						], function($message) use($data) {
+							$message->to($data['oldEmail'], $data['fullName']);
+							$message->subject('SWAMP Email Changed');
 						});
 					}
 				}
@@ -182,12 +182,13 @@ class EmailVerificationsController extends BaseController {
 				$emailVerification = $user->getEmailVerification();
 
 				// if missing email verification, create one on-the-fly
+				//
 				if (is_null($emailVerification)) {
-					$emailVerification = new EmailVerification(array(
+					$emailVerification = new EmailVerification([
 						'user_uid' => $user->user_uid,
 						'verification_key' => Guid::create(),
 						'email' => $user->email
-					));
+					]);
 					$emailVerification->save();
 				}
 

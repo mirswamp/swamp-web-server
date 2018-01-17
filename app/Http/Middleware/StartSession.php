@@ -35,12 +35,13 @@ class StartSession extends BaseStartSession
 
 		// Look for routes configured as 'nosession' since they should
 		// not create a session cookie.
+		//
 		$nosession = false;
 		if (Config::has('app.nosession')) {
-			foreach (Config::get('app.nosession') as $pattern) {
+			foreach (config('app.nosession') as $pattern) {
 				if (is_array($pattern)) {
 					if ($request->is(key($pattern))) {
-						$nosession = in_array( $requtest->method(), current( $pattern ) );
+						$nosession = in_array($requtest->method(), current($pattern));
 						if ($nosession) {
 						  break;
 						}
@@ -57,11 +58,15 @@ class StartSession extends BaseStartSession
 		// If we found a route that should not create a session cookie, 
 		// set the session.driver to 'array' which prevents a session 
 		// cookie from being created.
+		//
 		if ($nosession) {
-		  Config::set('session.driver','array');
+			config([
+				'session.driver' => 'array'
+			]);
 		}
 		
 		// Finally, call the parent's "handle" method.
+		//
 		return parent::handle($request,$next);
 	}
 
@@ -78,15 +83,19 @@ class StartSession extends BaseStartSession
 	protected function startSession(Request $request) {
 
 		// Get the current session data
+		//
 		$session = parent::startSession($request);
 
 		// Check if user_uid has been set in the session. If so, see
 		// if that user_uid is disabled.
+		//
 		if ($session->has('user_uid')) {
 			$user_uid = $session->get('user_uid');
 			if (strlen($user_uid) > 0) {
 				$user = User::getIndex($user_uid);
+
 				// If user has been disabled, clear the current session data.
+				//
 				if (($user) && (!$user->isEnabled())) {
 					Log::notice("Removing session for disabled user.");
 					$session->flush();

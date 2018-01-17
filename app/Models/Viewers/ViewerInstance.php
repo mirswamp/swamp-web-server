@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Viewers;
@@ -26,17 +26,16 @@ use App\Models\BaseModel;
 
 class ViewerInstance extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'viewer_store';
 	protected $table = 'viewer_instance';
 	protected $primaryKey = 'viewer_instance_uuid';
+	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'viewer_instance_uuid',
 		'viewer_version_uuid',
 		'project_uuid',
@@ -50,6 +49,5 @@ class ViewerInstance extends BaseModel {
 		'create_date',
 		'update_user',
 		'update_date'
-	);
-
+	];
 }

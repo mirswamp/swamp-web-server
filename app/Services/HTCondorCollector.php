@@ -17,7 +17,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Services;
@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Config;
 class HTCondorCollector {
 	public static function getViewerData($proxyUrl) {
 		$retval = "";
-		$HTCONDOR_COLLECTOR_HOST = Config::get('app.htcondorcollectorhost');
+		$HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');
 		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_viewer_vmip SWAMP_vmu_viewer_projectid -constraint SWAMP_vmu_viewer_url_uuid==\\\"$proxyUrl\\\"";
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
@@ -43,7 +43,7 @@ class HTCondorCollector {
 
 	public static function getViewerInstance($viewerInstanceUuid) {
 	    $instance = new ViewerInstance();
-        $HTCONDOR_COLLECTOR_HOST = Config::get('app.htcondorcollectorhost');
+        $HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');
         $command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_viewer_state SWAMP_vmu_viewer_status SWAMP_vmu_viewer_url_uuid -constraint SWAMP_vmu_viewer_instance_uuid==\\\"$viewerInstanceUuid\\\"";
         exec($command, $output, $returnVar);
         if (($returnVar == 0) && (! empty($output))) {
@@ -56,7 +56,7 @@ class HTCondorCollector {
 	}
 
 	public static function insertStatuses($result) {
-		$HTCONDOR_COLLECTOR_HOST = Config::get('app.htcondorcollectorhost');  
+		$HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');  
 		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, Name SWAMP_vmu_assessment_status -constraint \"isString(SWAMP_vmu_assessment_status)\"";
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
@@ -82,7 +82,7 @@ class HTCondorCollector {
 			return $result;
 		}
 		$condorResult = null;
-		$HTCONDOR_COLLECTOR_HOST = Config::get('app.htcondorcollectorhost');  
+		$HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');  
 		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_assessment_status -constraint \"(strcmp(Name, \\\"$executionRecordUuid\\\") == 0)\"";
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {

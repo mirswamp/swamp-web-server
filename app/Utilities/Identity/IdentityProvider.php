@@ -17,7 +17,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Identity;
@@ -32,8 +32,8 @@ use App\Models\Users\LinkedAccountProvider;
 
 class IdentityProvider {
 	
-	public $provider = null; // Member variable for OAuth 2.0 PHP provider object
-	public $authzUrlOpts = array(); // Params for getAuthorizationUrl()
+	public $provider = null; 		// Member variable for OAuth 2.0 PHP provider object
+	public $authzUrlOpts = []; 		// Params for getAuthorizationUrl()
 	public $linked_provider = '';   // github, google, or univ. entityId
 
 	/** 
@@ -53,32 +53,39 @@ class IdentityProvider {
 
 		$selectedidp = $this->getSelectedIdP($idp);
 
-		// Use the $selectedidp to initialize the class $provider.
+		// use the $selectedidp to initialize the class $provider.
+		//
 		if (strlen($selectedidp) > 0) {
 			$client_id = '';
 			$client_secret = '';
 			$classname = '';
 
-			// Set the client id and secret for the $selectedidp
+			// set the client id and secret for the $selectedidp
+			//
 			if ($selectedidp == 'GitHub') {
-				$client_id     = Config::get('oauth2.github_client_id');
-				$client_secret = Config::get('oauth2.github_client_secret');
+				$client_id     = config('oauth2.github_client_id');
+				$client_secret = config('oauth2.github_client_secret');
 				$classname     = 'League\OAuth2\Client\Provider\Github';
 				$this->authzUrlOpts = [ 'scope' => ['user:email'] ];
 				$this->linked_provider = 'github';
 			} elseif ($selectedidp == 'Google') {
-				$client_id     = Config::get('oauth2.google_client_id');
-				$client_secret = Config::get('oauth2.google_client_secret');
+				$client_id     = config('oauth2.google_client_id');
+				$client_secret = config('oauth2.google_client_secret');
 				$classname     = 'League\OAuth2\Client\Provider\Google';
 				$this->authzUrlOpts = [ 'scope' => ['openid','email','profile'] ];
 				$this->linked_provider = 'google';
-			} else { // The rest of the IdPs are CILogon
-				$client_id     = Config::get('oauth2.cilogon_client_id');
-				$client_secret = Config::get('oauth2.cilogon_client_secret');
+			} else { 
+
+				// the rest of the IdPs are CILogon
+				//
+				$client_id     = config('oauth2.cilogon_client_id');
+				$client_secret = config('oauth2.cilogon_client_secret');
 				$classname = 'CILogon\OAuth2\Client\Provider\CILogon';
-				$this->authzUrlOpts = [ 'scope' => ['openid','email','profile','org.cilogon.userinfo'],
+				$this->authzUrlOpts = [
+					'scope' => ['openid','email','profile','org.cilogon.userinfo'],
 					'selected_idp' => $selectedidp,
-					'skin' => Config::get('oauth2.cilogon_skin')];
+					'skin' => config('oauth2.cilogon_skin')
+				];
 				$this->linked_provider = $selectedidp;
 			}
 
@@ -86,7 +93,7 @@ class IdentityProvider {
 				$this->provider = new $classname([
 					'clientId'     => $client_id,
 					'clientSecret' => $client_secret,
-					'redirectUri'  => Config::get('app.url') . '/oauth2',
+					'redirectUri'  => config('app.url') . '/oauth2',
 				]);
 			}
 		}
@@ -108,23 +115,28 @@ class IdentityProvider {
 		$selectedidp = '';
 
 		if (strlen($idp) > 0) {
-			// If $idp was passed in, verify that the idp is avaiable in 
+
+			// if $idp was passed in, verify that the idp is avaiable in 
 			// the list of configured IdPs. If so, save the idp to the session
 			// variable 'oauth2_idp' for later use when $idp is not passed in.
+			//
 			$idpjson = IdentitiesController::getProvidersList();
 			$idparray = json_decode($idpjson,true);
 			foreach ($idparray as $arr) {
 				if ($arr['entityid'] == $idp) {
 					$selectedidp = $arr['entityid'];
-					Session::set('oauth2_idp',$selectedidp);
-					Session::save();
+					session([
+						'oauth2_idp' => $selectedidp
+					]);
 					$this->addLinkedAccountProvider($selectedidp,$idp);
 					break;
 				}
 			}
 		} else {
-			// If the $idp was not passed in, check the session variable
+
+			// if the $idp was not passed in, check the session variable
 			// 'oauth2_idp' for a previously set (and verified) idp.
+			//
 			if (Session::has('oauth2_idp')) {
 				$selectedidp = Session::get('oauth2_idp');
 			}
@@ -145,8 +157,10 @@ class IdentityProvider {
 	 *        'GitHub', 'Google', or 'Univesity of Illinois at Urbana-Champaign'.
 	 */
 	protected function addLinkedAccountProvider($entityid,$idp) {
-		// See if the entityid is already a LinkedAccountProvider
+
+		// see if the entityid is already a LinkedAccountProvider
 		// If not, then add a new entry.
+		//
 		if (!LinkedAccountProvider::where('linked_account_provider_code','=',$entityid)->first()) {
 			$lap = new LinkedAccountProvider(array(
 				'linked_account_provider_code' => strtolower($entityid),

@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 Route::get('environment', function() {
@@ -99,6 +99,10 @@ Route::group(['middleware' => 'verify.config'], function () {
 	// country routes
 	//
 	Route::get('countries', 'Utilities\CountriesController@getAll');
+
+	// public execution record notification route
+	//
+	Route::post('execution_records/{execution_record_uuid}/notify', 'Executions\ExecutionRecordsController@notifyIndex');
 
 	// authenticated routes
 	//

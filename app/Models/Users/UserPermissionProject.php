@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -25,27 +25,25 @@ use App\Models\Users\User;
 
 class UserPermissionProject extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'user_permission_project';
 	protected $primaryKey = 'user_permission_project_uid';
+	public $incrementing = false;
 		
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_permission_project_uid', 
 		'user_permission_uid',
 		'project_uid'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'user_permission_project_uid', 
 		'user_permission_uid',
 		'project_uid'
-	);
+	];
 }

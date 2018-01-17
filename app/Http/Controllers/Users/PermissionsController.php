@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -44,11 +44,11 @@ class PermissionsController extends BaseController {
 	// get projects by id
 	//
 	public function getPermissions($userUid) {
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		$user = User::getIndex($userUid);
 		$permissions = Permission::orderBy('title', 'ASC')->get();
 		$userPermissions = UserPermission::where('user_uid', '=', $userUid)->get();
-		$results = array();
+		$results = [];
 
 		foreach ($permissions as $permission) {
 
@@ -67,7 +67,7 @@ class PermissionsController extends BaseController {
 				}
 			}
 
-			$item = array();
+			$item = [];
 			$item['user_uid'] = $userUid;
 			$item['permission_code'] = $permission->permission_code;
 			$item['auto_approve_flag'] = $permission->auto_approve_flag;
@@ -95,9 +95,9 @@ class PermissionsController extends BaseController {
 		
 		// log the permissions request event
 		//
-		Log::info("Get permissions for user.", array(
+		Log::info("Get permissions for user.", [
 			'requested_user_uid' => $userUid,
-		));
+		]);
 
 		return $results;
 	}
@@ -110,7 +110,7 @@ class PermissionsController extends BaseController {
 
 		// Lookup relevant data
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		$user = User::getIndex($userUid);
 		$permissions = Permission::all();
 		$permission = Permission::where('permission_code', '=', $permissionCode)->first();
@@ -138,29 +138,29 @@ class PermissionsController extends BaseController {
 			return response('Permission entry already exists.', 400);
 		}
 
-		$userPermission = new UserPermission(array(
+		$userPermission = new UserPermission([
 			'user_permission_uid' => Guid::create(),
 			'user_uid' => $userUid,
 			'permission_code' => $permissionCode,
 			'request_date' => gmdate('Y-m-d H:i:s')
-		));
+		]);
 		$userPermission->save();
 
 		// send notification to admins that permission has been requested
 		//
-		if (!$currentUser->isAdmin() && !$permission->isAutoApprove() && Config::get('mail.enabled')) {
+		if (!$currentUser->isAdmin() && !$permission->isAutoApprove() && config('mail.enabled')) {
 			$admins = UserAccount::where('admin_flag', '=', 1)->get();
 			foreach ($admins as $admin) {
 				$admin = User::getIndex($admin->user_uid);
 				if ($admin && $admin->email && filter_var($admin->email, FILTER_VALIDATE_EMAIL)) {
-					Mail::send('emails.permission-request', array(
-						'new_permissions' => array($permissionCode),
-						'updated_permissions' => array(),
+					Mail::send('emails.permission-request', [
+						'new_permissions' => [$permissionCode],
+						'updated_permissions' => [],
 						'meta_information' => false,
-						'url' => Config::get('app.cors_url') ?: '',
+						'url' => config('app.cors_url') ?: '',
 						'comment' => '',
 						'user' => $user
-					), function($message) use ($admin) {
+					], function($message) use ($admin) {
 						$message->to($admin->email, $admin->getFullName());
 						$message->subject('SWAMP Permission Request');
 					});
@@ -170,13 +170,11 @@ class PermissionsController extends BaseController {
 
 		// log the permissions request event
 		//
-		Log::info("Request permission for user with permission code.",
-			array(
-				'requested_user_uid' => $userUid,
-				'user_permission_uid' => $userPermission->user_permission_uid,
-				'permission_code' => $permissionCode,
-			)
-		);
+		Log::info("Request permission for user with permission code.", [
+			'requested_user_uid' => $userUid,
+			'user_permission_uid' => $userPermission->user_permission_uid,
+			'permission_code' => $permissionCode,
+		]);
 
 		return $userPermission;
 	}
@@ -191,7 +189,7 @@ class PermissionsController extends BaseController {
 
 		// Lookup relevant data
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		$user = User::getIndex($userUid);
 		$permissions = Permission::all();
 		$userPermissions = UserPermission::where('user_uid', '=', $userUid)->get();
@@ -206,8 +204,8 @@ class PermissionsController extends BaseController {
 
 		// Permission classification holders
 		//
-		$newPermissions = array();
-		$updatedPermissions = array();
+		$newPermissions = [];
+		$updatedPermissions = [];
 
 		// find valid permissions - requests for permissions that 
 		// the user already owns or do not exist should flag an error.
@@ -237,14 +235,14 @@ class PermissionsController extends BaseController {
 
 			// create new user permission
 			//
-			$userPermission = new UserPermission(array(
+			$userPermission = new UserPermission([
 				'user_permission_uid' => Guid::create(),
 				'user_uid' => $userUid,
 				'permission_code' => $permissionCode,
 				'request_date' => gmdate('Y-m-d H:i:s'),
 				'user_comment' => !$currentUser->isAdmin()? $comment : null,
 				'admin_comment' => $currentUser->isAdmin()? $comment : null
-			));
+			]);
 
 			if ($currentUser->isAdmin()) {
 				$userPermission->setStatus('granted');
@@ -277,16 +275,16 @@ class PermissionsController extends BaseController {
 
 		// send notification email to user that permission was requested
 		//
-		if ($currentUser->isAdmin() && Config::get('mail.enabled')) {
+		if ($currentUser->isAdmin() && config('mail.enabled')) {
 			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-				Mail::send('emails.permission-granted', array(
+				Mail::send('emails.permission-granted', [
 					'status' => $userPermission->status,
 					'new_permissions' => $newPermissions,
-					'url' => Config::get('app.cors_url') ?: '',
+					'url' => config('app.cors_url') ?: '',
 					'comment' => $comment,
 					'meta_information' => json_decode($userPermission->meta_information, true),
 					'user' => $user
-				), function($message) use ($user, $userPermission) {
+				], function($message) use ($user, $userPermission) {
 					$message->to($user->email, $user->getFullName());
 					$message->subject('SWAMP Permission '. ucwords($userPermission->status));
 				});
@@ -295,19 +293,19 @@ class PermissionsController extends BaseController {
 
 		// send notification to admins that permission has been requested
 		//
-		if ($notifyAdmins && Config::get('mail.enabled')) {
+		if ($notifyAdmins && config('mail.enabled')) {
 			$admins = UserAccount::where('admin_flag', '=', 1)->get();
 			foreach ($admins as $admin) {
 				$admin = User::getIndex($admin->user_uid);
 				if ($admin && $admin->email && filter_var($admin->email, FILTER_VALIDATE_EMAIL)) {
-					Mail::send('emails.permission-request', array(
+					Mail::send('emails.permission-request', [
 						'new_permissions' => $newPermissions,
 						'updated_permissions' => $updatedPermissions,
-						'url' => Config::get('app.cors_url') ?: '',
+						'url' => config('app.cors_url') ?: '',
 						'comment' => $comment,
 						'meta_information' => json_decode($userPermission->meta_information, true),
 						'user' => $user
-					), function($message) use ($admin) {
+					], function($message) use ($admin) {
 						$message->to($admin->email, $admin->getFullName());
 						$message->subject('SWAMP Permission Request');
 					});
@@ -317,13 +315,13 @@ class PermissionsController extends BaseController {
 
 		// log the permissions request event
 		//
-		Log::info("Request permissions for user.", array(
+		Log::info("Request permissions for user.", [
 			'requested_user_uid' => $userUid,
 			'user_permission_uid' => $userPermission->user_permission_uid,
 			'permission_code' => $permissionCode,
 			'new_permissions' => !empty($newPermissions)? $newPermissions[0] : null,
 			'updated_permissions' => !empty($updatedPermissions)? $updatedPermissions[0] : null
-		));
+		]);
 
 		// record accepted policy
 		//
@@ -338,11 +336,11 @@ class PermissionsController extends BaseController {
 				// create new user policy, if necessary
 				//
 				if (!$userPolicy) {
-					$userPolicy = new UserPolicy(array(
+					$userPolicy = new UserPolicy([
 						'user_policy_uid' => Guid::create(),
 						'user_uid' => $user->user_uid,
 						'policy_code' => $permission->policy_code
-					));
+					]);
 				}
 
 				$userPolicy->accept_flag = 1;
@@ -352,9 +350,9 @@ class PermissionsController extends BaseController {
 	}
 
 	private function getMetaFields() {
-		$meta_fields = array('user_type', 'name', 'email', 'organization', 'project_url');
+		$meta_fields = ['user_type', 'name', 'email', 'organization', 'project_url'];
 		$input_has_meta = false;
-		$found = array();
+		$found = [];
 		foreach ($meta_fields as $field) {
 			if (Input::has($field)) {
 				$found[$field] = Input::get($field);
@@ -389,7 +387,7 @@ class PermissionsController extends BaseController {
 
 		// lookup relevant data
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		if (!$currentUser->isAdmin()) {
 			return response('Non administrators may not alter permissions!', 401);
 		}
@@ -425,14 +423,14 @@ class PermissionsController extends BaseController {
 		// check if new user permission must be created
 		//
 		if (!$userPermission) {
-			$userPermission = new UserPermission(array(
+			$userPermission = new UserPermission([
 				'user_permission_uid' => Guid::create(),
 				'user_uid' => $userUid,
 				'permission_code' => $permissionCode,
 				'request_date' => gmdate('Y-m-d H:i:s'),
 				'update_date' => gmdate('Y-m-d H:i:s'),
 				'admin_comment' => $comment
-			));
+			]);
 
 		// update existing user permission
 		//
@@ -447,34 +445,34 @@ class PermissionsController extends BaseController {
 
 		// send notification email that permission was set
 		//
-		if (Config::get('mail.enabled')) {
+		if (config('mail.enabled')) {
 			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-				Mail::send('emails.permission-reviewed', array(
-					'url' => Config::get('app.cors_url') ?: '',
+				Mail::send('emails.permission-reviewed', [
+					'url' => config('app.cors_url') ?: '',
 					'user' => $user,
 					'comment' => $comment
-				), function($message) use ($user) {
+				], function($message) use ($user) {
 					$message->to($user->email, $user->getFullName());
 					$message->subject('SWAMP Permission Request');
 				});
 			}
 		}
 
-		// Log the permissions event
+		// log the permissions event
 		//
-		Log::info("Set permissions.", array(
+		Log::info("Set permissions.", [
 			'status' => $status,
 			'requested_user_uid' => $userUid,
 			'user_permission_uid' => $userPermission->user_permission_uid,
 			'permission_code' => $userPermission->permission_code,
-		));
+		]);
 	}
 
 	public function deletePermission($userPermissionUid) {
 
 		// get models
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		$userPermission = UserPermission::where('user_permission_uid', '=', $userPermissionUid)->first();
 		$user = User::getIndex($userPermission->user_uid);
 
@@ -485,9 +483,9 @@ class PermissionsController extends BaseController {
 
 			// log the permissions delete event
 			//
-			Log::info("Delete permission.", array(
+			Log::info("Delete permission.", [
 				'user_permission_uid' => $userPermissionUid,
-			));
+			]);
 
 			return response('The user permission has been deleted.', 204);
 		} else {
@@ -501,7 +499,7 @@ class PermissionsController extends BaseController {
 		//
 		$userPermission = UserPermission::where('user_permission_uid','=',$userPermissionUid)->first();
 		$project = Project::where('project_uid','=',$projectUid)->first();
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 
 		// check for valid permissions
 		//
@@ -514,19 +512,19 @@ class PermissionsController extends BaseController {
 
 		// create new user permission project
 		//
-		$userPermissionProject = new UserPermissionProject(array(
+		$userPermissionProject = new UserPermissionProject([
 			'user_permission_project_uid' => Guid::create(),
 			'user_permission_uid' => $userPermissionUid,
 			'project_uid' => $projectUid
-		));
+		]);
 		$userPermissionProject->save();
 
 		// log the designate project event
 		//
-		Log::info("Designate project.", array(
+		Log::info("Designate project.", [
 			'user_permission_uid' => $userPermissionUid,
 			'project_uid' => $projectUid,
-		));
+		]);
 
 		return $userPermissionProject;
 	}

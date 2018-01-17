@@ -37,7 +37,7 @@ class AppPasswordString {
 		$validchars = array_values(array_diff($validchars,
 			['0','1','i','l','o','I','L','O']));
 		$validcount = count($validchars);
-		$retarray = array();
+		$retarray = [];
 
 		for ($ch = 0; $ch < 20; $ch++) {
 			$retarray[$ch] = $validchars[random_int(0,$validcount-1)];

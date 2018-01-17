@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -52,7 +52,7 @@ class AppPasswordsController extends BaseController {
 
 		// This method works with the currently logged-in user_uid.
 		//
-		$user_uid = Session::get('user_uid');
+		$user_uid = session('user_uid');
 
 		// An optional label can be specified in POST form data, e.g.,
 		// 'label=New+label'. If not given, defaults to empty string ''.
@@ -72,17 +72,17 @@ class AppPasswordsController extends BaseController {
 			$the_password = AppPasswordString::create();
 			$the_password_hash = password_hash($the_password, PASSWORD_BCRYPT);
 			$uuid = Guid::create();
-			$app_password = new AppPassword(array(
+			$app_password = new AppPassword([
 				'app_password_uuid' => $uuid,
 				'user_uid' => $user_uid,
 				'password' => $the_password_hash,
 				'label' => $label
-			));
+			]);
 			$app_password->save();
 
 			// send email notificaton about new app password creation
 			//
-			if (Config::get('mail.enabled')) {
+			if (config('mail.enabled')) {
 				$user = User::getIndex($user_uid);
 				if ($user) {
 					$user_email = '';
@@ -94,11 +94,10 @@ class AppPasswordsController extends BaseController {
 					}
 					$user_fullname = trim($user->getFullname());
 					if (strlen($user_email) > 0) {
-						$cfg = array(
-							'url' => Config::get('app.cors_url') ?: '',
+						Mail::send('emails.apppassword-created', [
+							'url' => config('app.cors_url') ?: '',
 							'user' => $user
-						);
-						Mail::send('emails.apppassword-created', $cfg, function($message) use ($user_email, $user_fullname) {
+						], function($message) use ($user_email, $user_fullname) {
 							$message->to($user_email, $user_fullname);
 							$message->subject('SWAMP App Password Created');
 						});
@@ -106,9 +105,9 @@ class AppPasswordsController extends BaseController {
 				}
 			}
 
-			Log::info("App password created." ,
-				array('app_password_uuid' => $uuid)
-			);
+			Log::info("App password created.", [
+				'app_password_uuid' => $uuid
+			]);
 
 			// When returing the JSON object, return the password instead of the hash
 			//
@@ -121,10 +120,10 @@ class AppPasswordsController extends BaseController {
 
 			// Too many app passwords already, or app passwords are disabled
 			//
-			$retresponse = response()->json(array(
+			$retresponse = response()->json([
 				'error' => 'forbidden',
 				'error_description' => "Could not create app password due to the maximum number $app_password_max reached."
-			), 403);
+			], 403);
 		}
 
 		return $retresponse;
@@ -148,7 +147,7 @@ class AppPasswordsController extends BaseController {
 
 		// check for permission to view password
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		if ($appPassword->user_uid != $currentUser->user_uid && !$currentUser->isAdmin()) {
 			return response('You do not have permission to view this app password.', 401);
 		}
@@ -164,7 +163,7 @@ class AppPasswordsController extends BaseController {
 	 *         returned. 
 	 */
 	public function getAll() {
-		return AppPassword::where('user_uid', '=', Session::get('user_uid'))->get();
+		return AppPassword::where('user_uid', '=', session('user_uid'))->get();
 	}
 
 	/**
@@ -195,7 +194,7 @@ class AppPasswordsController extends BaseController {
 
 		// check for permission to change password
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		if ($appPassword->user_uid != $currentUser->user_uid && !$currentUser->isAdmin()) {
 			return response('You do not have permission to change this app password.', 401);
 		}
@@ -223,7 +222,7 @@ class AppPasswordsController extends BaseController {
 
 			// check for permission to delete password
 			//
-			$currentUser = User::getIndex(Session::get('user_uid'));
+			$currentUser = User::getIndex(session('user_uid'));
 			if ($appPassword->user_uid != $currentUser->user_uid && !$currentUser->isAdmin()) {
 				return response('You do not have permission to delete this app password.', 401);
 			}
@@ -234,7 +233,7 @@ class AppPasswordsController extends BaseController {
 
 			// At least one app password was deleted - send email and log event
 			//
-			if (Config::get('mail.enabled')) {
+			if (config('mail.enabled')) {
 				$user = User::getIndex($appPassword->user_uid);
 				if ($user) {
 					$user_email = '';
@@ -246,11 +245,10 @@ class AppPasswordsController extends BaseController {
 					}
 					$user_fullname = trim($user->getFullname());
 					if (strlen($user_email) > 0) {
-						$cfg = array(
-							'url' => Config::get('app.cors_url') ?: '',
+						Mail::send('emails.apppassword-deleted', [
+							'url' => config('app.cors_url') ?: '',
 							'user' => $user
-						);
-						Mail::send('emails.apppassword-deleted', $cfg, function($message) use ($user_email, $user_fullname) {
+						], function($message) use ($user_email, $user_fullname) {
 							$message->to($user_email, $user_fullname);
 							$message->subject('SWAMP App Password Deleted');
 						});
@@ -259,10 +257,10 @@ class AppPasswordsController extends BaseController {
 			}
 
 		} else {
-			return response()->json(array(
+			return response()->json([
 				'error' => 'not_found',
 				'error_description' => 'The specified app password identifier could not be found.'
-			), 404);
+			], 404);
 		}
 
 		return $appPassword;
@@ -272,7 +270,7 @@ class AppPasswordsController extends BaseController {
 
 		// delete current user's app passwords
 		//
-		return $this->deleteByUser(Session::get('user_uid'));
+		return $this->deleteByUser(session('user_uid'));
 	}
 
 	/**
@@ -312,8 +310,8 @@ class AppPasswordsController extends BaseController {
 
 			// At least one app password was deleted - send email and log event
 			//
-			if (Config::get('mail.enabled')) {
-				$user = User::getIndex(Session::get('user_uid'));
+			if (config('mail.enabled')) {
+				$user = User::getIndex(session('user_uid'));
 				if ($user) {
 					$user_email = '';
 
@@ -324,11 +322,10 @@ class AppPasswordsController extends BaseController {
 					}
 					$user_fullname = trim($user->getFullname());
 					if (strlen($user_email) > 0) {
-						$cfg = array(
-							'url' => Config::get('app.cors_url') ?: '',
+						Mail::send('emails.apppassword-deleted', [
+							'url' => config('app.cors_url') ?: '',
 							'user' => $user
-						);
-						Mail::send('emails.apppassword-deleted', $cfg, function($message) use ($user_email, $user_fullname) {
+						], function($message) use ($user_email, $user_fullname) {
 							$message->to($user_email, $user_fullname);
 							$message->subject('SWAMP App Passwords Deleted');
 						});

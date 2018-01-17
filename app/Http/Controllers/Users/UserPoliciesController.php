@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -53,7 +53,7 @@ class UserPoliciesController extends BaseController {
 
 		// check privileges
 		//
-		if (!$user->isAdmin() && ($user->user_uid != Session::get('user_uid'))) {
+		if (!$user->isAdmin() && ($user->user_uid != session('user_uid'))) {
 			return response('Insufficient privileges to mark policy acceptance.', 401);
 		}
 
@@ -61,11 +61,11 @@ class UserPoliciesController extends BaseController {
 		//
 		$userPolicy = UserPolicy::where('user_uid','=',$userUid)->where('policy_code','=',$policyCode)->first();
 		if (!$userPolicy) {
-			$userPolicy = new UserPolicy(array(
+			$userPolicy = new UserPolicy([
 				'user_policy_uid' => Guid::create(),
 				'user_uid' => $userUid,
 				'policy_code' => $policyCode
-			));
+			]);
 		}
 
 		$userPolicy->accept_flag = $acceptFlag;

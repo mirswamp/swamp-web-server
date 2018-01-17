@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Services;
@@ -148,7 +148,31 @@ class SWAMPStatus {
 				$temp = preg_split("/,/", $output[$i], sizeof($fieldnames), PREG_SPLIT_NO_EMPTY);
 				for ($n = 0; $n < sizeof($fieldnames); $n++) {
 					$fieldname = $fieldnames[$n];
-					$crecord[$fieldname] = str_replace(array('"', ','), '',  trim($temp[$n]));
+					$fieldvalue = str_replace(array('"', ','), '',  trim($temp[$n]));
+
+					if ($title == 'assessment') {
+						// check execrunuid column for execrunuuids
+						if ($fieldname == 'execrunuid') {
+							if (preg_match("/^M-/", $fieldvalue)) {
+								$fieldvalue = preg_replace('/^M-/', '', $fieldvalue);
+							}
+							else {
+								$fieldvalue = '{execrunuid}' . $fieldvalue;
+							}
+						}
+						elseif ($fieldname == 'projectid') {
+							if ($fieldvalue != 'METRIC') {
+								$fieldvalue = '{projectuid}' . $fieldvalue;
+							}
+						}
+					}
+					elseif ($title == 'viewer') {
+						if ($fieldname == 'projectid') {
+							$fieldvalue = '{projectuid}' . $fieldvalue;
+						}
+					}
+
+					$crecord[$fieldname] = $fieldvalue;
 					if ($fieldname === 'state') {
 						$crecord[$fieldname] = SWAMPStatus::state_to_name($crecord[$fieldname]);
 					}
@@ -159,6 +183,47 @@ class SWAMPStatus {
 		// if there are no crecords in final list then clear fieldnames for consistency
 		if (empty($crecords)) $fieldnames = [];
 		$ra =  array('fieldnames' => $fieldnames, 'data' => $crecords);
+		return $ra;
+	}
+
+	public static function get_condor_status($hostname, $submit_node, $condor_manager) {
+		$fieldnames = [];
+		$slots = [];
+		$command = "condor_status -vm";
+		if ($submit_node != $hostname) {
+			// modify command to use pool and name
+			$command .= " -pool $condor_manager";
+		}
+		// Log::info("get_condor_status command: $command");
+		exec($command, $output, $returnVar);
+		// echo "Output: "; print_r($output); echo "\n";
+		// echo "returnVar: "; print_r($returnVar); echo "\n";
+		if (($returnVar == 0) && (! empty($output))) {
+			for ($i = 0; $i < sizeof($output); $i++) {
+				// skip empty lines
+				if (empty($output[$i])) continue;
+				// quit after last slot
+				if (preg_match('/Machines/', $output[$i])) break;
+				// collect field names
+				if (preg_match('/Name/', $output[$i])) {
+					$fieldnames = preg_split("/[\s]+/", $output[$i], -1, PREG_SPLIT_NO_EMPTY);
+				}
+				else {
+					$slot = [];
+					$temp = preg_split("/[\s]+/", $output[$i], -1, PREG_SPLIT_NO_EMPTY);
+					for ($n = 0; $n < sizeof($fieldnames); $n++) {
+						$fieldname = $fieldnames[$n];
+						$slot[$fieldname] = $temp[$n];
+					}
+					$slots[] = $slot;
+				}
+			}
+		}
+		// if there are no slots in final list then clear fieldnames and summary for consistency
+		if (empty($slots)) {
+			$fieldnames = [];
+		}
+		$ra = array('fieldnames' => $fieldnames, 'data' => $slots);
 		return $ra;
 	}
 
@@ -174,7 +239,10 @@ class SWAMPStatus {
 		);
 		$fieldnames = [];
 		$jobs = [];
-		$summary = [];
+		$summary['aruns'] = [];
+		$summary['mruns'] = [];
+		$summary['vruns'] = [];
+		$summary['total'] = [];
 		$command = "condor_q -allusers";
 		$localhost = true;
 		if ($submit_node != $hostname) {
@@ -188,17 +256,44 @@ class SWAMPStatus {
 			$command .= ",RemoteHost";
 		}
 		$command .= ",QDate,JobStartDate,JobStatus,JobPrio,ImageSize,DiskUsage,SWAMP_arun_execrunuid,SWAMP_mrun_execrunuid,SWAMP_vrun_execrunuid";
+		// Log::info("get_condor_queue command: $command");
 		exec($command, $output, $returnVar);
 		// echo "Output: "; print_r($output); echo "\n";
 		// echo "returnVar: "; print_r($returnVar); echo "\n";
 		if (($returnVar == 0) && (! empty($output))) {
-			// $fieldnames = ['EXECRUNUID', 'JOBID', 'CMD', 'SUBMITTED', 'RUN TIME', 'ST', 'PRI', 'IMAGE', 'DISK'];
 			$fieldnames = ['EXECRUNUID', 'CMD', 'SUBMITTED', 'RUN TIME', 'ST', 'PRI', 'IMAGE', 'DISK'];
 			if ($localhost === false) {
 				$fieldnames[] = 'HOST';
 			}
 			$fieldnames[] = 'VM';
-			$summary = array(
+			$summary['aruns'] = array(
+				'jobs'		=> 0,
+				'completed'	=> 0,
+				'removed'	=> 0,
+				'idle'		=> 0,
+				'running'	=> 0,
+				'held'		=> 0,
+				'suspended'	=> 0,
+			);
+			$summary['mruns'] = array(
+				'jobs'		=> 0,
+				'completed'	=> 0,
+				'removed'	=> 0,
+				'idle'		=> 0,
+				'running'	=> 0,
+				'held'		=> 0,
+				'suspended'	=> 0,
+			);
+			$summary['vruns'] = array(
+				'jobs'		=> 0,
+				'completed'	=> 0,
+				'removed'	=> 0,
+				'idle'		=> 0,
+				'running'	=> 0,
+				'held'		=> 0,
+				'suspended'	=> 0,
+			);
+			$summary['total'] = array(
 				'jobs'		=> 0,
 				'completed'	=> 0,
 				'removed'	=> 0,
@@ -216,8 +311,12 @@ class SWAMPStatus {
 			for ($i = 0; $i < sizeof($output); $i++) {
 				// start_new_job on empty line
 				if (empty($output[$i])) {
-					// $job['JOBID'] = $clusterid . '.' . $procid;
-					// echo "JOBID: ", $job['JOBID'], "\n";
+					if ($runtype != 'unknown') {
+						$summary[$runtype][strtolower($status)] += 1;
+						$summary[$runtype]['jobs'] += 1;
+						$summary['total'][strtolower($status)] += 1;
+						$summary['total']['jobs'] += 1;
+					}
 					if (! empty($owner) && ! empty($uid_domain)) {
 						$job['VM'] = $owner . '_' . $uid_domain . '_' . $clusterid . '_' . $procid;
 						// echo "VM: ", $job['VM'], "\n";
@@ -225,8 +324,10 @@ class SWAMPStatus {
 					// order job by fieldnames
 					$orderedjob = [];
 					for ($n = 0; $n < sizeof($fieldnames); $n++) {
-						$orderedjob[] = isset($job[$fieldnames[$n]]) ? $job[$fieldnames[$n]] : '';
+						$orderedjob[$fieldnames[$n]] = isset($job[$fieldnames[$n]]) ? $job[$fieldnames[$n]] : '';
 					}
+					// add hidden fields here
+					$orderedjob['type'] = $job['type'];
 					$jobs[] = $orderedjob; 
 					$job = [];
 					$clusterid = "";
@@ -241,7 +342,22 @@ class SWAMPStatus {
 					// execrunuid
 					if (preg_match("/^SWAMP_.run_execrunuid$/", $name)) {
 						$parts = explode(".", $value);
-						$job['EXECRUNUID'] = isset($parts[1]) ? $parts[1] : $value;
+						$execrunuid = isset($parts[1]) ? $parts[1] : $value;
+						if (preg_match("/^M-/", $execrunuid)) {
+							$execrunuid = preg_replace('/^M-/', '', $execrunuid);
+							$job['type'] = 'mrun';
+						}
+						elseif (preg_match("/^vrun_/", $execrunuid)) {
+							$execrunuid = preg_replace('/^vrun_/', '', $execrunuid);
+							$execrunuid = preg_replace('/_.*$/', '', $execrunuid);
+							$execrunuid = '{projectuid}' . $execrunuid;
+							$job['type'] = 'vrun';
+						}
+						else {
+							$execrunuid = '{execrunuid}' . $execrunuid;
+							$job['type'] = 'arun';
+						}
+						$job['EXECRUNUID'] = $execrunuid;
 						// echo "EXECRUNUID: ", $job['EXECRUNUID'], "\n";
 					}
 					// jobid - to be determined
@@ -254,6 +370,18 @@ class SWAMPStatus {
 					// cmd
 					elseif ($name == 'Cmd') {
 						$job['CMD'] = $value;
+						if (preg_match("/^aswamp/", $value)) {
+							$runtype = 'aruns';
+						}
+						elseif (preg_match("/^mswamp/", $value)) {
+							$runtype = 'mruns';
+						}
+						elseif (preg_match("/^vswamp/", $value)) {
+							$runtype = 'vruns';
+						}
+						else {
+							$runtype = 'unknown';
+						}
 						// echo "CMD: ", $job['CMD'], "\n";
 					}
 					// submitted, run_time
@@ -276,8 +404,6 @@ class SWAMPStatus {
 					elseif ($name == 'JobStatus') {
 						$status = $JobStatus[$value];
 						$job['ST'] = $status;
-						$summary[strtolower($status)] += 1;
-						$summary['jobs'] += 1;
 						// echo "ST: ", $value, " ", $job['ST'], "\n";
 					}
 					// pri
@@ -320,69 +446,38 @@ class SWAMPStatus {
 		// if there are no jobs in final list then clear fieldnames and summary for consistency
 		if (empty($jobs)) {
 			$fieldnames = [];
-			$summary = [];
-		}
-		else {
-			usort($jobs, function($a, $b) {return strcmp($a[2], $b[2]);});
+			$summary['aruns'] = [];
+			$summary['mruns'] = [];
+			$summary['vruns'] = [];
+			$summary['total'] = [];
 		}
 		$ra = array('fieldnames' => $fieldnames, 'data' => $jobs, 'summary' => $summary);
 		return $ra;
 	}
 
-	private static function _sort_on_clusterid($commandfield) {
-		return function($a, $b) use ($commandfield) {
-			$acommand = $a[$commandfield];
-			$bcommand = $b[$commandfield];
-			$aparts = preg_split("/[\s]+/", $acommand, -1, PREG_SPLIT_NO_EMPTY);
-			$bparts = preg_split("/[\s]+/", $bcommand, -1, PREG_SPLIT_NO_EMPTY);
-			if (sizeof($aparts) >= 3) {
-				// either clusterid procid or clusterid procid debug
-				// sort on clusterid
-				list($acid, $apid, $aname) = array_slice($aparts, -3);
-				if (is_numeric($aname)) {
-					$acid = $apid;
-				}   
-			}   
-			else {
-				// sort on last element
-				$temp = array_slice($aparts, -1);
-				$acid = array_pop($temp);
-			}   
-			if (sizeof($bparts) >= 3) {
-				list($bcid, $bpid, $bname) = array_slice($bparts, -3);
-				if (is_numeric($bname)) {
-					$bcid = $bpid;
-				}   
-			}   
-			else {
-				$temp = array_slice($bparts, -1);
-				$bcid = array_pop($temp);
-			}                                                                                                             
-			if (is_numeric($acid) && is_numeric($bcid)) {
-				if ($acid < $bcid) {
-					return -1; 
-				}   
-				elseif ($acid > $bcid) {
-					return 1;
-				}   
-				return 0;
-			}   
-			else {
-				return strcmp($acid, $bcid); 
-			}   
-		};
+	public static function get_command_type($command) {
+		if (preg_match("/vmu_.*Assessment/", $command)) {
+    		return 'swamp arun';
+		} elseif (preg_match("/vmu_.*Viewer/", $command)) {
+       		return 'swamp vrun';
+		} elseif (preg_match("/vmu_.*/", $command)) {
+			return 'swamp daemon';
+		} elseif (preg_match("/mysql/", $command)) {
+			return 'mysql';
+		} elseif (preg_match("/condor/", $command)) {
+			return 'condor';
+		} else {
+			return 'other';
+		}
 	}
 
 	public static function get_swamp_processes($hostname, $host) {
 		$fieldnames = [];
-		$vmuA = [];
-		$vmuV = [];
-		$vmu = [];
-		$other = [];
-		$command = "ps aux | egrep 'PID|vmu_' | grep -v grep";
+		$processes = [];
+		// $command = "ps aux | egrep 'PID|vmu_|mysql|condor' | grep -v grep";
+		$command = "ps ax -o \"user ppid pid pcpu pmem tty stat start time command\" | egrep 'PID|vmu_|mysql|condor' | grep -v grep";
 		if ($host != $hostname) {
 			// multi-host currently not implemented
-			$processes = array_merge($vmuA, $vmuV, $vmu, $other);
 			$ra = array('fieldnames' => $fieldnames, 'data' => $processes);
 			return $ra;
 			// modify command to use ssh or other remote access method
@@ -401,29 +496,15 @@ class SWAMPStatus {
 					$process = [];
 					// collect all of the COMMAND field in the last element of the split
 					$temp = preg_split("/[\s]+/", $output[$i], sizeof($fieldnames), PREG_SPLIT_NO_EMPTY);
+					$process['TYPE'] = self::get_command_type($temp[sizeof($fieldnames) - 1]);
 					for ($n = 0; $n < sizeof($fieldnames); $n++) {
 						$fieldname = $fieldnames[$n];
 						$process[$fieldname] = $temp[$n];
-						$commandfield = $fieldname;
 					}
-					if (preg_match("/vmu_.*Assessment/", $process[$commandfield])) {
-						$vmuA[] = $process;
-					}
-					elseif (preg_match("/vmu_.*Viewer/", $process[$commandfield])) {
-						$vmuV[] = $process;
-					}
-					elseif (preg_match("/vmu_.*.pl/", $process[$commandfield])) {
-						$vmu[] = $process;
-					}
-					else {
-						$other[] = $process;
-					}
+				    $processes[] = $process;
 				}
 			}
-			// sort vmuA and vmuV on clusterid at end of COMMAND field
-			usort($vmuA, SWAMPStatus::_sort_on_clusterid($commandfield));
-			usort($vmuV, SWAMPStatus::_sort_on_clusterid($commandfield));
-			$processes = array_merge($vmuA, $vmuV, $vmu, $other);
+			$fieldnames = array_merge(['TYPE'], $fieldnames);
 		}
 		// if there are no processes in final list then clear fieldnames for consistency
 		if (empty($processes)) $fieldnames = [];
@@ -455,7 +536,7 @@ class SWAMPStatus {
 				// collect machines
 				else {
 					$machine = [];
-					$temp = preg_split("/[\s]+/", $output[$i], -1, PREG_SPLIT_NO_EMPTY);
+					$temp = preg_split("/[\s]+/", $output[$i], sizeof($fieldnames), PREG_SPLIT_NO_EMPTY);
 					for ($n = 0; $n < sizeof($fieldnames); $n++) {
 						$fieldname = $fieldnames[$n];
 						$machine[$fieldname] = $temp[$n];
@@ -463,8 +544,6 @@ class SWAMPStatus {
 					$machines[] = $machine;
 				}
 			}
-			// this is a bit of a hack to assume there is a field called Name to sort on
-			usort($machines, function($a, $b) { return strcmp($a['Name'], $b['Name']); });
 		}
 		// if there are no machines in final list then clear fieldnames for consistency
 		if (empty($machines)) $fieldnames = [];
@@ -490,6 +569,7 @@ class SWAMPStatus {
 			$fieldnames = ['permissions', 'links', 'owner', 'group', 'size', 'modtime', 'dir', 'clusterid'];
 			for ($i = 0; $i < sizeof($output); $i++) {
 				if (empty($output[$i])) continue;
+				// Log::info("output: <" . $output[$i] . ">");
 				if (preg_match('/total/', $output[$i])) continue;
 				if (preg_match('/swamp_monitor/', $output[$i])) continue;
 				if (preg_match('/.bog$/', $output[$i])) continue;
@@ -513,7 +593,7 @@ class SWAMPStatus {
 				}
             	// look in dir for ClusterId_<clusterid> 
             	$jobdir['clusterid'] = 'n/a'; 
-            	if (($dh = opendir('/opt/swamp/run/' . $jobdir['dir'])) !== false) {
+            	if (($dh = @opendir('/opt/swamp/run/' . $jobdir['dir'])) !== false) {
                 	while (false !== ($file = readdir($dh))) {
                     	if (preg_match('/ClusterId/', $file)) {
                         	$clusterid = str_replace('ClusterId_', '', $file);
@@ -536,115 +616,6 @@ class SWAMPStatus {
 		if (empty($jobdirs)) $fieldnames = [];
 		$ra = array('fieldnames' => $fieldnames, 'data' => $jobdirs);
 		return $ra;
-	}
-
-	private static function html_table($ra, $brcount) {
-		if (empty($ra)) {
-			return '';
-		}
-		$fieldnames = $ra['fieldnames'];
-		$thead = '<tr><th>' . implode('</th><th>', array_values($fieldnames)) . '</th></tr>';
-
-		$data = $ra['data'];
-		$tbody = array_reduce($data, function($a, $b){return $a.='<tr><td>'.implode('</td><td>',$b).'</td></tr>';});
-		$rstring = "<table>\n$thead\n$tbody\n</table>";
-		for ($i = 0; $i < $brcount; $i++) {
-			$rstring .= '<br/>';
-		}
-		return $rstring;
-	}
-
-	private static function html_results($ra) {
-		$rstring = "";
-		foreach ($ra as $title => $table) {
-			if (($title == 'SWAMP Processes') || ($title == 'Virtual Machines')) {
-				foreach ($table as $machine => $value) {
-					$rstring .= $title . ': ' . $machine . '<br/>';
-					$rstring .= SWAMPStatus::html_table($table[$machine], 2);
-				}
-			}
-			else {
-				reset($table);
-				$machine = key($table);
-				$rstring .= $title . ': ' . $machine . '<br/>';
-				$brcount = 2;
-				if ($title == 'Condor Queue') {
-					$brcount = 1;
-					$fieldnames = &$table[$machine]['fieldnames'];
-					$data = &$table[$machine]['data'];
-					// Log::info("*****");
-					// Log::info("queue fieldnames: " . serialize($fieldnames));
-					// Log::info("queue data: " . serialize($data));
-					// Log::info("*****");
-					for ($n = 0; $n < sizeof($data); $n++) {
-						// EXECRUNUID is the 0th element
-						$execrunuid = $data[$n][0];
-						// execrunuid is an mrun - do not annotate
-						if (preg_match("/^M-/", $execrunuid)) {
-							continue;
-						}
-						// execrunuid is a vrun - annotate execrunuid with link to Project page
-						if (preg_match("/^vrun_/", $execrunuid)) {
-							$execrunuid = preg_replace('/^vrun_/', '', $execrunuid);
-							$execrunuid = preg_replace('/_.*$/', '', $execrunuid);
-							$link = '/#projects/' . $execrunuid;
-						}
-						// execrunuid is an arun - annotate execrunuid with link to Run Status page
-						else {
-							$link = '/#runs/' . $execrunuid . '/status';
-						}
-						$data[$n][0] = "<a href=\"$link\" target=\"_blank\">$execrunuid</a>";
-					}
-				}
-				elseif ($title == 'Collector Assessment Records') {
-					$fieldnames = &$table[$machine]['fieldnames'];
-					$data = &$table[$machine]['data'];
-					// Log::info("=====");
-					// Log::info("collector fieldnames: " . serialize($fieldnames));
-					// Log::info("collector data: " . serialize($data));
-					// Log::info("=====");
-					for ($n = 0; $n < sizeof($data); $n++) {
-						$execrunuid = $data[$n]['execrunuid'];
-						// execrunuid is an mrun - do not annotate
-						if (preg_match("/^M-/", $execrunuid)) {
-							continue;
-						}
-						// annotate execrunuid with link to Run Status page
-						$link = '/#runs/' . $execrunuid . '/status';
-						$data[$n]['execrunuid'] = "<a href=\"$link\" target=\"_blank\">$execrunuid</a>";
-						// annotate projectid with link to Project page
-						$projectid = $data[$n]['projectid'];
-						$link = '/#projects/' . $projectid;
-						$data[$n]['projectid'] = "<a href=\"$link\" target=\"_blank\">$projectid</a>";
-					}
-				}
-				// annotate projectid with link to Project page
-				// /#projects/<projectid>
-				elseif ($title == 'Collector Viewer Records') {
-					$data = &$table[$machine]['data'];
-					for ($n = 0; $n < sizeof($data); $n++) {
-						$projectid = $data[$n]['projectid'];
-						$link = '/#projects/' . $projectid;
-						$data[$n]['projectid'] = "<a href=\"$link\" target=\"_blank\">$projectid</a>";
-					}
-				}
-				$rstring .= SWAMPStatus::html_table($table[$machine], $brcount);
-				if ($title == 'Condor Queue') {
-					$summary = $table[$machine]['summary'];
-					if (empty($summary)) {
-						$rstring .= '<br/>';
-						continue;
-					}
-					$rstring .= '<pre>';
-					foreach ($summary as $key => $value) {
-						$rstring .= "$key $value    ";
-					}
-					$rstring .= '</pre>';
-					$rstring .= '<br/><br/>';
-				}
-			}
-		}
-		return $rstring;
 	}
 
 	public static function getCurrent() {
@@ -678,6 +649,10 @@ class SWAMPStatus {
 		// Log::info("submit_node: <$submit_node>");
 		// Log::info("exec_nodes: <" . implode(" ", $exec_nodes) . ">"); 
 		// Log::info("data_nodes: <" . implode(" ", $data_nodes) . ">"); 
+
+		// condor status
+		$cs = SWAMPStatus::get_condor_status($hostname, $submit_node, $condor_manager);
+		$all_cs[$submit_node] = $cs;
 
 		// condor queue
 		$cq = SWAMPStatus::get_condor_queue($hostname, $submit_node, $condor_manager);
@@ -733,6 +708,7 @@ class SWAMPStatus {
 		// the order in which tables appear in the output is specified by array order
 		$ra = array(
 				'Condor Queue' => $all_cq, 
+				'Condor Status' => $all_cs, 
 				'Collector Assessment Records' => $all_acr,
 				'Collector Viewer Records' => $all_vcr
 				);
@@ -751,10 +727,4 @@ class SWAMPStatus {
 		return $ra;
 	}
 
-	public static function getCurrentHtml() {
-
-		// Return an html decorated string
-		//
-		return self::html_results(self::getCurrent());
-	}
 }

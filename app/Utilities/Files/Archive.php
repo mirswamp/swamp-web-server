@@ -17,7 +17,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Files;
@@ -127,6 +127,9 @@ class Archive {
 
 	public function contains($dirname, $filename) {
 		self::normalizePaths($dirname, $filename);
+
+		// get top level item names
+		//
 		if ($dirname && $dirname != '.') {
 			$path = $dirname.$filename;
 		} else {
@@ -144,6 +147,50 @@ class Archive {
 		}
 
 		return in_array($path, $names);
+	}
+
+	public function search($dirname, $filenames) {
+		self::normalizePaths($dirname, $filename);
+
+		// get top level item names
+		//
+		if ($dirname && $dirname != '.') {
+			$path = $dirname.$filename;
+		} else {
+			$path = $filename;
+		}
+
+		$info = $this->getFileInfoList($path, null, true);
+		$names = self::infoArrayToNames($info);
+
+		// strip leading ./ from names
+		//
+		for ($i = 0; $i < sizeof($names); $i++) {
+			if (StringUtils::startsWith($names[$i], './')) {
+				$names[$i] = substr($names[$i], 2);
+			}
+		}
+
+		// sort names by nesting level, then alphabetically
+		//
+		usort($names, function($a, $b) {
+			$aNesting = substr_count($a, '/');
+			$bNesting = substr_count($b, '/');
+			if ($aNesting != $bNesting) {
+				return $aNesting > $bNesting;
+			} else {
+				return $a > $b;
+			}
+		});
+
+		for ($i = 0; $i < sizeof($names); $i++) {
+			$name = basename($names[$i]);
+			for ($j = 0; $j < sizeof($filenames); $j++) {
+				if ($filenames[$j] == $name) {
+					return $filenames[$j];
+				}
+			}
+		}
 	}
 
 	public function found($dirname, $filter) {
@@ -295,7 +342,7 @@ class Archive {
 	}
 
 	private static function getFileAndDirectoryNames($names) {
-		$dirnames = array();
+		$dirnames = [];
 
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
@@ -322,7 +369,7 @@ class Archive {
 	//
 
 	private static function getDirectoryNames($names) {
-		$directoryNames = array();
+		$directoryNames = [];
 
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
@@ -335,7 +382,7 @@ class Archive {
 	}
 
 	private static function getFileNames($names) {
-		$fileNames = array();
+		$fileNames = [];
 
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
@@ -362,7 +409,7 @@ class Archive {
 		// return all if no dirname
 		//
 		if (!$dirname) {
-			$dirnames = array();
+			$dirnames = [];
 			for ($i = 0; $i < sizeof($names); $i++) {
 				$name = $names[$i];
 
@@ -379,7 +426,7 @@ class Archive {
 
 		// get names that are part of target directory
 		//
-		$dirnames = array();
+		$dirnames = [];
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
 
@@ -408,7 +455,7 @@ class Archive {
 		// return all if no dirname
 		//
 		if (!$dirname) {
-			$dirnames = array();
+			$dirnames = [];
 			for ($i = 0; $i < sizeof($names); $i++) {
 				$name = $names[$i];
 
@@ -425,7 +472,7 @@ class Archive {
 
 		// get names that are part of target directory (nested)
 		//
-		$dirnames = array();
+		$dirnames = [];
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
 
@@ -453,7 +500,7 @@ class Archive {
 
 		// get names that are inside of target directory
 		//
-		$filteredNames = array();
+		$filteredNames = [];
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
 			if ($filter == $name || $filter == basename($name)) {
@@ -469,23 +516,23 @@ class Archive {
 	//
 
 	private static function nameToInfo($name) {
-		return array(
+		return [
 			'name' => $name
-		);
+		];
 	}
 
 	private static function namesToInfoArray($names) {
-		$info = array();
-		for ($i = 0; $i < sizeof($names); $i++) {
-			array_push($info, self::nameToInfo($names[$i]));
+		$info = [];
+		foreach ($names as $name) {
+			array_push($info, self::nameToInfo($name));
 		}
 		return $info;
 	}
 
 	private static function infoArrayToNames($info) {
-		$names = array();
-		for ($i = 0; $i < sizeof($info); $i++) {
-			array_push($names, $info[$i]['name']);
+		$names = [];
+		foreach ($info as $item) {
+			array_push($names, $item['name']);
 		}
 		return $names;
 	}
@@ -495,7 +542,7 @@ class Archive {
 	//
 
 	private static function getFileTypesFromNames($names) {
-		$fileTypes = array();
+		$fileTypes = [];
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
 			$extension = pathinfo($name, PATHINFO_EXTENSION);
@@ -529,7 +576,7 @@ class Archive {
 	}
 
 	private static function getZipArchiveFilenames($zipArchive) {
-		$names = array();
+		$names = [];
 		for ($i = 0; $i < $zipArchive->numFiles; $i++) {
 			$stat = $zipArchive->statIndex($i);
 			$name = $stat['name'];
@@ -608,13 +655,15 @@ class Archive {
 		// get root directory name
 		//
 		if (!$dirname || $dirname == './') {
-			$dirname = self::getRootDirectoryName($names);
+			$root = self::getRootDirectoryName($names);
+		} else {
+			$root = $dirname;
 		}
 
 		// filter for directory names
 		//
 		if ($dirname) {
-			$names = self::getNamesInDirectory($names, $dirname, $recursive);
+			$names = self::getNamesInDirectory($names, $root, $recursive);
 		}
 
 		// apply filter
@@ -643,7 +692,7 @@ class Archive {
 
 		// get directory info array from zip archive
 		//
-		$directories = array();
+		$directories = [];
 		for ($i = 0; $i < $zipArchive->numFiles; $i++) {
 			$stat = $zipArchive->statIndex($i);
 			$name = $stat['name'];
@@ -692,15 +741,15 @@ class Archive {
 
 		// get file info array from zip archive
 		//
-		$fileTypes = array();
+		$fileTypes = [];
 		for ($i = 0; $i < $za->numFiles; $i++) {
 			$stat = $za->statIndex($i);
 			$name = $stat['name'];
 
 			if (!$this->isDirectoryName($name)) {
-				$info = array(
+				$info = [
 					'name' => $name
-				);
+				];
 
 				if ($dirname == NULL) {
 
@@ -742,7 +791,7 @@ class Archive {
 		} else {
 			$script = 'tar -tf '.$this->path;
 		}
-		$names = array();
+		$names = [];
 		exec($script, $names);
 		$names = self::getFileAndDirectoryNames($names);
 
@@ -772,7 +821,7 @@ class Archive {
 		} else {
 			$script = 'tar -tf '.$this->path;
 		}
-		$names = array();
+		$names = [];
 		exec($script, $names);
 
 		// filter for directory names
@@ -799,7 +848,7 @@ class Archive {
 		} else {
 			$script = 'tar -tf '.$this->path;
 		}
-		$names = array();
+		$names = [];
 		exec($script, $names);
 
 		// filter for file names
@@ -826,7 +875,7 @@ class Archive {
 		// get file names
 		//
 		$script = 'jar -tf '.$this->path;
-		$names = array();
+		$names = [];
 		exec($script, $names);
 		$names = self::getFileAndDirectoryNames($names);
 
@@ -852,7 +901,7 @@ class Archive {
 		// get file and directory names
 		//
 		$script = 'jar -tf '.$this->path;
-		$names = array();
+		$names = [];
 		exec($script, $names);
 
 		// filter for directory names
@@ -875,7 +924,7 @@ class Archive {
 		// get file names
 		//
 		$script = 'jar -tf '.$this->path;
-		$names = array();
+		$names = [];
 		exec($script, $names);
 
 		// filter for file names
@@ -898,7 +947,7 @@ class Archive {
 	//
 
 	private static function infoListToNames($list) {
-		$names = array();
+		$names = [];
 		for ($i = 0; $i < sizeof($list); $i++) {
 			array_push($names, $list[$i]['name']);
 		}
@@ -906,7 +955,7 @@ class Archive {
 	}
 
 	private static function directoryInfoListToTree($list) {
-		$tree = array();
+		$tree = [];
 
 		function &findLeaf(&$tree, $name) {
 			for ($i = 0; $i < sizeof($tree); $i++) {
@@ -936,7 +985,7 @@ class Archive {
 				// create directory contents
 				//
 				if (!array_key_exists('contents', $leaf)) {
-					$leaf['contents'] = array();
+					$leaf['contents'] = [];
 				}
 
 				// add item to leaf
@@ -964,10 +1013,10 @@ class Archive {
 				$name = './';
 			}
 
-			$tree = array(
+			$tree = [
 				'name' => $name,
 				'contents' => $tree
-			);
+			];
 		}
 
 		return $tree;

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Platforms;
@@ -43,14 +43,14 @@ class PlatformVersionsController extends BaseController {
 			$uploadSuccess = Input::file('file')->move($destinationPath, $filename);
 			 
 			if ($uploadSuccess) {
-				return response(array(
+				return response([
 					'filename' => $filename,
 					'path' => $path,
 					'extension' => $extension,
 					'mime' => $mime,
 					'size' => $size,
 					'destination_path' => $destinationPath
-				), 200);
+				], 200);
 			} else {
 				return response()->json('Error moving uploaded file.', 400);
 			}
@@ -120,7 +120,7 @@ class PlatformVersionsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$platformVersion = new ToolVersion(array(
+		$platformVersion = new ToolVersion([
 			'platform_version_uuid' => Guid::create(),
 			'platform_uuid' => Input::get('platform_uuid'),
 			'version_string' => Input::get('version_string'),
@@ -131,7 +131,7 @@ class PlatformVersionsController extends BaseController {
 
 			'platform_path' => Input::get('platform_path'),
 			'deployment_cmd' => Input::get('deployment_cmd')
-		));
+		]);
 		$platformVersion->save();
 		return $platformVersion;
 	}

@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
@@ -32,9 +32,9 @@ class PythonPackageVersionsController extends PackageVersionsController {
 
 		// create new package version
 		//
-		$packageVersion = new PythonPackageVersion(array(
+		$packageVersion = new PythonPackageVersion([
 			'package_path' => Input::get('package_path')
-		));
+		]);
 
 		return $packageVersion->getWheelInfo($dirname);
 	}

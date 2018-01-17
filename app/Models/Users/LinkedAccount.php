@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -26,50 +26,58 @@ use App\Models\Users\LinkedAccountProvider;
 
 class LinkedAccount extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'linked_account';
 	protected $primaryKey = 'linked_account_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid',
 		'user_external_id', 
 		'linked_account_provider_code', 
 		'enabled_flag',
+
+		// timestamp attributes
+		//
 		'create_date',
 		'create_user',
 		'update_date',
 		'update_user'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'linked_account_id',
 		'user_uid',
 		'user_external_id',
 		'enabled_flag',
-		'create_date',
+		'title',
+		'description',
+
+		// timestamp attributes
+		//
+		'create_date'
+	];
+
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'title',
 		'description'
-	);
+	];
 
-	protected $appends = array(
-		'title',
-		'description'
-	);
+	//
+	// accessor methods
+	//
 
-	public function getTitleAttribute(){
+	public function getTitleAttribute() {
 		return LinkedAccountProvider::where('linked_account_provider_code','=',$this->linked_account_provider_code)->first()->title;
 	}
 
 	public function getDescriptionAttribute(){
 		return LinkedAccountProvider::where('linked_account_provider_code','=',$this->linked_account_provider_code)->first()->description;
 	}
-	
 }

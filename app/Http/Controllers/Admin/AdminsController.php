@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Admin;
@@ -47,7 +47,7 @@ class AdminsController extends BaseController {
 		$users = new Collection;
 		foreach( $admins as $admin ) {
 			$user = User::getIndex($admin->user_uid);
-			if( $user ) {
+			if ($user) {
 				$users[] = $user;
 			}
 		}
@@ -86,33 +86,33 @@ class AdminsController extends BaseController {
 
 		// return if email is not enabled
 		//
-		if (!Config::get('mail.enabled')) {
+		if (!config('mail.enabled')) {
 			return response('Email has not been enabled.', 400);
 		}
 
-		if( ! Input::has('subject') ){
+		if (!Input::has('subject')) {
 			return response('Missing subject field.', 400);
-		} elseif( ! Input::has('body') ){
+		} elseif (!Input::has('body')) {
 			return response('Missing body field.', 400);
-		} elseif( ! Input::has('recipients') ){
+		} elseif (!Input::has('recipients')) {
 			return response('Missing recipients field.', 400);
 		}
 
 		$this->subject = Input::get('subject');
 		$body = Input::get('body');
 
-		if( ( $this->subject == '' ) || ( $body == '' ) ){
+		if (($this->subject == '') || ($body == '')) {
 			return response('The email subject and body fields must not be empty.', 400);
 		}
 
 		$recipients = Input::get('recipients');
-		if( sizeof( $recipients ) < 1 ){
+		if (sizeof( $recipients) < 1) {
 			return response('The email must have at least one recipient.', 400);	
 		}
 
 		$failures = new Collection();
 
-		foreach( $recipients as $email ){
+		foreach ($recipients as $email) {
 			$user = User::getByEmail($email);
 			if (!$user) {
 				return response("Could not load user: $email", 400);	
@@ -126,35 +126,37 @@ class AdminsController extends BaseController {
 			}
 
 			$user_email = '';
-			// Make sure user's email is valid
+
+			// make sure user's email is valid
+			//
 			if (filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
 				$user_email = $user->email;
 			}
+			
 			$user_fullname = trim($user->getFullName());
 			if (strlen($user_email) > 0) {
-				$cfg = array(
+				Mail::send([
+					'text' => 'emails.admin'
+				], [
 					'user' => $user,
 					'body' => $body
-				);
-				Mail::send(array('text' => 'emails.admin'), $cfg, function($message) use ($user_email, $user_fullname) {
+				], function($message) use ($user_email, $user_fullname) {
 					$message->to($user_email, $user_fullname);
 					$message->subject($this->subject);
 
 					if ($this->secure) {
-						$message->from(Config::get('mail.security.address'));
+						$message->from(config('mail.security.address'));
 
 					}
 				});
 			} else {
-				$failures->push(array(
+				$failures->push([
 					'user' => $user->toArray(), 
 					'email' => $email
-				));
+				]);
 			}
 		}
 
 		return $failures;
-
 	}
-
 }

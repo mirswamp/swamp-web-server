@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -47,7 +47,7 @@ class VerifyPasswordReset {
 				break;
 
 			case 'put':
-				$user = User::getIndex(Session::get('user_uid'));
+				$user = User::getIndex(session('user_uid'));
 				if (!$user) {
 
 					// not logged in
@@ -66,7 +66,7 @@ class VerifyPasswordReset {
 					// check for password reset expiration
 					//
 					$time = new DateTime($passwordReset->create_date, new DateTimeZone('GMT'));
-					if ((gmdate('U') - $time->getTimestamp() ) > 1800) {
+					if ((gmdate('U') - $time->getTimestamp()) > 1800) {
 						return response('Password reset key expired.', 401);
 					}
 				} else {

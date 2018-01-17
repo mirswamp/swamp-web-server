@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Utilities;
@@ -23,7 +23,7 @@ use App\Models\Utilities\Configuration;
 use Illuminate\Support\Facades\Config;
 
 define('CILOGON_IDPLIST_URL','https://cilogon.org/idplist/?skin=' .  
-							 Config::get('oauth2.cilogon_skin'));
+							 config('oauth2.cilogon_skin'));
 
 class IdentitiesController extends BaseController {
 
@@ -44,11 +44,11 @@ class IdentitiesController extends BaseController {
 
 		// Store IdPs in an array with entries for entityid, name, and class
 		//
-		$idparray = array();
+		$idparray = [];
 
 		// Check if GitHub OAuth2 has been configured
 		//
-		if (Config::get('app.github_authentication_enabled')) {
+		if (config('app.github_authentication_enabled')) {
 			$idparray[] = [
 				'entityid' => 'GitHub',
 				'name'     => 'GitHub',
@@ -58,7 +58,7 @@ class IdentitiesController extends BaseController {
 
 		// Check if Google OAuth2 has been configured
 		//
-		if (Config::get('app.google_authentication_enabled')) {
+		if (config('app.google_authentication_enabled')) {
 			$idparray[] = [
 				'entityid' => 'Google',
 				'name'     => 'Google',
@@ -68,7 +68,7 @@ class IdentitiesController extends BaseController {
 
 		// Check if CILogon OAuth2 has been configured
 		//
-		if (Config::get('app.ci_logon_authentication_enabled')) {
+		if (config('app.ci_logon_authentication_enabled')) {
 
 			// Set a short timeout (10 seconds) for file_get_contents()
 			// Taken from http://stackoverflow.com/a/10236480

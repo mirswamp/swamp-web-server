@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Tools;
@@ -23,41 +23,37 @@ use App\Models\Packages\PackageType;
 
 class ToolLanguage extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'tool_shed';
 	protected $table = 'tool_language';
 	protected $primaryKey = 'tool_language_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'tool_uuid',
 		'tool_version_uuid',
 		'package_type_id'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'tool_uuid',
 		'tool_version_uuid',
 		'package_type_name'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'package_type_name'
-	);
+	];
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getPackageTypeNameAttribute() {
 		$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();

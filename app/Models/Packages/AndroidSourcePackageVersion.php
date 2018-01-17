@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -29,35 +29,36 @@ class AndroidSourcePackageVersion extends JavaSourcePackageVersion {
 	//
 
 	function getBuildSystem() {
-	
-		// create archive from package
+
+		// check in build path
 		//
-		$archive = new Archive($this->getPackagePath());
+		$archive = new Archive($this->getPackagePath()); 
 		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
 
 		// check for ant
 		//
 		if ($archive->found($buildPath, 'build.xml')) {
-			return response("android+ant", 200);
+			return 'android+ant';
 
 		// check for maven
 		//
 		} else if ($archive->found($buildPath, 'pom.xml')) {
-			return response("android+maven", 200);
+			return 'android+maven';
 
 		// check for gradle
 		//
 		} else if ($archive->found($buildPath, 'build.gradle')) {
-			return response("android+gradle", 200);
+			return 'android+gradle';
 
-		// default case
+		// build system not found
 		//
 		} else {
-			return response("Could not determine build system.", 404);
+			return null;
 		}
 	}
 
 	function checkBuildSystem() {
+		
 		// create archive from package
 		//
 		$archive = new Archive($this->getPackagePath());

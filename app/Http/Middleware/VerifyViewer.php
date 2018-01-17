@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -44,7 +44,7 @@ class VerifyViewer {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$viewerUuid = $request->route()->getParameter('viewer_uuid');
+				$viewerUuid = $request->route('viewer_uuid');
 				if ($viewerUuid) {
 					$viewer = Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
 					if (!$viewer) {

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Tools;
@@ -38,30 +38,27 @@ use App\Models\Viewers\Viewer;
 class Tool extends UserStamped {
 	const ALLOW_PROJECT_OWNER_PERMISSION = false;
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'tool_shed';
 	protected $table = 'tool';
 	protected $primaryKey = 'tool_uuid';
 	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'tool_uuid',
 		'tool_owner_uuid',
 		'name',
 		'description',
 		'is_build_needed',
 		'tool_sharing_status'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'tool_uuid',
 		'name',
 		'description',
@@ -75,31 +72,110 @@ class Tool extends UserStamped {
 		'is_restricted',
 		'policy_code',
 		'policy'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'package_type_names',
 		'version_strings',
 		'platform_names',
 		'viewer_names',
 		'is_owned',
 		'is_restricted'
-	);
+	];
 
-	/**
-	* list of tool names that are restricted
-	*/
-	protected $restrictedTools = array(
+	// list of tool names that are restricted
+	//
+	protected $restrictedTools = [
 		'parasoft',
 		'codesonar'
-	);
+	];
 
-	/**
-	 * querying methods
-	 */
+	//
+	// accessor methods
+	//
+
+	public function getPackageTypeNamesAttribute() {
+		$names = [];
+		$toolLanguages = ToolLanguage::where('tool_uuid', '=', $this->tool_uuid)->get();
+		for ($i = 0; $i < sizeOf($toolLanguages); $i++) {
+			$name = $toolLanguages[$i]->package_type_name;
+			if (!in_array($name, $names)) {
+				array_push($names, $name);
+			}
+		}
+		return $names;
+	}
+
+	public function getVersionStringsAttribute() {
+		$versionStrings = [];
+		$toolVersions = ToolVersion::where('tool_uuid', '=', $this->tool_uuid)->get();
+		for ($i = 0; $i < sizeOf($toolVersions); $i++) {
+			$versionString = $toolVersions[$i]->version_string;
+			if (!in_array($versionString, $versionStrings)) {
+				array_push($versionStrings, $versionString);
+			}
+		}
+		rsort($versionStrings);
+		return $versionStrings;
+	}
+
+	public function getPlatformNamesAttribute() {
+		$platformNames = [];
+		$toolPlatforms = ToolPlatform::where('tool_uuid', '=', $this->tool_uuid)->get();
+		for ($i = 0; $i < sizeOf($toolPlatforms); $i++) {
+			if ($toolPlatforms[$i]->platform) {
+				$platformName = $toolPlatforms[$i]->platform->name;
+				if (!in_array($platformName, $platformNames)) {
+					array_push($platformNames, $platformName);
+				}
+			}
+		}
+		return $platformNames;
+	}
+
+	public function getViewerNamesAttribute() {
+		$viewerNames = [];
+		$viewers = Viewer::all();
+		for ($i = 0; $i < sizeOf($viewers); $i++) {
+			$viewer = $viewers[$i];
+			if ($this->isCompatibleWith($viewer)) {
+				if (!in_array($viewer->name, $viewerNames)) {
+					array_push($viewerNames, $viewer->name);
+				}
+			}
+		}
+		return $viewerNames;
+	}
+
+	public function getToolOwnerAttribute() {
+
+		// check to see if user is logged in
+		//
+		$user = User::getIndex(session('user_uid'));
+		if ($user) {
+
+			// fetch owner information
+			//
+			$owner = Owner::getIndex($this->tool_owner_uuid);
+			if ($owner) {
+				return $owner->toArray();
+			}
+		}
+	}
+
+	public function getIsOwnedAttribute() {
+		return session('user_uid') == $this->tool_owner_uuid;
+	}
+
+	public function getIsRestrictedAttribute() {
+		return $this->isRestricted();
+	}
+
+	//
+	// querying methods
+	//
 
 	public function getVersions() {
 		return ToolVersion::where('tool_uuid', '=', $this->tool_uuid)->get();
@@ -123,9 +199,9 @@ class Tool extends UserStamped {
 			->where('viewer_uuid', '=', $viewer->viewer_uuid)->exists();
 	}
 
-	/**
-	 * sharing methods
-	 */
+	//
+	// sharing methods
+	//
 
 	public function isPublic() {
 		return strcasecmp($this->getSharingStatus(), 'public') == 0;
@@ -157,9 +233,9 @@ class Tool extends UserStamped {
 		return false;	
 	}
 
-	/**
-	 * access control methods
-	 */
+	//
+	// access control methods
+	//
 
 	public function isOwnedBy($user) {
 		return ($this->tool_owner_uuid == $user->user_uid);
@@ -189,9 +265,9 @@ class Tool extends UserStamped {
 		}
 	}
 
-	/**
-	 * restricted tool methods
-	 */
+	//
+	// restricted tool methods
+	//
 
 	public function isRestricted() {
 		return $this->policy_code != null;		
@@ -327,19 +403,19 @@ class Tool extends UserStamped {
 		// check user permission
 		//
 		if (!$userPermission || ($userPermission->status !== 'granted')) {
-			return response()->json(array(
+			return response()->json([
 				'status' => 'no_permission'
-			), 401);
+			], 401);
 		}
 
 		// check if user permission is bound to this project
 		//
 		if ($this->isRestrictedByProject()) {
 			if (!$project->getUserPermissionProject($userPermission)) {
-				return response()->json(array(
+				return response()->json([
 					'status' => 'project_unbound',
 					'user_permission_uid' => $userPermission->user_permission_uid
-				), 404);
+				], 404);
 			}
 		}
 
@@ -355,18 +431,18 @@ class Tool extends UserStamped {
 		// check that current user is a project member
 		//
 		if (!$project->getMembership($user)) {
-			return response()->json(array(
+			return response()->json([
 				'status' => 'no_project_membership'
-			), 401);
+			], 401);
 		}
 
 		// check owner permission
 		//
 		if ($this->isRestrictedByProjectOwner()) {
 			if (!$ownerPermission || ($ownerPermission->status !== 'granted')) {
-				return response()->json(array(
+				return response()->json([
 					'status' => 'owner_no_permission'
-				), 401);
+				], 401);
 			}
 		}
 
@@ -374,10 +450,10 @@ class Tool extends UserStamped {
 		//
 		if ($this->isRestrictedByProject()) {
 			if (!$project->getUserPermissionProject($ownerPermission)) {
-				return response()->json(array(
+				return response()->json([
 					'status' => 'member_project_unbound',
 					'user_permission_uid' => $ownerPermission->user_permission_uid
-				), 404);
+				], 404);
 			}
 		}
 
@@ -392,9 +468,9 @@ class Tool extends UserStamped {
 			// no project provided
 			//
 			if (!$project) {
-				return response()->json(array(
+				return response()->json([
 					'status' => 'no_project'
-				), 404);
+				], 404);
 			}
 
 			if ($project->isOwnedBy($user)) {
@@ -418,9 +494,9 @@ class Tool extends UserStamped {
 			// check user permission
 			//
 			if (!$userPermission || ($userPermission->status !== 'granted')) {
-				return response()->json(array(
+				return response()->json([
 					'status' => 'no_permission'
-				), 401);
+				], 401);
 			}
 
 			// return user policy permission status
@@ -428,86 +504,5 @@ class Tool extends UserStamped {
 			$ownerPermission = null;
 			return $user->getPolicyPermissionStatus($permissionCode, $ownerPermission);
 		}
-	}
-
-	/**
-	 * accessor methods
-	 */
-
-	public function getPackageTypeNamesAttribute() {
-		$names = array();
-		$toolLanguages = ToolLanguage::where('tool_uuid', '=', $this->tool_uuid)->get();
-		for ($i = 0; $i < sizeOf($toolLanguages); $i++) {
-			$name = $toolLanguages[$i]->package_type_name;
-			if (!in_array($name, $names)) {
-				array_push($names, $name);
-			}
-		}
-		return $names;
-	}
-
-	public function getVersionStringsAttribute() {
-		$versionStrings = array();
-		$toolVersions = ToolVersion::where('tool_uuid', '=', $this->tool_uuid)->get();
-		for ($i = 0; $i < sizeOf($toolVersions); $i++) {
-			$versionString = $toolVersions[$i]->version_string;
-			if (!in_array($versionString, $versionStrings)) {
-				array_push($versionStrings, $versionString);
-			}
-		}
-		rsort($versionStrings);
-		return $versionStrings;
-	}
-
-	public function getPlatformNamesAttribute() {
-		$platformNames = array();
-		$toolPlatforms = ToolPlatform::where('tool_uuid', '=', $this->tool_uuid)->get();
-		for ($i = 0; $i < sizeOf($toolPlatforms); $i++) {
-			if ($toolPlatforms[$i]->platform) {
-				$platformName = $toolPlatforms[$i]->platform->name;
-				if (!in_array($platformName, $platformNames)) {
-					array_push($platformNames, $platformName);
-				}
-			}
-		}
-		return $platformNames;
-	}
-
-	public function getViewerNamesAttribute() {
-		$viewerNames = array();
-		$viewers = Viewer::all();
-		for ($i = 0; $i < sizeOf($viewers); $i++) {
-			$viewer = $viewers[$i];
-			if ($this->isCompatibleWith($viewer)) {
-				if (!in_array($viewer->name, $viewerNames)) {
-					array_push($viewerNames, $viewer->name);
-				}
-			}
-		}
-		return $viewerNames;
-	}
-
-	public function getToolOwnerAttribute() {
-
-		// check to see if user is logged in
-		//
-		$user = User::getIndex(Session::get('user_uid'));
-		if ($user) {
-
-			// fetch owner information
-			//
-			$owner = Owner::getIndex($this->tool_owner_uuid);
-			if ($owner) {
-				return $owner->toArray();
-			}
-		}
-	}
-
-	public function getIsOwnedAttribute() {
-		return Session::get('user_uid') == $this->tool_owner_uuid;
-	}
-
-	public function getIsRestrictedAttribute() {
-		return $this->isRestricted();
 	}
 }

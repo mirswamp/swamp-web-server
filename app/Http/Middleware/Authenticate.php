@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -38,7 +38,7 @@ class Authenticate {
 
 			// get user from current session
 			//
-			$user_uid = Session::get('user_uid');
+			$user_uid = session('user_uid');
 			if ($user_uid && $request->segment(1) != 'logout') {
 				$user = User::getIndex($user_uid);
 
@@ -61,10 +61,10 @@ class Authenticate {
 			if ($isCurrUsers) {
 				return $next($request);
 			} else {
-				return response(array(
+				return response([
 					'status' => 'NO_SESSION',
 					'config' => new Configuration()
-				), 401);            
+				], 401);            
 			}
 		} else {
 
@@ -74,10 +74,10 @@ class Authenticate {
 
 			// return configuration information
 			//
-			return response(array(
+			return response([
 				'status' => 'NO_SESSION',
 				'config' => new Configuration()
-			), 401);
+			], 401);
 		}
 
 		return $next($request);

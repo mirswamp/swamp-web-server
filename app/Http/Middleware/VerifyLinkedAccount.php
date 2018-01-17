@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -34,6 +34,7 @@ class VerifyLinkedAccount {
 	 */
 	public function handle($request, Closure $next)
 	{
+		/*
 		// check request by method
 		//
 		switch (FiltersHelper::method()) {
@@ -42,7 +43,7 @@ class VerifyLinkedAccount {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$linkedAccountId = $request->route()->getParameter('user_permission_id');
+				$linkedAccountId = $request->route('user_permission_id');
 				if ($linkedAccountId) {
 					$linkedAccount = LinkedAccount::where('linked_account_uid', '=', $linkedAccountId);
 					if (!$linkedAccount) {
@@ -51,6 +52,7 @@ class VerifyLinkedAccount {
 				}
 				break;
 		}
+		*/
 
 		return $next($request);
 	}

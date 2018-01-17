@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Assessments;
@@ -209,7 +209,7 @@ class AssessmentRunsController extends BaseController {
 			// check tool permission
 			//
 			if ($tool->isRestricted()) {
-				$user = User::getIndex(Session::get('user_uid'));
+				$user = User::getIndex(session('user_uid'));
 				$permission = $tool->getPermission($package, $project, $user);
 				if ($permission != 'granted') {
 					return response($permission, 401);
@@ -229,7 +229,7 @@ class AssessmentRunsController extends BaseController {
 			// if assessment run does not already exist, create it
 			//
 			if (!$assessmentRun) {
-				$assessmentRun = new AssessmentRun(array(
+				$assessmentRun = new AssessmentRun([
 					'assessment_run_uuid' => Guid::create(),
 					'project_uuid' => $projectUuid,
 					'package_uuid' => $packageUuid,
@@ -238,20 +238,27 @@ class AssessmentRunsController extends BaseController {
 					'tool_version_uuid' => $toolVersionUuid,
 					'platform_uuid' => $platformUuid,
 					'platform_version_uuid' => $platformVersionUuid
-				));
+				]);
 				$assessmentRun->save();
 			}
 
 			return $assessmentRun;
 		} else {
 			//$assessmentRunGroupUuid = Guid::create();
-			$assessmentRunUuids = array();
-			$assessmentRuns = array();
-			$toolUuids = array();
+			$assessmentRunUuids = [];
+			$assessmentRuns = [];
+			$toolUuids = [];
 
 			// use all available tools
 			//
-			$publicTools = Tool::where('tool_sharing_status', '=', 'public')->orderBy('name', 'ASC')->get();
+			if (Tool::where('name', '=', 'Spotbugs')->exists()) {
+				$publicTools = Tool::where('tool_sharing_status', '=', 'public')
+						->where('name', '!=', 'Findbugs')
+						->orderBy('name', 'ASC')->get();
+			} else {
+				$publicTools = Tool::where('tool_sharing_status', '=', 'public')
+						->orderBy('name', 'ASC')->get();
+			}
 			$protectedTools = ToolSharing::getToolsByProject($projectUuid);
 			$tools = $publicTools->merge($protectedTools);
 
@@ -260,7 +267,7 @@ class AssessmentRunsController extends BaseController {
 				// check tool permission
 				//
 				if ($tool->isRestricted()) {
-					$user = User::getIndex(Session::get('user_uid'));
+					$user = User::getIndex(session('user_uid'));
 					$permission = $tool->getPermission($package, $project, $user);
 					if ($permission != 'granted') {
 						continue;
@@ -290,7 +297,7 @@ class AssessmentRunsController extends BaseController {
 				// if assessment run does not already exist, create it
 				//
 				if (!$assessmentRun) {
-					$assessmentRun = new AssessmentRun(array(
+					$assessmentRun = new AssessmentRun([
 						'assessment_run_uuid' => Guid::create(),
 						//'assessment_run_group_uuid' => $assessmentRunGroupUuid,
 						'project_uuid' => $projectUuid,
@@ -300,7 +307,7 @@ class AssessmentRunsController extends BaseController {
 						'tool_version_uuid' => null,
 						'platform_uuid' => $platformUuid,
 						'platform_version_uuid' => $platformVersionUuid
-					));
+					]);
 
 					// append assessment run to list of runs to save
 					//
@@ -325,11 +332,13 @@ class AssessmentRunsController extends BaseController {
 
 			// create explicit group
 			//
-			$group = new Group(array(
+			/*
+			$group = new Group([
 				'group_uuid' => Guid::create(),
 				'group_type' => 'assessment_run',
 				'uuid_list' => $toolUuidsString
-			));
+			]);
+			*/
 
 			// make changes to database in a single transaction
 			//
@@ -344,7 +353,7 @@ class AssessmentRunsController extends BaseController {
 
 				// save group
 				//
-				$group->save();
+				//$group->save();
 
 				DB::commit();
 			} catch (Exception $e) {
@@ -353,7 +362,7 @@ class AssessmentRunsController extends BaseController {
 
 			// create response
 			//
-			return new AssessmentRun(array(
+			return new AssessmentRun([
 				'assessment_run_uuid' => $assessmentRunUuids,
 				'project_uuid' => $projectUuid,
 				'package_uuid' => $packageUuid,
@@ -362,14 +371,14 @@ class AssessmentRunsController extends BaseController {
 				'tool_version_uuid' => NULL,
 				'platform_uuid' => $platformUuid,
 				'platform_version_uuid' => $platformVersionUuid
-			));
+			]);
 		}
 	}
 
 	// get by index
 	//
 	public function getIndex($assessmentRunUuid) {
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 		$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
 		$project = Project::where('project_uid', '=', $assessmentRun->project_uuid)->first();
 		

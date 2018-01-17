@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -34,7 +34,7 @@ class VerifyAssessmentResult {
 	 * @return mixed
 	 */
 	public function handle($request, Closure $next)
-	{		
+	{
 		// check request by method
 		//
 		switch (FiltersHelper::method()) {
@@ -44,7 +44,7 @@ class VerifyAssessmentResult {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$assessmentResultUuid = $request->route()->getParameter('assessment_result_uuid');
+				$assessmentResultUuid = $request->route('assessment_result_uuid');
 				if ($assessmentResultUuid && $assessmentResultUuid != 'none') {
 					if (!strpos($assessmentResultUuid, ',')) {
 

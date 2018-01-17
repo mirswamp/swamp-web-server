@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
@@ -39,11 +39,11 @@ class PackageVersionDependenciesController extends BaseController {
 
 		// create new model
 		//
-		$packageVersionDependency = new PackageVersionDependency(array(
+		$packageVersionDependency = new PackageVersionDependency([
 			'package_version_uuid' => $packageVersionUuid,
 			'platform_version_uuid' => $platformVersionUuid,
 			'dependency_list' => $dependencyList
-		));
+		]);
 
 		// save new model
 		//
@@ -57,12 +57,12 @@ class PackageVersionDependenciesController extends BaseController {
 	//
 
 	public function getByPackageVersion($packageVersionUuid) {
-		return PackageVersionDependency::where('package_version_uuid','=', $packageVersionUuid)->get() ?: array();
+		return PackageVersionDependency::where('package_version_uuid','=', $packageVersionUuid)->get() ?: [];
 	}
 
 	public function getMostRecent($packageUuid) {
 		$packageVersion = PackageVersion::where('package_uuid','=',$packageUuid)->orderBy('create_date','desc')->first();
-		return $packageVersion? PackageVersionDependency::where('package_version_uuid','=', $packageVersion->package_version_uuid)->get() : array();
+		return $packageVersion? PackageVersionDependency::where('package_version_uuid','=', $packageVersion->package_version_uuid)->get() : [];
 	}
 
 	// update
@@ -93,18 +93,18 @@ class PackageVersionDependenciesController extends BaseController {
 	}
 
 	public function updateAll() {
-		$dependencies = Input::get('data') ?: array();
+		$dependencies = Input::get('data')? : [];
 		$results = new Collection();
 		foreach( $dependencies as $pvd ){
 			$p = null;
-			if( array_key_exists('package_version_dependency_id', $pvd) ){
+			if (array_key_exists('package_version_dependency_id', $pvd)) {
 				$p = PackageVersionDependency::where('package_version_dependency_id','=',$pvd['package_version_dependency_id'])->first();
 				$p->dependency_list = $pvd['dependency_list'];
-			}
-			else
+			} else {
 				$p = new PackageVersionDependency( $pvd );
+			}
 			$p->save();
-			$results->push( $p );
+			$results->push($p);
 		}
 		return $results;
 	}

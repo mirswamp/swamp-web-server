@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -43,7 +43,7 @@ class VerifyUserPermission {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$userPermissionUuid = $request->route()->getParameter('user_permission_uid');
+				$userPermissionUuid = $request->route('user_permission_uid');
 				if ($userPermissionUuid) {
 					$userPermission = UserPermission::where('user_permission_uid', '=', $userPermissionUuid);
 					if (!$userPermissionUuid) {

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -44,7 +44,7 @@ class VerifyAssessmentRun {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$assessmentRunUuid = $request->route()->getParameter('assessment_run_uuid');
+				$assessmentRunUuid = $request->route('assessment_run_uuid');
 				if ($assessmentRunUuid) {
 					$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
 					if (!$assessmentRun) {

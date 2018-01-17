@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -41,12 +41,12 @@ class VerifyTool {
 		// get current user
 		//
 		if (Session::has('user_uid')) {
-			$currentUser = User::getIndex(Session::get('user_uid'));
+			$currentUser = User::getIndex(session('user_uid'));
 		} else {
-			return response(array(
+			return response([
 				'status' => 'NO_SESSION',
 				'config' => new Configuration()
-			), 401);
+			], 401);
 		}
 		
 		// check request by method
@@ -56,7 +56,7 @@ class VerifyTool {
 				break;
 
 			case 'get':
-				$toolUuid = $request->route()->getParameter('tool_uuid');
+				$toolUuid = $request->route('tool_uuid');
 				if ($toolUuid && $toolUuid != 'all') {
 					$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
 					if (!$tool) {
@@ -69,7 +69,7 @@ class VerifyTool {
 
 			case 'put':
 			case 'delete':
-				$toolUuid = $request->route()->getParameter('tool_uuid');
+				$toolUuid = $request->route('tool_uuid');
 				if ($toolUuid && $toolUuid != 'all') {
 					$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
 					if (!$tool) {

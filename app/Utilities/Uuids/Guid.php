@@ -17,7 +17,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Uuids;
@@ -42,7 +42,7 @@ class Guid {
 				// If all else fails, default to mt_rand method as used in 
 				// https://github.com/alixaxel/phunction/blob/master/phunction/Text.php
 				//
-				$result = array();
+				$result = [];
 				for ($i = 0; $i < 8; ++$i) {
 						switch ($i) {
 								case 3:  $result[$i] = mt_rand(16384, 20479); break;

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -44,7 +44,7 @@ class VerifyPolicy {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$policyCode = $request->route()->getParameter('policy_code');
+				$policyCode = $request->route('policy_code');
 				$policy = Policy::where('policy_code', '=', $policyCode);
 				if (!$policy) {
 					return response('Policy not found.', 404);

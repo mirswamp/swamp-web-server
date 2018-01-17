@@ -17,7 +17,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Sanitization;
@@ -34,14 +34,15 @@ namespace App\Utilities\Sanitization;
 
 class LdapSanitize  {
 	static function escapeQueryValue($string) {
-		$sanitized = array(
+		$sanitized = [
 			'\\'   => '\5c',
 			'*'    => '\2a',
 			'('    => '\28',
 			')'    => '\29',
-			"\x00" => '\00');
+			"\x00" => '\00'
+		];
 
-		return str_replace( array_keys($sanitized), array_values($sanitized), $string );
+		return str_replace(array_keys($sanitized), array_values($sanitized), $string);
 	}
 }
 

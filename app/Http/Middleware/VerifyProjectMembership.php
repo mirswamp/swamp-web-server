@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -35,6 +35,18 @@ class VerifyProjectMembership {
 	 */
 	public function handle($request, Closure $next)
 	{
+
+		// check to see that user is logged in
+		//
+		if (Session::has('user_uid')) {
+			$user = User::getIndex(session('user_uid'));
+			if (!$user) {
+				return response('Unable to change project membership.  No current user.', 401);
+			}
+		} else {
+			return response('Unable to change project membership.  No session.', 401);
+		}	
+
 		// check request by method
 		//
 		switch (FiltersHelper::method()) {
@@ -42,36 +54,79 @@ class VerifyProjectMembership {
 			case 'get':
 				break;
 
-			case 'put':
-			case 'delete':
+			case 'put':		
 
-				// check to see that user is logged in
+				// change by index
 				//
-				if (Session::has('user_uid')) {
-					$user = User::getIndex(Session::get('user_uid'));
-					if (!$user) {
-						return response('Unable to change project membership.  No current user.', 401);
-					}
-				} else {
-					return response('Unable to change project membership.  No session.', 401);
-				}				
+				if ($request->route('project_membership_id')) {
+					$projectMembership = ProjectMembership::where('membership_uid', '=', $request->route('project_membership_id'))->first();
 
-				// check privileges
-				//
-				if ($request->route()->getParameter('project_membership_id')) {
-					$projectMembership = ProjectMembership::where('membership_uid', '=', $request->route()->getParameter('project_membership_id'))->first();
+					// check for project membership
+					//
 					if (!$projectMembership) {
 						return response('Unable to change project membership.  Project membership does not exist.', 401);
 					} else {
-						$hasProjectMembership = $user->hasProjectMembership($request->route()->getParameter('project_membership_id'));		
+
+						// check for admin / project admin priviledges
+						//
+						$hasProjectMembership = $user->hasProjectMembership($request->route('project_membership_id'));		
 						$isProjectAdmin = $user->isProjectAdmin($projectMembership->project_uid);
 						if (!($user->isAdmin()) && !$isProjectAdmin && !$hasProjectMembership) {
 							return response('Unable to change project membership.  Insufficient privileges.', 401);
 						}
 					}
-				} else if ($request->route()->getParameter('project_uid')) {
-					if ((!$user->isAdmin()) && (!$user->isProjectAdmin($request->route()->getParameter('project_uid')))) {
+
+				// change all
+				//
+				} else if ($request->route('project_uid')) {
+
+					// check admin / project admin priviledges
+					//
+					if ((!$user->isAdmin()) && (!$user->isProjectAdmin($request->route('project_uid')))) {
 						return response('Unable to change project membership.  Insufficient privileges.', 401);
+					}
+				}
+				break;
+
+			case 'delete':
+
+				// delete by index
+				//
+				if ($request->route('project_membership_id')) {
+					$projectMembership = ProjectMembership::where('membership_uid', '=', $request->route('project_membership_id'))->first();
+
+					// check for project membership
+					//
+					if (!$projectMembership) {
+						return response('Unable to delete project membership.  Project membership does not exist.', 401);
+					} else {
+
+						// check for admin / project admin priviledges
+						//
+						$hasProjectMembership = $user->hasProjectMembership($request->route('project_membership_id'));		
+						$isProjectAdmin = $user->isProjectAdmin($projectMembership->project_uid);
+						if (!($user->isAdmin()) && !$isProjectAdmin && !$hasProjectMembership) {
+							return response('Unable to delete project membership.  Insufficient privileges.', 401);
+						}
+					}
+
+				// delete by project / user
+				//			
+				} else if ($request->route('project_uid')) {
+					$projectUid = $request->route('project_uid');
+					$userUid = $request->route('user_uid');
+					$project = Project::where('project_uid', '=', $projectUid)->first();
+
+					// check for owner
+					//
+					if ($project && $project->project_owner_uid == $userUid) {
+						return response('Unable to delete project owner.', 401);
+					}
+
+					// check admin / project admin priviledges
+					//
+					if ((!$user->isAdmin()) && (!$user->isProjectAdmin($request->route('project_uid')))) {
+						return response('Unable to delete project membership.  Insufficient privileges.', 401);
 					}
 				}
 				break;

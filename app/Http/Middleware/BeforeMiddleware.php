@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -38,7 +38,7 @@ class BeforeMiddleware {
 		//
 		$impure = false;
 		$input = Input::all();
-		$bannedInput = array();
+		$bannedInput = [];
 		$keys = array_keys($input);
 		for ($i = 0; $i < sizeof($keys); $i++) {
 
@@ -74,7 +74,7 @@ class BeforeMiddleware {
 
 			// report banned input
 			//
-			$userUid = Session::get('user_uid');
+			$userUid = session('user_uid');
 			syslog(LOG_WARNING, "User $userUid attempted to send unsanitary input containing HTML tags or script: ".json_encode($bannedInput));
 
 			// return error

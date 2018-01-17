@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -31,18 +31,16 @@ use App\Models\Assessments\SystemSetting;
 
 class Package extends UserStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'package_store';
 	protected $table = 'package';
 	protected $primaryKey = 'package_uuid';
 	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'package_uuid',
 		'name',
 		'description',
@@ -51,12 +49,11 @@ class Package extends UserStamped {
 		'package_language',
 		'package_owner_uuid',
 		'package_sharing_status'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'package_uuid',
 		'name',
 		'description',
@@ -68,22 +65,73 @@ class Package extends UserStamped {
 		'package_type',
 		'version_strings',
 		'platform_user_selectable'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'is_owned',
 		'external_url',
 		'package_type',
 		'version_strings',
 		'platform_user_selectable'
-	);
+	];
 
-	/**
-	 * querying methods
-	 */
+	//
+	// accessor methods
+	//
+
+	public function getIsOwnedAttribute() {
+		return session('user_uid') == $this->package_owner_uuid;
+	}
+
+	public function getExternalUrlAttribute() {
+
+		// if external URL is empty string, then return null
+		//
+		return $this->getOriginal('external_url') != ''? $this->getOriginal('external_url') : null;
+	}
+
+	public function getPackageTypeAttribute() {
+
+		// get package type name
+		//
+		if ($this->package_type_id != null) {
+			$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();
+			if ($packageType) {
+				return $packageType->name;
+			}
+		}
+	}
+
+	public function getVersionStringsAttribute() {
+		$versionStrings = [];
+		$packageVersions = PackageVersion::where('package_uuid', '=', $this->package_uuid)->get();
+		for ($i = 0; $i < sizeOf($packageVersions); $i++) {
+			$versionString = $packageVersions[$i]->version_string;
+			if (!in_array($versionString, $versionStrings)) {
+				array_push($versionStrings, $versionString);
+			}
+		}
+		rsort($versionStrings);
+		return $versionStrings;
+	}
+
+	public function getPlatformUserSelectableAttribute() {
+
+		// get platform user selectable from package type
+		//
+		if ($this->package_type_id != null) {
+			$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();
+			if ($packageType) {
+				return $packageType->platform_user_selectable;
+			}
+		}
+	}
+
+	//
+	// querying methods
+	//
 
 	public function getVersions() {
 		return PackageVersion::where('package_uuid', '=', $this->package_uuid)->get();
@@ -248,9 +296,9 @@ class Package extends UserStamped {
 		return $platform;
 	}
 
-	/**
-	 * sharing methods
-	 */
+	//
+	// sharing methods
+	//
 
 	public function isPublic() {
 		return $this->getSharingStatus() == 'public';
@@ -278,9 +326,9 @@ class Package extends UserStamped {
 		return false;
 	}
 
-	/**
-	 * compatibility methods
-	 */
+	//
+	// compatibility methods
+	//
 
 	public function getPlatformCompatibility($platform) {
 		$compatibility = PackagePlatform::where('package_uuid', '=', $this->package_uuid)->
@@ -301,9 +349,9 @@ class Package extends UserStamped {
 		}
 	}
 
-	/**
-	 * access control methods
-	 */
+	//
+	// access control methods
+	//
 
 	public function isOwnedBy($user) {
 		return ($this->package_owner_uuid == $user->user_uid);
@@ -330,74 +378,6 @@ class Package extends UserStamped {
 			return true;
 		} else {
 			return false;
-		}
-	}
-
-	/**
-	 * accessor methods
-	 */
-
-	public function getPackageOwnerAttribute() {
-
-		// check to see if user is logged in
-		//
-		$user = User::getIndex(Session::get('user_uid'));
-		if ($user) {
-
-			// fetch owner information
-			//
-			$owner = Owner::getIndex($this->package_owner_uuid);
-			if ($owner) {
-				return $owner->toArray();
-			}
-		}
-	}
-
-	public function getExternalUrlAttribute() {
-
-		// if external URL is empty string, then return null
-		//
-		return $this->getOriginal('external_url') != ''? $this->getOriginal('external_url') : null;
-	}
-
-	public function getIsOwnedAttribute() {
-		return Session::get('user_uid') == $this->package_owner_uuid;
-	}
-
-	public function getPackageTypeAttribute() {
-
-		// get package type name
-		//
-		if ($this->package_type_id != null) {
-			$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();
-			if ($packageType) {
-				return $packageType->name;
-			}
-		}
-	}
-
-	public function getVersionStringsAttribute() {
-		$versionStrings = array();
-		$packageVersions = PackageVersion::where('package_uuid', '=', $this->package_uuid)->get();
-		for ($i = 0; $i < sizeOf($packageVersions); $i++) {
-			$versionString = $packageVersions[$i]->version_string;
-			if (!in_array($versionString, $versionStrings)) {
-				array_push($versionStrings, $versionString);
-			}
-		}
-		rsort($versionStrings);
-		return $versionStrings;
-	}
-
-	public function getPlatformUserSelectableAttribute() {
-
-		// get platform user selectable from package type
-		//
-		if ($this->package_type_id != null) {
-			$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();
-			if ($packageType) {
-				return $packageType->platform_user_selectable;
-			}
 		}
 	}
 }

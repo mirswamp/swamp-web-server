@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Projects;
@@ -23,31 +23,28 @@ use App\Models\TimeStamps\CreateStamped;
 
 class ProjectMembership extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'project_user';
 	protected $primaryKey = 'membership_uid';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'membership_uid',
 		'project_uid', 
 		'user_uid',
 		'admin_flag'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'membership_uid',
 		'project_uid', 
 		'user_uid',
 		'admin_flag'
-	);
+	];
 
 	//
 	// querying methods
@@ -62,7 +59,7 @@ class ProjectMembership extends CreateStamped {
 	//
 
 	public static function deleteByUser($user) {
-		if (Config::get('model.database.use_stored_procedures')) {
+		if (config('model.database.use_stored_procedures')) {
 
 			// execute stored procedure
 			//

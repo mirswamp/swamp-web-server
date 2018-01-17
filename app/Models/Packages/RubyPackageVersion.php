@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -62,7 +62,7 @@ class RubyPackageVersion extends PackageVersion {
 	}
 
 	function getBuildSystem() {
-		
+
 		// check file extension of archive file
 		//
 		$path_parts = pathinfo($this->getPackagePath());
@@ -70,7 +70,7 @@ class RubyPackageVersion extends PackageVersion {
 			return 'ruby-gem';
 		} else {
 
-			// check contents of archive file
+			// check in build path
 			//
 			$archive = new Archive($this->getPackagePath());
 			$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
@@ -81,13 +81,13 @@ class RubyPackageVersion extends PackageVersion {
 			$foundRakefile = $archive->found($buildPath, 'Rakefile');
 
 			if ($foundGemfile && $foundRakefile) {
-				return response("bundler+rake", 200); 
+				return 'bundler+rake'; 
 			} else if ($foundGemfile) {
-				return response("bundler+other", 200);
+				return 'bundler+other';
 			} else if ($foundRakefile) {
-				return response("rake", 200);
+				return 'rake';
 			} else {
-				return response("Could not determine build system.", 404);
+				return none;
 			}
 		}
 	}
@@ -208,16 +208,16 @@ class RubyPackageVersion extends PackageVersion {
 		// single quotated string literals
 		//
 		if ($string[0] == "'") {
-			return (object)array(
+			return (object)[
 				'strlit' => trim($string, "'")
-			);
+			];
 
 		// double quotated string literals
 		//
 		} else if ($string[0] == '"') {
-			return (object)array(
+			return (object)[
 				'strlit2' => trim($string, '"')
-			);
+			];
 
 		// symbols
 		//
@@ -229,26 +229,26 @@ class RubyPackageVersion extends PackageVersion {
 			//
 			if (strpos($string, '=>') != false) {
 				$items = explode('=>', $string);
-				return array(
+				return [
 					'symbol' => trim($items[0]),
 					'value' => self::parseGemItem(trim($items[1]))
-				);		
+				];		
 
 			// symbol instance
 			//
 			} else {
-				return array(
+				return [
 					'symbol' => trim($string)
-				);
+				];
 			}
 
 		// requires
 		//
 		} else if (substr($string, 0, 8) == 'require:') {
 			$items = explode(':', $string);
-			return array(
+			return [
 				'require' => trim($items[1], " ,\'\"\t\n\r\0\x0B")
-			);		
+			];		
 		} else {
 
 			// variables
@@ -259,7 +259,7 @@ class RubyPackageVersion extends PackageVersion {
 
 	private static function parseGemItems($string) {
 		$words = explode(', ', $string);
-		$items = array();
+		$items = [];
 		for ($count = 0; $count < sizeof($words); $count++) {
 			array_push($items, self::parseGemItem(trim($words[$count], " ,\t\n\r\0\x0B")));
 		}
@@ -267,7 +267,7 @@ class RubyPackageVersion extends PackageVersion {
 	}
 
 	private static function parseGemInfo($lines) {
-		$array = array();
+		$array = [];
 		$numLines = sizeof($lines);
 		$currentLine = 0;
 
@@ -285,9 +285,9 @@ class RubyPackageVersion extends PackageVersion {
 
 					// parse comment
 					//
-					array_push($array, array(
+					array_push($array, [
 						'comment' => trim($line)
-					));
+					]);
 				} else {
 
 					// parse line
@@ -298,18 +298,18 @@ class RubyPackageVersion extends PackageVersion {
 					//
 					if ($words[0] == 'source') {
 						if ($words[1]) {
-							array_push($array, array(
+							array_push($array, [
 								'source' => self::parseGemItem(ltrim($line, 'source'))
-							));
+							]);
 						}
 
 					// check for ruby version
 					//
 					} else if ($words[0] == 'ruby') {
 						if ($words[1]) {
-							array_push($array, array(
+							array_push($array, [
 								'ruby' => self::parseGemItem(ltrim($line, 'ruby'))
-							));
+							]);
 						}
 
 					// check for gems
@@ -318,9 +318,9 @@ class RubyPackageVersion extends PackageVersion {
 
 						// parse list of gem values
 						//
-						array_push($array, array(
+						array_push($array, [
 							'gem' => self::parseGemItems(ltrim($line, 'gem'))
-						));
+						]);
 
 					// check for groups
 					//
@@ -336,7 +336,7 @@ class RubyPackageVersion extends PackageVersion {
 							$line = ltrim($line, "group");
 							$line = rtrim($line, "do");
 							$groups = self::parseGemItems($line);
-							$gems = array();
+							$gems = [];
 
 							// go to next line
 							//
@@ -351,9 +351,9 @@ class RubyPackageVersion extends PackageVersion {
 
 									// parse list of gem values
 									//
-									array_push($gems, array(
+									array_push($gems, [
 										'gem' => self::parseGemItems(trim($line, 'gem'))
-									));
+									]);
 								}
 
 								// go to next line
@@ -363,10 +363,10 @@ class RubyPackageVersion extends PackageVersion {
 
 							// add new group
 							//
-							array_push($array, array(
+							array_push($array, [
 								'group' => $groups,
 								'gems' => $gems
-							));
+							]);
 
 							// go to next line
 							//

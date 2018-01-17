@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Utilities;
@@ -29,6 +29,6 @@ class StatusController extends BaseController {
 		//$string = file_get_contents(__DIR__ .'/status.json');
 		//return json_decode($string, true);
 
-		return SWAMPStatus::getCurrentHtml();
+		return SWAMPStatus::getCurrent();
 	}
 }

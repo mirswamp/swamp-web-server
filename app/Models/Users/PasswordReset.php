@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -34,29 +34,29 @@ class PasswordReset extends BaseModel {
 
 	// mass assignment policy
 	//
-	protected $fillable = array(
+	protected $fillable = [
 		'password_reset_uuid',
 		'password_reset_key',
 		'user_uid'
-	);
+	];
 
 	// array / json conversion whitelist
 	//
-	protected $visible = array(
+	protected $visible = [
 		'password_reset_uuid',
 		'password_reset_key',
 		'username'
-	);
+	];
 
 	// array / json appended model attributes
 	//
-	protected $appends = array(
+	protected $appends = [
 		'username'
-	);
+	];
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getUsernameAttribute() {
 		$user = User::getIndex($this->user_uid);
@@ -65,14 +65,15 @@ class PasswordReset extends BaseModel {
 		}
 	}
 
-	/**
-	 * invitation sending / emailing method
-	 */
+	//
+	// invitation sending / emailing method
+	//
+	
 	public function send($passwordResetNonce) {
 
 		// return an error if email has not been enabled
 		//
-		if (!Config::get('mail.enabled')) {
+		if (!config('mail.enabled')) {
 			return response('Email has not been enabled.', 400); 
 		}
 
@@ -80,12 +81,13 @@ class PasswordReset extends BaseModel {
 		//
 		$this->user = User::getIndex($this->user_uid);
 		if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
-			$data = array(
+			Mail::send([
+				'text' => 'emails.reset-password-plaintext'
+			], [
 				'user' => $this->user,
 				'password_reset' => $this,
-				'password_reset_url' => Config::get('app.cors_url').'/#reset-password/'.$this->password_reset_uuid.'/'.$passwordResetNonce
-			);
-			Mail::send(array('text' => 'emails.reset-password-plaintext'), $data, function($message) {
+				'password_reset_url' => config('app.cors_url').'/#reset-password/'.$this->password_reset_uuid.'/'.$passwordResetNonce
+			], function($message) {
 			    $message->to($this->user->email, $this->user->getFullName());
 			    $message->subject('SWAMP Password Reset');
 			});

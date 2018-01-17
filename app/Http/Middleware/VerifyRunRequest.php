@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -44,7 +44,7 @@ class VerifyRunRequest {
 			case 'get':
 			case 'put':
 			case 'delete':
-				$runRequestUuid = $request->route()->getParameter('run_request_uuid');
+				$runRequestUuid = $request->route('run_request_uuid');
 				if ($runRequestUuid) {
 					$runRequest = RunRequest::where('run_request_uuid', '=', $runRequestUuid)->first();
 					if (!$runRequest) {

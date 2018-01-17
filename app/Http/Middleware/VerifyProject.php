@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -41,13 +41,12 @@ class VerifyProject {
 		// get current user
 		//
 		if (Session::has('user_uid')) {
-			$currentUser = User::getIndex(Session::get('user_uid'));
-		}
-		else {
-			return response(array(
+			$currentUser = User::getIndex(session('user_uid'));
+		} else {
+			return response([
 				'status' => 'NO_SESSION',
 				'config' => new Configuration()
-			), 401);
+			], 401);
 		}
 		
 		// check request by method
@@ -57,9 +56,9 @@ class VerifyProject {
 				break;
 
 			case 'get':
-				$projectUid = $request->route()->getParameter('project_uid');
+				$projectUid = $request->route('project_uid');
 				if (!$projectUid) {
-					$projectUid = $request->route()->getParameter('project_uuid');	
+					$projectUid = $request->route('project_uuid');	
 				}
 
 				// skip checking if no project is specified
@@ -92,7 +91,7 @@ class VerifyProject {
 
 			case 'put':
 			case 'delete':
-				$projectUid = $request->route()->getParameter('project_uid');
+				$projectUid = $request->route('project_uid');
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project && !$project->isWriteableBy($currentUser)) {
 					return response('Insufficient priveleges to modify project.', 403);

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -30,7 +30,7 @@ class JavaSourcePackageVersion extends PackageVersion {
 
 	function getBuildSystem() {
 	
-		// create archive from package
+		// check in build path
 		//
 		$archive = new Archive($this->getPackagePath());
 		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
@@ -38,12 +38,12 @@ class JavaSourcePackageVersion extends PackageVersion {
 		// check for ant
 		//
 		if ($archive->found($buildPath, 'build.xml')) {
-			return response("ant", 200);
+			return 'ant';
 
 		// check for maven
 		//
 		} else if ($archive->found($buildPath, 'pom.xml')) {
-			return response("maven", 200);
+			return 'maven';
 
 		// check for gradle
 		//
@@ -52,15 +52,15 @@ class JavaSourcePackageVersion extends PackageVersion {
 			// check for gradle wrapper
 			//
 			if ($archive->found($buildPath, 'gradlew')) {
-				return response("gradle-wrapper", 200);
+				return 'gradle-wrapper';
 			} else {
-				return response("gradle", 200);
+				return 'gradle';
 			}
 
-		// default case
+		// build system not found
 		//
 		} else {
-			return response("Could not determine build system.", 404);
+			return null;
 		}
 	}
 

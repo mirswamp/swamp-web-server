@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -24,32 +24,29 @@ use App\Models\Packages\PackageVersion;
 
 class PackageVersionSharing extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'package_store';
 	protected $table = 'package_version_sharing';
 	protected $primaryKey = 'package_version_sharing_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'package_version_uuid',
 		'project_uuid'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'package_version_uuid',
 		'project_uuid'
-	);
+	];
 
-	/**
-	 * querying methods
-	 */
+	//
+	// querying methods
+	//
 
 	public function packageVersion() {
 		return PackageVersion::where('package_version_uuid', '=', $this->package_version_uuid)->first();

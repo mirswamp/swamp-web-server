@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Utilities;
@@ -32,21 +32,21 @@ class ContactsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$data = array(
+		$data = [
 			'first_name' => Input::get('first_name'),
 			'last_name' => Input::get('last_name'),
 			'email' => Input::get('email'),
 			'subject' => Input::get('subject'),
 			'question' => Input::get('question')
-		);
+		];
 
-		if (Config::get('mail.enabled')) {
+		if (config('mail.enabled')) {
 			if (Input::get('topic') == 'security') {
 
 				// send report incident email
 				//
 				Mail::send('emails.security', $data, function($message) {
-					$message->to(Config::get('mail.security.address'), Config::get('mail.security.name'));
+					$message->to(config('mail.security.address'), config('mail.security.name'));
 					$message->subject(Input::get('subject'));
 				});
 			} else {
@@ -54,7 +54,7 @@ class ContactsController extends BaseController {
 				// send general contact email
 				//
 				Mail::send('emails.contact', $data, function($message) {
-					$message->to(Config::get('mail.contact.address'), Config::get('mail.contact.name'));
+					$message->to(config('mail.contact.address'), config('mail.contact.name'));
 					$message->subject(Input::get('subject'));
 				});
 			}

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Admin;
@@ -28,10 +28,10 @@ class RestrictedDomainsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$restrictedDomain = new RestrictedDomain(array(
+		$restrictedDomain = new RestrictedDomain([
 			'domain_name' => Input::get('domain_name'),
 			'description' => Input::get('description')
-		));
+		]);
 		$restrictedDomain->save();
 		return $restrictedDomain;
 	}

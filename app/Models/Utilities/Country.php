@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Utilities;
@@ -23,27 +23,26 @@ use App\Models\BaseModel;
 
 class Country extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	public $primaryKey = 'country_id';
 	protected $table = 'countries';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'name',
 		'iso',
 		'iso3',
 		'num_code',
 		'phone_code'
-	);
+	];
 
-	/**
-	 * constructor
-	 */
-	public function __construct(array $attributes = array()) {
+	//
+	// constructor
+	//
+	
+	public function __construct(array $attributes = []) {
 		parent::__construct($attributes);
 
 		// override properties set by base model

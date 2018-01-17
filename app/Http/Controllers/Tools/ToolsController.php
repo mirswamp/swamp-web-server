@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Tools;
@@ -44,13 +44,13 @@ class ToolsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$tool = new Tool(array(
+		$tool = new Tool([
 			'tool_uuid' => Guid::create(),
 			'name' => Input::get('name'),
 			'tool_owner_uuid' => Input::get('tool_owner_uuid'),
 			'is_build_needed' => Input::get('is_build_needed'),
 			'tool_sharing_status' => Input::get('tool_sharing_status')
-		));
+		]);
 		$tool->save();
 		return $tool;
 	}
@@ -58,7 +58,7 @@ class ToolsController extends BaseController {
 	// get all for admin user
 	//
 	public function getAll(){
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 		if ($user && $user->isAdmin()){
 			$toolsQuery = Tool::orderBy('create_date', 'DESC');
 
@@ -92,28 +92,28 @@ class ToolsController extends BaseController {
 		$stmt = $pdo->prepare("CALL list_tools_by_owner(:userUuidIn, @returnString)");
 		$stmt->bindParam(':userUuidIn', $userUuid, PDO::PARAM_STR, 45);
 		$stmt->execute();
-		$results = array();
+		$results = [];
 
 		do {
 			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
 				$results[] = $row;
-		} while ( $stmt->nextRowset() );
+		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString');
 		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
 		$select->nextRowset();
 
-		if( $returnString == 'SUCCESS' ) {
+		if ($returnString == 'SUCCESS') {
 			return $results;
 		} else {
 			return response( $returnString, 500 );
 		}
 		*/
 		
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 
 
-		if ($user->isAdmin() || (Session::get('user_uid')) == $userUuid) {
+		if ($user->isAdmin() || (session('user_uid')) == $userUuid) {
 			$toolsQuery = Tool::where('tool_owner_uuid', '=', $userUuid)->orderBy('create_date', 'DESC');
 		}
 		else {
@@ -164,7 +164,7 @@ class ToolsController extends BaseController {
 
 			// check permissions
 			//
-			$user = User::getIndex(Session::get('user_uid'));
+			$user = User::getIndex(session('user_uid'));
 			$project = Project::where('project_uid', '=', $projectUuid)->first();
 			if ($project && !$project->isReadableBy($user)) {
 				return response('Cannot access given project.', 400);
@@ -177,7 +177,7 @@ class ToolsController extends BaseController {
 
 			// check permissions
 			//
-			$user = User::getIndex(Session::get('user_uid'));
+			$user = User::getIndex(session('user_uid'));
 			$projectUuids = explode('+', $projectUuid);
 			foreach ($projectUuids as $projectUuid) {
 				$project = Project::where('project_uid', '=', $projectUuid)->first();
@@ -196,30 +196,31 @@ class ToolsController extends BaseController {
 	//
 	public function getByProject($projectUuid) {
 		/*
-		$userUid = Session::get('user_uid');
+		$userUid = session('user_uid');
 		$connection = DB::connection('tool_shed');
 		$pdo = $connection->getPdo();
 		$stmt = $pdo->prepare("CALL list_tools_by_project_user(:userUid, :projectUuid, @returnString);");
 		$stmt->bindParam(':userUid', $userUid, PDO::PARAM_STR, 45);
 		$stmt->bindParam(':projectUuid', $projectUuid, PDO::PARAM_STR, 45);
 		$stmt->execute();
-		$results = array();
+		$results = [];
 
 		do {
 		    foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row ){
 				unset( $row['notes'] );
 				$results[] = $row;
 			}
-		} while ( $stmt->nextRowset() );
+		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');
 		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
 		$select->nextRowset();
 
-		if( $returnString == 'SUCCESS' )
+		if ($returnString == 'SUCCESS') {
 		    return $results;
-		else
+		} else {
 		    return response( $returnString, 500 );
+		}
 		*/
 		    
 		$publicTools = $this->getPublic();
@@ -266,7 +267,7 @@ class ToolsController extends BaseController {
 	//
 	public function getSharing($toolUuid) {
 		$toolSharing = ToolSharing::where('tool_uuid', '=', $toolUuid)->get();
-		$projectUuids = array();
+		$projectUuids = [];
 		for ($i = 0; $i < sizeof($toolSharing); $i++) {
 			array_push($projectUuids, $toolSharing[$i]->project_uuid);
 		}
@@ -297,7 +298,7 @@ class ToolsController extends BaseController {
 		$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
 		$package = Input::has('package_uuid') ? Package::where('package_uuid','=', $packageUuid)->first() : null;
 		$project = Input::has('project_uid') ? Project::where('project_uid','=', $projectUid)->first() : null;
-		$user = Input::has('user_uid') ? User::getIndex($userUid) : User::getIndex( Session::get('user_uid') );
+		$user = Input::has('user_uid') ? User::getIndex($userUid) : User::getIndex(session('user_uid'));
 
 		// check models
 		//
@@ -320,7 +321,9 @@ class ToolsController extends BaseController {
 			return $tool->getPermissionStatus($package, $project, $user);
 		}
 
-		return response()->json(array('success', true));
+		return response()->json([
+			'success', true
+		]);
 	}
 
 	// update by index
@@ -366,10 +369,10 @@ class ToolsController extends BaseController {
 		for ($i = 0; $i < sizeOf($input); $i++) {
 			$project = $input[$i];
 			$projectUid = $project['project_uid'];
-			$toolSharing = new ToolSharing(array(
+			$toolSharing = new ToolSharing([
 				'tool_uuid' => $toolUuid,
 				'project_uuid' => $projectUid
-			));
+			]);
 			$toolSharing->save();
 			$toolSharings->push($toolSharing);
 		}

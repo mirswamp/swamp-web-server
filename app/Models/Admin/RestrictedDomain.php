@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Admin;
@@ -22,71 +22,36 @@ use App\Models\TimeStamps\TimeStamped;
 
 class RestrictedDomain extends TimeStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'restricted_domains';
 	protected $primaryKey = 'restricted_domain_id';
 
-	// use standard timestamp field names
+	// mass assignment policy
 	//
-	const CREATED_AT = 'created_at';
-	const UPDATED_AT = 'updated_at';
-	const DELETED_AT = 'deleted_at';
-
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	protected $fillable = [
 		'domain_name', 
 		'description'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'restricted_domain_id',
 		'domain_name', 
 		'description'
-	);
+	];
 
-	/**
-	 * methods
-	 */
+	//
+	// querying methods
+	//
+
 	static public function getRestrictedDomainNames() {
 		$restrictedDomains = RestrictedDomain::All();
-		$restrictedDomainNames = array();
+		$restrictedDomainNames = [];
 		for ($i = 0; $i < sizeof($restrictedDomains); $i++) {
 			$restrictedDomainNames[] = $restrictedDomains[$i]->domain_name;
 		}
 		return $restrictedDomainNames;
-	}
-	
-	/**
-	 * Get the name of the "created at" column.
-	 *
-	 * @return string
-	 */
-	public function getCreatedAtColumn() {
-		return 'created_at';
-	}
-
-	/**
-	 * Get the name of the "updated at" column.
-	 *
-	 * @return string
-	 */
-	public function getUpdatedAtColumn() {
-		return 'updated_at';
-	}
-
-	/**
-	 * Get the name of the "updated at" column.
-	 *
-	 * @return string
-	 */
-	public function getDeletedAtColumn() {
-		return 'deleted_at';
 	}
 }

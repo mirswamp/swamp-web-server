@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Assessments;
@@ -22,28 +22,25 @@ use App\Models\TimeStamps\UserStamped;
 
 class SystemSetting extends UserStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'assessment';
 	protected $table = 'system_setting';
 	public $primaryKey = 'system_setting_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'system_setting_code',
 		'system_setting_value',
 		'system_setting_value2'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'system_setting_code',
 		'system_setting_value',
 		'system_setting_value2'
-	);
+	];
 }

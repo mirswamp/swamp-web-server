@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Projects;
@@ -34,15 +34,16 @@ class ProjectMembershipsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$projectMembership = new ProjectMembership(array(
+		$projectMembership = new ProjectMembership([
 			'membership_uid' => Guid::create(),
 			'project_uid' => Input::get('project_uid'),
 			'user_uid' => Input::get('user_uid'),
 			'admin_flag' => Input::get('admin_flag') == 'true'
-		));
+		]);
 		$projectMembership->save();
 
-		// Log the project membership event
+		// log the project membership event
+		//
 		Log::info("Project membership created.", $projectMembership->toArray());
 
 		return $projectMembership;
@@ -79,7 +80,8 @@ class ProjectMembershipsController extends BaseController {
 		$changes = $projectMembership->getDirty();
 		$projectMembership->save();
 
-		// Log the project membership event
+		// log the project membership event
+		//
 		Log::info("Project membership updated.", $projectMembership->toArray());
 
 		return $changes;
@@ -109,7 +111,8 @@ class ProjectMembershipsController extends BaseController {
 			$projectMembership->save();
 		}
 
-		// Log the project membership event
+		// log the project membership event
+		//
 		Log::info("Project membership update all.");
 
 		return $collection;
@@ -127,14 +130,13 @@ class ProjectMembershipsController extends BaseController {
 
 		// send notification email that membership was deleted
 		//
-		if (Config::get('mail.enabled')) {
+		if (config('mail.enabled')) {
 			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-				$data = array(
+				$this->user = $user;
+				Mail::send('emails.project-membership-deleted', [
 					'user' => $user,
 					'project' => $project
-				);
-				$this->user = $user;
-				Mail::send('emails.project-membership-deleted', $data, function($message) {
+				], function($message) {
 					$message->to($this->user->email, $this->user->getFullName());
 					$message->subject('SWAMP Project Membership Deleted');
 				});
@@ -142,7 +144,9 @@ class ProjectMembershipsController extends BaseController {
 		}
 
 		if ($projectMembership) {
-			// Log the project membership event
+
+			// log the project membership event
+			//
 			Log::info("Project membership deleted.", $projectMembership->toArray());
 		}
 

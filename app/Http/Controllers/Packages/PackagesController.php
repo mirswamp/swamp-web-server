@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
@@ -51,7 +51,7 @@ class PackagesController extends BaseController {
 			// check for existing package name
 			//
 			$existingPackage = Package::where('name', '=', Input::get('name'))->first();
-			if( $existingPackage ){
+			if ($existingPackage) {
 				return response('A package named '.Input::get('name').' already exists.  Please rename your package to a unique name and try again.', 500);
 			}
 		}
@@ -63,16 +63,16 @@ class PackagesController extends BaseController {
 			$packageLanguage = implode(' ', $packageLanguage);
 		}
 
-		$package = new Package(array(
+		$package = new Package([
 			'package_uuid' => Guid::create(),
 			'name' => Input::get('name'),
 			'description' => Input::get('description'),
 			'external_url' => Input::get('external_url'),
 			'package_type_id' => Input::get('package_type_id'),
 			'package_language' => $packageLanguage,
-			'package_owner_uuid' => Session::get('user_uid'),
+			'package_owner_uuid' => session('user_uid'),
 			'package_sharing_status' => Input::get('package_sharing_status')
-		));
+		]);
 		$package->save();
 		return $package;
 	}
@@ -80,7 +80,7 @@ class PackagesController extends BaseController {
 	// get all for admin user
 	//
 	public function getAll() {
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 		if ($user && $user->isAdmin()) {
 
 			// create SQL query
@@ -115,7 +115,7 @@ class PackagesController extends BaseController {
 	// get by user
 	//
 	public function getByOwner($userUuid) {
-		if (Config::get('database.use_stored_procedures')) {
+		if (config('database.use_stored_procedures')) {
 
 			// execute stored procedure
 			//
@@ -139,7 +139,7 @@ class PackagesController extends BaseController {
 	}
 
 	public function getByUser($userUuid) {
-		if (Config::get('database.use_stored_procedures')) {
+		if (config('database.use_stored_procedures')) {
 
 			// execute stored procedure
 			//
@@ -181,7 +181,7 @@ class PackagesController extends BaseController {
 			if (isset($packagesQuery)) {
 				return $packagesQuery->get();
 			} else {
-				return array();
+				return [];
 			}
 		}
 	}
@@ -207,7 +207,7 @@ class PackagesController extends BaseController {
 	// get by current user
 	//
 	public function getAvailable() {
-		return $this->getByUser(Session::get('user_uid'));
+		return $this->getByUser(session('user_uid'));
 	}
 
 	// get by public scoping
@@ -228,33 +228,16 @@ class PackagesController extends BaseController {
 		//
 		$packages = $packagesQuery->get();
 
-		/*
-		// return only the public info
-		//
-		foreach ($packages as $package) {
-			$package->setVisible(array(
-				'package_uuid',
-				'name',
-				'description',
-				'package_type_id',
-				'package_type'
-			));
-			$package->setAppends(array(
-				'package_type'
-			));
-		}
-		*/
-
 		return $packages;
 	}
 
 	// get by protected scoping
 	//
 	public function getProtected($projectUuid) {
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 		$projects = $user->getProjects();
 
-		if (Config::get('database.use_stored_procedures')) {
+		if (config('database.use_stored_procedures')) {
 
 			// execute stored procedure
 			// 
@@ -356,7 +339,7 @@ class PackagesController extends BaseController {
 			if (isset($packagesQuery)) {
 				return $packagesQuery->get();
 			} else {
-				return array();
+				return [];
 			}
 		}
 	}
@@ -433,7 +416,7 @@ class PackagesController extends BaseController {
 	// get by project
 	//
 	public function getByProject($projectUuid) {
-		if (Config::get('database.use_stored_procedures')) {
+		if (config('database.use_stored_procedures')) {
 
 			// execute stored procedure
 			//
@@ -457,7 +440,7 @@ class PackagesController extends BaseController {
 	// get versions a user can access
 	//
 	public function getAvailableVersions($packageUuid) {
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 		$packageVersions = PackageVersion::where('package_uuid', '=', $packageUuid)->get();
 
 		// get available versions
@@ -485,7 +468,7 @@ class PackagesController extends BaseController {
 		if (isset($packageVersionsQuery)) {
 			return $packageVersionsQuery->get();
 		} else {
-			return array();
+			return [];
 		}
 	}
 
@@ -583,7 +566,7 @@ class PackagesController extends BaseController {
 		if (isset($packageVersionsQuery)) {
 			return $packageVersionsQuery->get();
 		} else {
-			return array();
+			return [];
 		}
 	}
 
@@ -592,7 +575,7 @@ class PackagesController extends BaseController {
 	//
 	public function getSharing($packageUuid) {
 		$packageSharing = PackageSharing::where('package_uuid', '=', $packageUuid)->get();
-		$projectUuids = array();
+		$projectUuids = [];
 		for ($i = 0; $i < sizeof($packageSharing); $i++) {
 			array_push($projectUuids, $packageSharing[$i]->project_uuid);
 		}
@@ -662,10 +645,10 @@ class PackagesController extends BaseController {
 		$projectUuids = Input::get('project_uuids');
 		$packageSharings = new Collection;
 		foreach ($projectUuids as $projectUuid) {
-			$packageSharing = new PackageSharing(array(
+			$packageSharing = new PackageSharing([
 				'package_uuid' => $packageUuid,
 				'project_uuid' => $projectUuid
-			));
+			]);
 			$packageSharing->save();
 			$packageSharings[] = $packageSharing;
 		}	
@@ -676,14 +659,15 @@ class PackagesController extends BaseController {
 		for ($i = 0; $i < sizeOf($projects); $i++) {
 			$project = $projects[$i];
 			$projectUid = $project['project_uid'];
-			$packageSharing = new PackageSharing(array(
+			$packageSharing = new PackageSharing([
 				'package_uuid' => $packageUuid,
 				'project_uuid' => $projectUuid
-			));
+			]);
 			$packageSharing->save();
 			$packageSharings->push($packageSharing);
 		}
 		*/
+
 		return $packageSharings;
 	}
 
@@ -712,10 +696,10 @@ class PackagesController extends BaseController {
 			// set all package version sharings for current package version
 			//
 			foreach( $packageSharings as $ps ){
-				$packageVersionSharing = new PackageVersionSharing(array(
+				$packageVersionSharing = new PackageVersionSharing([
 					'project_uuid' => $ps->project_uuid,
 					'package_version_uuid' => $packageVersion->package_version_uuid
-				));
+				]);
 				$packageVersionSharing->save();
 			}
 
@@ -754,7 +738,7 @@ class PackagesController extends BaseController {
 		$stmt = $pdo->prepare("CALL list_pkgs_by_owner(:userUuidIn, @returnString);");
 		$stmt->bindParam(':userUuidIn', $userUuid, PDO::PARAM_STR, 45);
 		$stmt->execute();
-		$results = array();
+		$results = [];
 
 		// get results
 		//
@@ -780,7 +764,7 @@ class PackagesController extends BaseController {
 		$stmt = $pdo->prepare("CALL list_pkgs_by_user(:userUuidIn, @returnString);");
 		$stmt->bindParam(':userUuidIn', $userUuid, PDO::PARAM_STR, 45);
 		$stmt->execute();
-		$results = array();
+		$results = [];
 
 		// get results
 		//
@@ -801,19 +785,19 @@ class PackagesController extends BaseController {
 	}
 
 	private static function PDOListPackagesByProjectUser($projectUuid) {
-		$userUid = Session::get('user_uid');
+		$userUid = session('user_uid');
 		$connection = DB::connection('package_store');
 		$pdo = $connection->getPdo();
 		$stmt = $pdo->prepare("CALL list_pkgs_by_project_user(:userUuidIn, :projectUuidIn, @returnString);");
 		$stmt->bindParam(':userUuidIn', $userUid, PDO::PARAM_STR, 45);
 		$stmt->bindParam(':projectUuidIn', $projectUuid, PDO::PARAM_STR, 45);
 		$stmt->execute();
-		$results = array();
+		$results = [];
 
 		do {
 			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
 			$results[] =  $row;
-		} while ( $stmt->nextRowset() );
+		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');
 		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
@@ -827,21 +811,21 @@ class PackagesController extends BaseController {
 	}
 
 	private static function PDOListProtectedPkgsByProjectUser($projectUuid) {
-		$userUid = Session::get('user_uid');
+		$userUid = session('user_uid');
 		$connection = DB::connection('package_store');
 		$pdo = $connection->getPdo();
 		$stmt = $pdo->prepare("CALL list_protected_pkgs_by_project_user(:userUuidIn, :projectUuidIn, @returnString);");
 		$stmt->bindParam(':userUuidIn', $userUid, PDO::PARAM_STR, 45);
 		$stmt->bindParam(':projectUuidIn', $projectUuid, PDO::PARAM_STR, 45);
 		$stmt->execute();
-		$results = array();
+		$results = [];
 
 		// get results
 		//
 		do {
 			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
 			$results[] =  $row;
-		} while ( $stmt->nextRowset() );
+		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');
 		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];

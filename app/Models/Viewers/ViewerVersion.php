@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Viewers;
@@ -24,17 +24,16 @@ use App\Models\TimeStamps\UserStamped;
 
 class ViewerVersion extends UserStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'viewer_store';
 	protected $table = 'viewer_version';
 	protected $primaryKey = 'viewer_version_uuid';
+	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'viewer_uuid', 
 		'version_no', 
 		'version_string', 
@@ -47,14 +46,13 @@ class ViewerVersion extends UserStamped {
 		'viewer_db_path',
 		'viewer_db_checksum',
 		'viewer_sharing_status'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'name',
 		'viewer_uuid',
 		'version_string'
-	);
+	];
 }

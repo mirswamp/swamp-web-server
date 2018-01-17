@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -37,9 +37,9 @@ class VerifyConfig {
 	{
 		if (!File::exists('../.env')) {
 			return response('Error - application has not been configured.  No .env file was found.', 500);
-		} else {
-			return $next($request);
 		}
+
+		return $next($request);
 	}
 
 }

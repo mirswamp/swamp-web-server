@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Tools;
@@ -24,31 +24,30 @@ use App\Models\Tools\Tool;
 
 class ToolSharing extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'tool_shed';
 	protected $table = 'tool_sharing';
 	protected $primaryKey = 'tool_sharing_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'tool_uuid',
 		'project_uuid'
-	);
+	];
 
-	/**
-	 * relations
-	 */
+	//
+	// relation methods
+	//
+
 	public function tool() {
 		return $this->belongsTo('Models\Tools\Tool', 'tool_uuid');
 	}
 
-	/**
-	 * static methods
-	 */
+	//
+	// static methods
+	//
 
 	public static function getToolsByProject($projectUuid) {
 		$tools = new Collection;
@@ -76,7 +75,7 @@ class ToolSharing extends BaseModel {
 		if (isset($toolsQuery)) {
 			return $toolsQuery->get();
 		} else {
-			return array();
+			return [];
 		}
 	}
 
@@ -109,7 +108,7 @@ class ToolSharing extends BaseModel {
 		if (isset($toolsQuery)) {
 			return $toolsQuery->get();
 		} else {
-			return array();
+			return [];
 		}
 	}
 }

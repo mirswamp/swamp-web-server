@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Viewers;
@@ -42,16 +42,16 @@ class ViewersController extends BaseController {
 			Viewer::where('name', '=', 'Native')->first();
 	}
 
-	public function setDefaultViewer( $projectUuid, $viewerUuid ) {
+	public function setDefaultViewer($projectUuid, $viewerUuid) {
 		$default = ProjectDefaultViewer::where('project_uuid', '=', $projectUuid)->first();
-		if( $default ){
+		if ($default) {
 			$default->viewer_uuid = $viewerUuid;
 			$default->save();
 		} else {
-			$default = ProjectDefaultViewer::create(array( 
+			$default = ProjectDefaultViewer::create([
 				'project_uuid' => $projectUuid,
 				'viewer_uuid'  => $viewerUuid
-			));
+			]);
 		}
 		return $default;
 	}
@@ -62,29 +62,6 @@ class ViewersController extends BaseController {
 	// get all
 	//
 	public function getAll() {
-		$viewers = Viewer::all();
-		foreach( $viewers as $viewer ){
-			unset( $viewer->update_user );
-			unset( $viewer->create_user );
-			unset( $viewer->viewer_owner_uuid );
-		}
-		return $viewers;
+		return Viewer::all();
 	}
-
-	//
-	public function updateIndex($viewerUuid) {
-	}
-
-	// update multiple
-	//
-	public function updateAll() {
-
-	}
-
-	// delete by index
-	//
-	public function deleteIndex($viewerUuid) {
-
-	}
-
 }

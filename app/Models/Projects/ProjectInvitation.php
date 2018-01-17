@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Projects;
@@ -30,30 +30,30 @@ use App\Models\Users\User;
 
 class ProjectInvitation extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'project_invitation';
 	protected $primaryKey = 'invitation_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'project_uid', 
 		'invitation_key',
 		'inviter_uid',
 		'invitee_name',
 		'invitee_email',
 		'invitee_username',
+
+		// timestamp attributes
+		//
 		'accept_date',
 		'decline_date'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'project_uid', 
 		'invitation_key',
 		'inviter_uid',
@@ -62,23 +62,25 @@ class ProjectInvitation extends CreateStamped {
 		'invitee_username',
 		'inviter_name',
 		'project_name',
+
+		// timestamp attributes
+		//
 		'accept_date',
 		'decline_date'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'inviter_name',
 		'project_name'
-	);
+	];
 
 	private $validator;
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getInviterNameAttribute() {
 		$inviter = User::getIndex($this->inviter_uid);
@@ -94,15 +96,15 @@ class ProjectInvitation extends CreateStamped {
 		}
 	}
 
-	/**
-	 * invitation sending / emailing method
-	 */
+	//
+	// invitation sending / emailing method
+	//
 
 	public function send($confirmRoute, $registerRoute) {
 
 		// return an error if email has not been enabled
 		//
-		if (!Config::get('mail.enabled')) {
+		if (!config('mail.enabled')) {
 			return response('Email has not been enabled.', 400); 
 		}
 
@@ -119,12 +121,12 @@ class ProjectInvitation extends CreateStamped {
 			// send invitation to existing user
 			//
 			if ($this->invitee_email) {
-				$data = array(
+				$data = [
 					'invitation' => $this,
 					'inviter' => User::getIndex($this->inviter_uid),
 					'project' => Project::where('project_uid', '=', $this->project_uid)->first(),
-					'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute
-				);
+					'confirm_url' => config('app.cors_url').'/'.$confirmRoute
+				];
 
 				Mail::send('emails.project-invitation', $data, function($message) {
 				    $message->to($this->invitee_email, $this->invitee_name);
@@ -136,13 +138,13 @@ class ProjectInvitation extends CreateStamped {
 			// send invitation to new / future user
 			//
 			if ($this->invitee_email) {
-				$data = array(
+				$data = [
 					'invitation' => $this,
 					'inviter' => User::getIndex($this->inviter_uid),
 					'project' => Project::where('project_uid', '=', $this->project_uid)->first(),
-					'confirm_url' => Config::get('app.cors_url').'/'.$confirmRoute,
-					'register_url' => Config::get('app.cors_url').'/'.$registerRoute
-				);
+					'confirm_url' => config('app.cors_url').'/'.$confirmRoute,
+					'register_url' => config('app.cors_url').'/'.$registerRoute
+				];
 
 				Mail::send('emails.project-new-user-invitation', $data, function($message) {
 				    $message->to($this->invitee_email, $this->invitee_name);
@@ -152,9 +154,9 @@ class ProjectInvitation extends CreateStamped {
 		}
 	}
 
-	/**
-	 * status changing methods
-	 */
+	//
+	// status changing methods
+	//
 
 	public function accept() {
 		$this->accept_date = new DateTime();
@@ -169,12 +171,12 @@ class ProjectInvitation extends CreateStamped {
 
 		// create new project membership
 		//
-		$projectMembership = new ProjectMembership(array(
+		$projectMembership = new ProjectMembership([
 			'membership_uid' => Guid::create(),
 			'project_uid' => $this->project_uid,
 			'user_uid' => $invitee->user_uid,
 			'admin_flag' => false
-		));
+		]);
 		$projectMembership->save();
 	}
 
@@ -182,9 +184,9 @@ class ProjectInvitation extends CreateStamped {
 		$this->decline_date = new DateTime();
 	}
 
-	/**
-	 * querying methods
-	 */
+	//
+	// querying methods
+	//
 
 	public function isAccepted() {
 		return $this->accept_date != null;
@@ -198,16 +200,16 @@ class ProjectInvitation extends CreateStamped {
 		return Project::where('project_uid', '=', $this->project_uid)->first();
 	}
 
-	/**
-	 * validation methods
-	 */
+	//
+	// validation methods
+	//
 
 	public function isValid() {
-		$rules = array(
+		$rules = [
 			'invitee_name' => 'required|min:1',
 			'invitee_email' => 'required_without:invitee_username',
 			'invitee_username' => 'required_without:invitee_email'
-		);		
+		];		
 
 		$this->validator = Validator::make($this->getAttributes(), $rules);		
 

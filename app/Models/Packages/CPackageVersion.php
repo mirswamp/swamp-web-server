@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -29,29 +29,27 @@ class CPackageVersion extends PackageVersion {
 	//
 
 	function getBuildSystem() {
-		
-		// create archive from package
+
+		// check in build path
 		//
 		$archive = new Archive($this->getPackagePath());
+		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
 
-		// check for configure
+		// perform top down search of archive
 		//
-		$configPath = Archive::concatPaths($this->source_path, $this->config_dir);
-		if ($archive->found($configPath, 'configure')) {
+		$found = $archive->search($buildPath, ['makefile', 'Makefile', 'configure', 'configure.ac']);
 
-			// configure + make
-			//
-			return response("configure+make", 200);
-		} else {
-
-			// make
-			//
-			$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
-			if ($archive->found($buildPath, 'makefile') || 
-				$archive->found($buildPath, 'Makefile')) {
-				return response("make", 200);
-			} else {
-				return response("Could not determine build system.", 404);
+		if ($found) {
+			switch (basename($found)) {
+				case 'makefile':
+				case 'Makefile':
+					return 'make';
+				case 'configure':
+					return 'configure+make';
+				case 'configure.ac':
+					return 'autotools+configure+make';
+				default:
+					return null;
 			}
 		}
 	}

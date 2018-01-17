@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -42,14 +42,15 @@ class VerifyProjectInvitation {
 		switch (FiltersHelper::method()) {
 			case 'post':
 				if (Session::has('user_uid')) {
-					$user = User::getIndex(Session::get('user_uid'));
-				}
-				else {
-					return response(array(
+					$user = User::getIndex(session('user_uid'));
+				} else {
+					return response([
 						'status' => 'NO_SESSION',
 						'config' => new Configuration()
-					), 401);
-				}	
+					], 401);
+				}
+
+
 				if (!$user || !$request->input('project_uid')) {
 					return response('Unable to change project membership.  Insufficient privilages.', 401);
 				}

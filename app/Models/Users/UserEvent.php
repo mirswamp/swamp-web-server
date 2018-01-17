@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -24,33 +24,38 @@ use App\Models\Users\User;
 
 class UserEvent extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'user_event';
 	protected $primaryKey = 'user_event_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid',
 		'event_type', 
 		'value',
-		'create_date',
-		'create_user',
-		'update_date',
-		'update_user'
-	);
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+		// timestamp attributes
+		//
+		'create_date',
+		'update_date',
+
+		// userstamp attributes
+		//
+		'create_user',
+		'update_user'
+	];
+
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'user_event_id',
 		'user_uid',
 		'value',
+
+		// timestamp attributes
+		//
 		'create_date'
-	);
-	
+	];
 }

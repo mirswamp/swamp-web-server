@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Utilities;
@@ -27,7 +27,7 @@ class RoutesController extends BaseController {
 	// get actual routes
 	//
 	public function getActual() {
-		if (Config::get('app.api_explorer_enabled')) {
+		if (config('app.api_explorer_enabled')) {
 			$paths = [];
 			$routeCollection = \Route::getRoutes();
 			foreach ($routeCollection as $route) {

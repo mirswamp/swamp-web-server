@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -24,16 +24,15 @@ use App\Models\Users\Policy;
 
 class Permission extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'permission';
 	protected $primaryKey = 'permission_code';
+	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'permission_code',
 		'title',
 		'description',
@@ -43,12 +42,11 @@ class Permission extends CreateStamped {
 		'description',
 		'user_info',
 		'user_info_policy_text'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'permission_code',
 		'title',
 		'description',
@@ -56,30 +54,32 @@ class Permission extends CreateStamped {
 		'auto_approve_flag',
 		'policy_code',
 		'description',
-		'create_date',
 		'user_info',
-		'user_info_policy_text'
-	);
+		'user_info_policy_text',
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+		// timestamp attributes
+		//
+		'create_date'
+	];
+
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'policy'
-	);
+	];
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getPolicyAttribute() {
 		$policy = Policy::where('policy_code','=',$this->policy_code)->first();
 		return $policy ? $policy->policy : '';
 	}
 
-	/**
-	 * querying methods
-	 */
+	//
+	// querying methods
+	//
 
 	public function isAdminOnly() {
 		return strval($this->admin_only_flag) == '1';

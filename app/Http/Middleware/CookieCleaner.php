@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -42,11 +42,9 @@ class CookieCleaner
 	 * @return mixed
 	 */
 	public function handle($request, Closure $next) {
-
-		$hexacookies = array();
-		$laracookies = array();
-
-		$cookies = Cookie::get(); // Fetch all cookies
+		$hexacookies = [];
+		$laracookies = [];
+		$cookies = Cookie::get(); 	// Fetch all cookies
 
 		// Loop through all cookies, separating them into two sets:
 		// (1) Cookies with a 40-charachter hexadecimal NAME. These are Laravel
@@ -66,6 +64,7 @@ class CookieCleaner
 		// Now loop through the 'lara' cookies. If one matches a hexadecimal
 		// cookie, remove it from the $hexacookies array since that is a valid 
 		// Laravel session id cookie as indexed by the "named" session cookie.
+		//
 		foreach ($laracookies as $name => $value) {
 			if (array_key_exists($name,$hexacookies)) {
 				unset($hexacookies[$name]);
@@ -74,38 +73,60 @@ class CookieCleaner
 
 		// Finally, anything left in the $hexacookies array is an orphaned
 		// session id cookie and should be deleted.
+		//
 		if (count($hexacookies) > 0) {
 			$confpath = Config::has('session.path') ? 
-				Config::get('session.path') : '/';
+				config('session.path') : '/';
 			$confdomain = Config::has('session.domain') ? 
-				Config::get('session.domain') : '';
+				config('session.domain') : '';
 			foreach ($hexacookies as $name => $value) {
-				Log::notice("Deleting orphaned cookie.",
-					array('cookie_name' => $name)
-				);
+				Log::notice("Deleting orphaned cookie.", [
+					'cookie_name' => $name
+				]);
 				$domain = $confdomain;
 				$domainvalid = true;
+
 				// Delete the cookie for all possible combinations of domain
 				// sub-parts and paths. Secure setting is not important when
 				// deleting a cookie.
+				//
 				while ($domainvalid) {
-					foreach (array('',$confpath) as $path) {
+					foreach (['', $confpath] as $path) {
+
 						// Must use PHP's setcookie() to delete all subdomain cookies
+						//
 						setcookie($name,'',1,$path,$domain);
 					}
+
 					// The following mess strips off strings from the front of the
 					// domain to loop through all sub-components. For example, if
 					// domain is a.b.org, we want to loop through the following list:
 					// a.b.org, .b.org, b.org, '' 
-					if (strlen($domain) == 0) { // Done looping through domains
+					//
+					if (strlen($domain) == 0) {
+
+						// Done looping through domains
+						//
 						$domainvalid = false;
-					} elseif (substr_count($domain,'.') > 1) { // At least 2 dots
-						if (substr($domain,0,1) == '.') { // Strip off leading dot
+					} elseif (substr_count($domain,'.') > 1) {
+
+						// At least 2 dots
+						//
+						if (substr($domain,0,1) == '.') {
+
+							// Strip off leading dot
+							//
 							$domain = substr($domain,1);
-						} else { // Strip off leading non-dot string ('a')
+						} else { 
+
+							// Strip off leading non-dot string ('a')
+							//
 							$domain = strstr($domain,'.');
 						}
-					} else { // Only 1 dot left (b.org), set domain to default
+					} else {
+
+						// Only 1 dot left (b.org), set domain to default
+						//
 						$domain = '';
 					}
 				}

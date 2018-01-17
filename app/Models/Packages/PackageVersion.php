@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -28,18 +28,16 @@ use App\Models\Packages\Package;
 
 class PackageVersion extends UserStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'package_store';
 	protected $table = 'package_version';
 	protected $primaryKey = 'package_version_uuid';
 	public $incrementing = false;
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 
 		// attributes
 		//
@@ -100,12 +98,11 @@ class PackageVersion extends UserStamped {
 		'android_lint_target',
 		'android_redo_build',
 		'android_maven_plugin'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 
 		// attributes
 		//
@@ -166,18 +163,25 @@ class PackageVersion extends UserStamped {
 		'android_lint_target',
 		'android_redo_build',
 		'android_maven_plugin'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'filename'
-	);
+	];
 
-	/**
-	 * querying methods
-	 */
+	//
+	// accessor methods
+	//
+
+	public function getFilenameAttribute() {
+		return basename($this->package_path);
+	}
+
+	//
+	// querying methods
+	//
 
 	function getRoot() {
 		$archive = new Archive($this->getPackagePath());
@@ -244,7 +248,7 @@ class PackageVersion extends UserStamped {
 	}
 
 	function parseKeyValueInfo($lines) {
-		$array = array();
+		$array = [];
 		$numLines = sizeof($lines);
 		$currentLine = 0;
 
@@ -262,9 +266,9 @@ class PackageVersion extends UserStamped {
 
 					// parse comment
 					//
-					array_push($array, array(
+					array_push($array, [
 						'comment' => trim($line)
-					));
+					]);
 				} else {
 
 					// parse line
@@ -273,9 +277,9 @@ class PackageVersion extends UserStamped {
 					$key = $pair[0];
 					$value = $pair[1];
 
-					array_push($array, array(
+					array_push($array, [
 						$key => $value
-					));
+					]);
 				} 
 			}
 		}
@@ -289,15 +293,15 @@ class PackageVersion extends UserStamped {
 
 	public function getPackagePath() {
 		if ($this->isNew()) {
-			return Config::get('app.incoming').$this->package_path;
+			return config('app.incoming').$this->package_path;
 		} else {
 			return $this->package_path;
 		}
 	}
 
-	/**
-	 * sharing methods
-	 */
+	//
+	// sharing methods
+	//
 
 	public function isPublic() {
 		return $this->getSharingStatus() == 'public';
@@ -330,9 +334,9 @@ class PackageVersion extends UserStamped {
 		return false;
 	}
 
-	/**
-	 * compatibility methods
-	 */
+	//
+	// compatibility methods
+	//
 
 	public function getPlatformCompatibility($platform) {
 		$compatibility = PackagePlatform::where('package_version_uuid', '=', $this->package_version_uuid)->
@@ -351,9 +355,9 @@ class PackageVersion extends UserStamped {
 		}
 	}
 
-	/**
-	 * access control methods
-	 */
+	//
+	// access control methods
+	//
 
 	public function isOwnedBy($user) {
 		return $this->getPackage()->isOwnedBy($user);
@@ -383,9 +387,9 @@ class PackageVersion extends UserStamped {
 		}
 	}
 
-	/**
-	 * archive inspection methods
-	 */
+	//
+	// archive inspection methods
+	//
 
 	public function contains($dirname, $filename, $recursive) {
 		$archive = new Archive($this->getPackagePath());
@@ -419,13 +423,5 @@ class PackageVersion extends UserStamped {
 	public function getDirectoryInfoTree($dirname, $filter) {
 		$archive = new Archive($this->getPackagePath());
 		return $archive->getDirectoryInfoTree($dirname, $filter);	
-	}
-
-	/**
-	 * accessor methods
-	 */
-
-	public function getFilenameAttribute() {
-		return basename($this->package_path);
 	}
 }

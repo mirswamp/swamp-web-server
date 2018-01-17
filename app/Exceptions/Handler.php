@@ -42,7 +42,7 @@ class Handler extends ExceptionHandler {
 
 			// redirect to custom 404 page
 			//
-			return Redirect::to(Config::get('app.cors_url').'/404.html');
+			return Redirect::to(config('app.cors_url').'/404.html');
 		} else {
 
 			// display whoops error info

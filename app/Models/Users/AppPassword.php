@@ -39,30 +39,27 @@ use App\Models\TimeStamps\TimeStamped;
 
 class AppPassword extends TimeStamped {
 
-	/**
-	 * database attributes - uses default 'project' database
-	 */
+	// database attributes
+	//
 	protected $table = 'app_passwords';
 	protected $primaryKey = 'app_password_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'app_password_uuid',
 		'user_uid',
 		'password',
 		'label'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist - note no 'password' field
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist - note no 'password' field
+	//
+	protected $visible = [
 		'app_password_uuid',
 		'user_uid',
 		'label'
-	);
+	];
 
 	/**
 	 * Attempt to validate a password for a given user_uid. This is
@@ -85,17 +82,14 @@ class AppPassword extends TimeStamped {
 		foreach ($app_password_coll as $app_pass) {
 			if (password_verify($password,$app_pass->password)) {
 				$retval = true;
-				Log::info("App password authenticated.",
-					array(
-						'user_uid' => $user_uid,
-						'app_password_uuid' => $app_pass->app_password_uuid,
-					)
-				);
+				Log::info("App password authenticated.", [
+					'user_uid' => $user_uid,
+					'app_password_uuid' => $app_pass->app_password_uuid,
+				]);
 				break;
 			}
 		}
 
 		return $retval;
 	}
-
 }

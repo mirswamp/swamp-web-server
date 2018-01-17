@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -38,19 +38,19 @@ class VerifyAdminInvitation {
 	{
 		// check request by method
 		//
-		switch( FiltersHelper::method() ){
+		switch (FiltersHelper::method()) {
 			case 'post':
 			case 'get':
 				if (Session::has('user_uid')) {
-					$user = User::getIndex(Session::get('user_uid'));
+					$user = User::getIndex(session('user_uid'));
 				}
 				else {
-					return response(array(
+					return response([
 						'status' => 'NO_SESSION',
 						'config' => new Configuration()
-					), 401);
+					], 401);
 				}
-				//$user = User::getIndex(Session::get('user_uid'));
+				//$user = User::getIndex(session('user_uid'));
 				if ((count($request->segments()) == 1) && ((!$user) || (!$user->isAdmin()))) {
 					return response('Unable to access route.  Current user is not an administrator.', 401);
 				}
@@ -63,5 +63,4 @@ class VerifyAdminInvitation {
 
 		return $next($request);
 	}
-
 }

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Platforms;
@@ -36,12 +36,12 @@ class PlatformsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		$platform = new Platform(array(
+		$platform = new Platform([
 			'platform_uuid' => Guid::create(),
 			'name' => Input::get('name'),
 			'platform_owner_uuid' => Input::get('platform_owner_uuid'),
 			'platform_sharing_status' => Input::get('platform_sharing_status')
-		));
+		]);
 		$platform->save();
 		return $platform;
 	}
@@ -62,8 +62,8 @@ class PlatformsController extends BaseController {
 
 	// get all for admin user
 	//
-	public function getAll(){
-		$user = User::getIndex(Session::get('user_uid'));
+	public function getAll() {
+		$user = User::getIndex(session('user_uid'));
 		if ($user && $user->isAdmin()) {
 			$platformsQuery = Platform::orderBy('create_date', 'DESC');
 
@@ -139,7 +139,7 @@ class PlatformsController extends BaseController {
 	//
 	public function getSharing($platformUuid) {
 		$platformSharing = PlatformSharing::where('platform_uuid', '=', $platformUuid)->get();
-		$projectUuids = array();
+		$projectUuids = [];
 		for ($i = 0; $i < sizeof($platformSharing); $i++) {
 			array_push($projectUuids, $platformSharing[$i]->project_uuid);
 		}
@@ -186,10 +186,10 @@ class PlatformsController extends BaseController {
 		for ($i = 0; $i < sizeOf($input); $i++) {
 			$project = $input[$i];
 			$projectUid = $project['project_uid'];
-			$platformSharing = new PlatformSharing(array(
+			$platformSharing = new PlatformSharing([
 				'platform_uuid' => $platformUuid,
 				'project_uuid' => $projectUid
-			));
+			]);
 			$platformSharing->save();
 			$platformSharings->push($platformSharing);
 		}

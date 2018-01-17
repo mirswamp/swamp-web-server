@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -41,12 +41,12 @@ class VerifyToolVersion {
 		// get current user
 		//
 		if (Session::has('user_uid')) {
-			$currentUser = User::getIndex(Session::get('user_uid'));
+			$currentUser = User::getIndex(session('user_uid'));
 		} else {
-			return response(array(
+			return response([
 				'status' => 'NO_SESSION',
 				'config' => new Configuration()
-			), 401);
+			], 401);
 		}
 
 		// check request by method
@@ -56,7 +56,7 @@ class VerifyToolVersion {
 				break;
 
 			case 'get':
-				$toolVersionUuid = $request->route()->getParameter('tool_version_uuid');
+				$toolVersionUuid = $request->route('tool_version_uuid');
 				if ($toolVersionUuid && $toolVersionUuid != 'all') {
 					$toolVersion = ToolVersion::where('tool_version_uuid', '=', $toolVersionUuid)->first();
 					if (!$toolVersion) {
@@ -69,7 +69,7 @@ class VerifyToolVersion {
 
 			case 'put':
 			case 'delete':
-				$toolVersionUuid = $request->route()->getParameter('tool_version_uuid');
+				$toolVersionUuid = $request->route('tool_version_uuid');
 				if ($toolUuid && $toolVersionUuid != 'all') {
 					$toolVersion = Tool::where('tool_version_uuid', '=', $toolVersionUuid)->first();
 					if (!$toolVersion) {

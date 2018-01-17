@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -26,37 +26,34 @@ use App\Models\Users\User;
 
 class Owner extends BaseModel {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'user';
 	protected $primaryKey = 'user_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid',
 		'first_name', 
 		'last_name', 
 		'preferred_name', 
 		'email'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'user_uid',
 		'first_name', 
 		'last_name', 
 		'preferred_name', 
 		'email'
-	);
+	];
 
-	/**
-	 * methods
-	 */
+	//
+	// static methods
+	//
 
 	public static function getIndex($userUid) {
 		$user = User::getIndex($userUid);

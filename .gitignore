@@ -17,6 +17,6 @@ public/version.json
 # environment ignores
 /.env
 
-# testing files
-app/Http/Controllers/Utilities/status.json
+#testing ignores
 app/Http/Controllers/Assessments/output.json
+app/Http/Controllers/Utilities/status.json

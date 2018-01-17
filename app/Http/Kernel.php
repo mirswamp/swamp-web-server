@@ -49,9 +49,6 @@ class Kernel extends HttpKernel {
 		'auth' => 'App\Http\Middleware\Authenticate',
 		'auth.basic' => 'Illuminate\Auth\Middleware\AuthenticateWithBasicAuth',
 		'guest' => 'App\Http\Middleware\RedirectIfAuthenticated',
-
-		// custom middleware
-		//
 		'verify.config' => 'App\Http\Middleware\VerifyConfig',
 		'verify.user' => 'App\Http\Middleware\VerifyUser',
 		'verify.app_passwords' => 'App\Http\Middleware\VerifyAppPasswords',

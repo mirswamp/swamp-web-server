@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Proxies;
@@ -115,7 +115,7 @@ class ProxyController extends BaseController {
 	}
 
 	private static function getHeadersFromCurlResponse($headerContent){
-		$headers = array();
+		$headers = [];
 
 		// split the string on every "double" new line.
 		//
@@ -132,39 +132,46 @@ class ProxyController extends BaseController {
 		return $headers;
 	}
 
-	private static function setResponseHeaders($response, $headers, $status) {
+	private static function modifyHeaders($headers, $status) {
+		$modified = [];
+		foreach ($headers as $key => $value) {
+			switch (strtolower($key)) {
 
-		// set content type
-		//
-		if (isset($headers) && array_key_exists('Content-Type', $headers)) {
-			$response->header('Content-Type', $headers['Content-Type'][0]);
-		}
-
-		// handle 301 / 302 redirect locations
-		//
-		if (in_array($status, array('301', '302'))) {
-			if (isset($headers) && array_key_exists('Location', $headers)) {
-
-				// strip https://vmip from proxy location for ThreadFix
-				// CodeDX Location does not contain the vmip
+				// pass along these headers
 				//
-				$pos = strpos($headers['Location'][0], '/proxy-');
-				$newloc = substr($headers['Location'][0], $pos);
-				$response->header('Location', $newloc);
+				case 'content-type':
+				case 'set-cookie':
+					$modified[$key] = $value;
+					break;
+
+				// handle 301 / 302 redirect locations
+				//
+				case 'location':
+					if (in_array($status, ['301', '302'])) {
+
+						// strip https://vmip from proxy location for ThreadFix
+						// CodeDX Location does not contain the vmip
+						//
+						$pos = strpos($value[0], '/proxy-');
+						$newloc = substr($value[0], $pos);
+						$modified[$key] = [$newloc];
+					}
+					break;
 			}
 		}
+		return $modified;
+	}
 
-		// set JSESSIONID when present
-		//
-		if (array_key_exists('Set-Cookie', $headers)) {
-			foreach($headers['Set-Cookie'] as $setcookie) {
-				$response->header('Set-Cookie', $setcookie);
+	private static function setResponseHeaders($response, $headers) {
+		foreach ($headers as $key => $value) {
+			for ($i = 0; $i < sizeof($value); $i++) {
+				$response->header($key, $value[$i]);
 			}
 		}
 	}
 
 	public function proxyCodeDxRequest() {
-		$user = User::getIndex(Session::get('user_uid'));
+		$user = User::getIndex(session('user_uid'));
 
 		// get viewer instance
 		//
@@ -187,7 +194,7 @@ class ProxyController extends BaseController {
 
 		// check whether current user is a member of this project
 		//
-		$currentUser = User::getIndex(Session::get('user_uid'));
+		$currentUser = User::getIndex(session('user_uid'));
 		if (!$project->isOwnedBy($user) && !$currentUser->isMemberOf($project)) {
 			return response('The current user is not a member of this project', 400);
 		}
@@ -217,6 +224,7 @@ class ProxyController extends BaseController {
 					if ($match && sizeof($match > 0)) {
 						$status = $match[1];
 						$headers = self::getHeadersFromCurlResponse($header);
+						$headers = self::modifyHeaders($headers, $status);
 						$response = response( $body ? $body : '', $status );
 						self::setResponseHeaders($response, $headers, $status);
 						return $response;

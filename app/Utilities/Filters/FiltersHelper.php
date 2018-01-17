@@ -17,7 +17,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
@@ -39,11 +39,11 @@ class FiltersHelper {
 		// detect API requests
 		//
 		if (Input::get('api_key') && Input::get('user_uid')) {
-			if (Config::get('app.api_key') == Input::get('api_key')) {
-				if (!User::getIndex(Input::get('user_uid')) ){
+			if (config('app.api_key') == Input::get('api_key')) {
+				if (!User::getIndex(Input::get('user_uid'))) {
 					return false;
 				}
-				Session::set('user_uid', Input::get('user_uid'));
+				session('user_uid', Input::get('user_uid'));
 				return true;
 			}
 			return false;
@@ -52,10 +52,10 @@ class FiltersHelper {
 		// detect whitelisted routes
 		//
 		if (Config::has('app.whitelist')) {
-			foreach (Config::get('app.whitelist') as $pattern) {
+			foreach (config('app.whitelist') as $pattern) {
 				if (is_array($pattern)) {
 					if (Request::is(key($pattern))) {
-						return in_array( self::method(), current( $pattern ) );
+						return in_array( self::method(), current($pattern));
 					}
 				} else {
 					if (Request::is($pattern)) { 

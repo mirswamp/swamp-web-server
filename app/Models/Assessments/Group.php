@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Assessments;
@@ -22,30 +22,27 @@ use App\Models\TimeStamps\CreateStamped;
 
 class Group extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'assessment';
 	protected $table = 'group_list';
 	protected $primaryKey = 'group_uuid';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'group_uuid',
 		'name',
 		'group_type',
 		'uuid_list'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'group_uuid',
 		'name',
 		'group_type',
 		'uuid_list'
-	);
+	];
 }

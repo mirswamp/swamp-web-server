@@ -13,13 +13,17 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Assessments;
 
 use Illuminate\Support\Collection;
 use App\Models\TimeStamps\UserStamped;
+use App\Models\Users\Permission;
+use App\Models\Projects\Project;
+use App\Models\Users\UserPolicy;
+use App\Models\Users\UserPermission;
 use App\Models\Packages\Package;
 use App\Models\Packages\PackageVersion;
 use App\Models\Tools\Tool;
@@ -32,19 +36,16 @@ use App\Models\Assessments\AssessmentRunRequest;
 
 class AssessmentRun extends UserStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $connection = 'assessment';
 	protected $table = 'assessment_run';
 	protected $primaryKey = 'assessment_run_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'assessment_run_uuid',
-		//'assessment_run_group_uuid',
 		'project_uuid',
 		'package_uuid',
 		'package_version_uuid',
@@ -52,14 +53,12 @@ class AssessmentRun extends UserStamped {
 		'tool_version_uuid',
 		'platform_uuid',
 		'platform_version_uuid'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 		'assessment_run_uuid',
-		//'assessment_run_group_uuid',
 		'project_uuid',
 		'package_uuid',
 		'package_version_uuid',
@@ -74,12 +73,11 @@ class AssessmentRun extends UserStamped {
 		'platform_name',
 		'platform_version_string',
 		'num_execution_records'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'package_name',
 		'package_version_string',
 		'tool_name',
@@ -87,23 +85,11 @@ class AssessmentRun extends UserStamped {
 		'platform_name',
 		'platform_version_string',
 		'num_execution_records'
-	);
+	];
 
-	/**
-	 * query methods
-	 */
-
-	public function isMultiple() {
-		return is_array($this->assessment_run_uuid);
-	}
-
-	/**
-	 * accessor methods
-	 */
-
-	public function getVisible() {
-		return $this->visible;
-	}
+	//
+	// accessor methods
+	//
 
 	public function getPackageNameAttribute() {
 		if ($this->package_uuid != null) {
@@ -199,6 +185,14 @@ class AssessmentRun extends UserStamped {
 	// querying methods
 	//
 
+	public function getVisible() {
+		return $this->visible;
+	}
+
+	public function isMultiple() {
+		return is_array($this->assessment_run_uuid);
+	}
+
 	/*
 	public function getRunRequests() {
 		$assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->get();
@@ -239,6 +233,102 @@ class AssessmentRun extends UserStamped {
 	public function getNumRunRequests() {
 		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')->first();
 		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)->count();
+	}
+
+	public function checkPermissions($user) {
+		$tool = Tool::where('tool_uuid','=',$this->tool_uuid)->first();
+
+		// return if no tool
+		//
+		$tool = Tool::where('tool_uuid','=',$this->tool_uuid)->first();
+		if (!$tool) {
+			return true;
+		}
+
+		// check restricted tools
+		//
+		if ($tool->isRestricted()) {
+			$permission = Permission::where('policy_code','=', $tool->policy_code)->first();
+			$project = Project::where('project_uid', '=', $this->project_uuid)->first();
+			$projectOwner = $project->owner;
+
+			// check for no permission, project, or owner
+			//
+			if (!$permission || !$project || !$projectOwner) {
+				return [
+					'status' => 'error'
+				];
+			}
+
+			// if the permission doesn't exist or isn't valid, return error
+			//
+			/*
+			if ($tool->isRestrictedByProjectOwner()) {
+				$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $projectOwner['user_uid'])->first();
+				if (!$userPermission) {
+					return [
+						'status' => 'owner_no_permission',
+						'project_name' => $project->full_name,
+						'tool_name' => $tool->name
+					];
+				}
+				if ($userPermission->status !== 'granted') {
+					return [
+						'status' => 'owner_no_permission',
+						'project_name' => $project->full_name,
+						'tool_name' => $tool->name
+					];
+				}
+			}
+			*/
+
+			// if the project hasn't been designated, return error
+			//
+			/*
+			if ($tool->isRestrictedByProject()) {
+				$userPermissionProject = UserPermissionProject::where('user_permission_uid','=',$userPermission->user_permission_uid)->where('project_uid','=',$project->project_uid)->first();
+				if (!$userPermissionProject) {
+					return [
+						'status' => 'no_project',
+						'project_name' => $project->full_name,
+						'tool_name' => $tool->name
+					];
+				}
+			}
+			*/
+
+			// check user permission
+			//
+			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $user['user_uid'])->first();
+			if (!$userPermission) {
+				return [
+					'status' => 'tool_no_permission',
+					'project_name' => $project->full_name,
+					'tool_name' => $tool->name
+				];
+			}
+			if ($userPermission->status !== 'granted') {
+				return [
+					'status' => 'tool_no_permission',
+					'project_name' => $project->full_name,
+					'tool_name' => $tool->name
+				];
+			}
+
+			// if the policy hasn't been accepted, return error
+			//
+			$userPolicy	= UserPolicy::where('policy_code','=',$tool->policy_code)->where('user_uid','=',$user->user_uid)->first();
+			if (!$userPolicy || $userPolicy->accept_flag != '1') {
+				return [
+					'status' => 'no_policy',
+					'policy' => $tool->policy,
+					'policy_code' => $tool->policy_code,
+					'tool' => $tool
+				];
+			}
+		}
+
+		return true;
 	}
 
 	//

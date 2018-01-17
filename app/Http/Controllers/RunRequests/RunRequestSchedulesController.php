@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\RunRequests;
@@ -34,11 +34,11 @@ class RunRequestSchedulesController extends BaseController {
 
 			// create a single model
 			//
-			$runRequestSchedule = new RunRequestSchedule(array(
+			$runRequestSchedule = new RunRequestSchedule([
 				'run_request_schedule_uuid' => Guid::create(),
 				'run_request_uuid' => Input::get('run_request_uuid'),
 				'recurrence_type' => Input::get('recurrence_type')
-			));
+			]);
 
 			// set optional attributes
 			//
@@ -59,11 +59,11 @@ class RunRequestSchedulesController extends BaseController {
 			$runRequestSchedules = new Collection;
 			for ($i = 0; $i < sizeOf($inputs); $i++) {
 				$input = $inputs[$i];
-				$runRequestSchedule = new RunRequestSchedule(array(
+				$runRequestSchedule = new RunRequestSchedule([
 					'run_request_schedule_uuid' => Guid::create(),
 					'run_request_uuid' => $input['run_request_uuid'],
 					'recurrence_type' => $input['recurrence_type']
-				));
+				]);
 
 				// set optional attributes
 				//
@@ -143,9 +143,9 @@ class RunRequestSchedulesController extends BaseController {
 				
 				// create new model
 				//
-				$runRequestSchedule = new RunRequestSchedule(array(
+				$runRequestSchedule = new RunRequestSchedule([
 					'run_request_schedule_uuid' => Guid::create()
-				));
+				]);
 			}
 			
 			// update model

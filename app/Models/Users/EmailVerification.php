@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2017 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -25,86 +25,81 @@ use App\Models\Users\User;
 
 class EmailVerification extends CreateStamped {
 
-	/**
-	 * database attributes
-	 */
+	// database attributes
+	//
 	protected $table = 'email_verification';
 	protected $primaryKey = 'email_verification_id';
 
-	/**
-	 * mass assignment policy
-	 */
-	protected $fillable = array(
+	// mass assignment policy
+	//
+	protected $fillable = [
 		'user_uid', 
 		'verification_key', 
 		'email',
 
-		// timestamps
+		// timestamp attributes
 		//
 		'verify_date'
-	);
+	];
 
-	/**
-	 * array / json conversion whitelist
-	 */
-	protected $visible = array(
+	// array / json conversion whitelist
+	//
+	protected $visible = [
 
 		// appended fields
 		//
 		'user',
 
-		// timestamps
+		// timestamp attributes
 		//
 		'verify_date'
-	);
+	];
 
-	/**
-	 * array / json appended model attributes
-	 */
-	protected $appends = array(
+	// array / json appended model attributes
+	//
+	protected $appends = [
 		'user'
-	);
+	];
 
-	/**
-	 * accessor methods
-	 */
+	//
+	// accessor methods
+	//
 
 	public function getUserAttribute() {
 		return User::getIndex($this->user_uid)->toArray();
 	}
 
-	/**
-	 * querying methods
-	 */
+	//
+	// querying methods
+	//
 
 	public function isVerified() {
 		return ($this->verify_date != null);
 	}
 
-	/**
-	 * invitation sending / emailing method
-	 */
+	//
+	// invitation sending / emailing method
+	//
 
 	public function send($verifyRoute, $changed = false) {
 
 		// return an error if email has not been enabled
 		//
-		if (!Config::get('mail.enabled')) {
+		if (!config('mail.enabled')) {
 			return response('Email has not been enabled.', 400); 
 		}
 
 		// send email verification email
 		//
 		if ($this->email && filter_var($this->email, FILTER_VALIDATE_EMAIL)) {
-			$data = array(
-				'user' => User::getIndex($this->user_uid),
-				'verification_key' => $this->verification_key,
-				'verify_url' => Config::get('app.cors_url').'/'.$verifyRoute
-			);
 			$template = $changed ? 'emails.email-verification' : 'emails.user-verification';
 			$this->subject  = $changed ? 'SWAMP Email Verification'  : 'SWAMP User Verification';
 			$this->recipient = User::getIndex($this->user_uid);
-			Mail::send($template, $data, function($message) {
+			Mail::send($template, [
+				'user' => User::getIndex($this->user_uid),
+				'verification_key' => $this->verification_key,
+				'verify_url' => config('app.cors_url').'/'.$verifyRoute
+			], function($message) {
 			    $message->to($this->email, $this->recipient->getFullName());
 			    $message->subject($this->subject);
 			});
