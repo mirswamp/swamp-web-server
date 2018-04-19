@@ -49,7 +49,7 @@ class AssessmentRunsController extends BaseController {
 	//
 	public function checkCompatibility() {
 
-		// get parameters
+		// parse parameters
 		//
 		$projectUuid = Input::get('project_uuid');
 		$packageUuid = Input::get('package_uuid');
@@ -135,7 +135,7 @@ class AssessmentRunsController extends BaseController {
 	//
 	public function postCreate() {
 
-		// get parameters
+		// parse parameters
 		//
 		$projectUuid = Input::get('project_uuid');
 		$packageUuid = Input::get('package_uuid');
@@ -485,6 +485,10 @@ class AssessmentRunsController extends BaseController {
 	public function getScheduledByProject($projectUuid) {
 		$assessmentRuns = $this->getAllByProject($projectUuid);
 
+		// parse parameters
+		//
+		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+
 		// get one time run request
 		//
 		$oneTimeRunRequest = RunRequest::where('name', '=', 'One-time')->first();
@@ -504,10 +508,6 @@ class AssessmentRunsController extends BaseController {
 					AssessmentRunRequest::where('assessment_run_id', '=', $assessmentRun->assessment_run_id)->get());
 			}
 		}
-
-		// get limit filter
-		//
-		$limit = Input::get('limit');
 
 		// create scheduled assessment runs containing the run request
 		//
@@ -544,19 +544,29 @@ class AssessmentRunsController extends BaseController {
 	//
 	public function updateIndex($assessmentRunUuid) {
 
+		// parse parameters
+		//
+		$projectUuid = Input::get('project_uuid');
+		$packageUuid = Input::get('package_uuid');
+		$packageVersionUuid = Input::get('package_version_uuid');
+		$toolUuid = Input::get('tool_uuid');
+		$toolVersionUuid = Input::get('tool_version_uuid');
+		$platformUuid = Input::get('platform_uuid');
+		$platformVersionUuid = Input::get('platform_version_uuid');
+
 		// get model
 		//
 		$assessmentRun = $this->getIndex($assessmentRunUuid);
 
 		// update attributes
 		//
-		$assessmentRun->project_uuid = Input::get('project_uuid');
-		$assessmentRun->package_uuid = Input::get('package_uuid');
-		$assessmentRun->package_version_uuid = Input::get('package_version_uuid');
-		$assessmentRun->tool_uuid = Input::get('tool_uuid');
-		$assessmentRun->tool_version_uuid = Input::get('tool_version_uuid');
-		$assessmentRun->platform_uuid = Input::get('platform_uuid');
-		$assessmentRun->platform_version_uuid = Input::get('platform_version_uuid');
+		$assessmentRun->project_uuid = $projectUuid;
+		$assessmentRun->package_uuid = $packageUuid;
+		$assessmentRun->package_version_uuid = $packageVersionUuid;
+		$assessmentRun->tool_uuid = $toolUuid;
+		$assessmentRun->tool_version_uuid = $toolVersionUuid;
+		$assessmentRun->platform_uuid = $platformUuid;
+		$assessmentRun->platform_version_uuid = $platformVersionUuid;
 
 		// save and return changes
 		//

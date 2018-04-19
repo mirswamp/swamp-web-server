@@ -25,10 +25,17 @@ use Illuminate\Support\Facades\Input;
 
 class LimitFilter {
 	static function apply($query) {
-		$limit = Input::get('limit');
-		if ($limit != '') {
+
+		// parse parameters
+		//
+		$limit = Input::get('limit', null);
+
+		// add limit to query
+		//
+		if ($limit) {
 			$query = $query->take($limit);
 		}
+
 		return $query;
 	}
 }

@@ -36,14 +36,19 @@ class FiltersHelper {
 
 	static function whitelisted() {
 
+		// parse parameters
+		//
+		$apiKey = Input::get('api_key', null);
+		$userUid = Input::get('user_uid', null);
+
 		// detect API requests
 		//
-		if (Input::get('api_key') && Input::get('user_uid')) {
-			if (config('app.api_key') == Input::get('api_key')) {
-				if (!User::getIndex(Input::get('user_uid'))) {
+		if ($apiKey && $userUid) {
+			if (config('app.api_key') == $apiKey) {
+				if (!User::getIndex($userUid)) {
 					return false;
 				}
-				session('user_uid', Input::get('user_uid'));
+				session('user_uid', $userUid);
 				return true;
 			}
 			return false;
@@ -55,7 +60,7 @@ class FiltersHelper {
 			foreach (config('app.whitelist') as $pattern) {
 				if (is_array($pattern)) {
 					if (Request::is(key($pattern))) {
-						return in_array( self::method(), current($pattern));
+						return in_array(self::method(), current($pattern));
 					}
 				} else {
 					if (Request::is($pattern)) { 

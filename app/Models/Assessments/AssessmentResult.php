@@ -72,6 +72,13 @@ class AssessmentResult extends UserStamped {
 		'package_version'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'weakness_cnt' => 'integer'
+	];
+
+
 	public function checkPermissions($user) {
 
 		// check for no project

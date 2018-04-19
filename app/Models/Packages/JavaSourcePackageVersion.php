@@ -21,6 +21,7 @@ namespace App\Models\Packages;
 use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
+use App\Utilities\Strings\StringUtils;
 
 class JavaSourcePackageVersion extends PackageVersion {
 
@@ -30,54 +31,116 @@ class JavaSourcePackageVersion extends PackageVersion {
 
 	function getBuildSystem() {
 	
-		// check in build path
+		// search archive for build files
 		//
 		$archive = new Archive($this->getPackagePath());
-		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
+		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+		$path = $archive->search($searchPath, ['build.xml', 'pom.xml', 'build.gradle']);
 
-		// check for ant
+		// deduce build system from build file
 		//
-		if ($archive->found($buildPath, 'build.xml')) {
-			return 'ant';
+		switch (basename($path)) {
 
-		// check for maven
-		//
-		} else if ($archive->found($buildPath, 'pom.xml')) {
-			return 'maven';
+			case 'build.xml':
+				return 'ant';
 
-		// check for gradle
-		//
-		} else if ($archive->found($buildPath, 'build.gradle')) {
+			case 'pom.xml':
+				return 'maven';
 
-			// check for gradle wrapper
-			//
-			if ($archive->found($buildPath, 'gradlew')) {
-				return 'gradle-wrapper';
-			} else {
-				return 'gradle';
-			}
+			case 'build.gradle':
 
-		// build system not found
-		//
-		} else {
-			return null;
+				// check for gradle wrapper
+				//
+				if ($archive->found($searchPath, 'gradlew')) {
+					return 'gradle-wrapper';
+				} else {
+					return 'gradle';
+				}
+
+			default:
+				return null;
 		}
+	}
+
+	function getBuildInfo() {
+
+		// initialize build info
+		//
+		$buildSystem = null;
+		$configDir = null;
+		$configCmd = null;
+		$buildDir = null;
+		$buildFile = null;
+
+		// search archive for build files
+		//
+		$archive = new Archive($this->getPackagePath());
+		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+		$path = $archive->search($searchPath, ['build.xml', 'pom.xml', 'build.gradle']);
+
+		// strip off leading source path
+		//
+		if (StringUtils::startsWith($path, $this->source_path)) {
+			$path = substr($path, strlen($this->source_path));
+		}
+
+
+		// deduce build system from build file
+		//
+		switch (basename($path)) {
+
+			case 'build.xml':
+				$buildSystem = 'ant';
+				$buildDir = dirname($path);
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
+				break;
+
+			case 'pom.xml':
+				$buildSystem = 'maven';
+				$buildDir = dirname($path);
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
+				break;
+
+			case 'build.gradle':
+
+				// check for gradle wrapper
+				//
+				if ($archive->found($searchPath, 'gradlew')) {
+					$buildSystem = 'gradle-wrapper';
+				} else {
+					$buildSystem = 'gradle';
+				}
+
+				$buildDir = dirname($path);
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
+				break;
+
+			default:
+				$buildSystem = null;
+				break;
+		}
+
+		return [
+			'build_system' => $buildSystem,
+			'config_dir' => $configDir,
+			'config_cmd' => $configCmd,
+			'build_dir' => $buildDir,
+			'build_file' => $buildFile
+		];
 	}
 
 	function checkBuildSystem() {
 
-		// create archive from package
+		// find build file
 		//
-		$archive = new Archive($this->getPackagePath());
-
-		// find build path and file
-		//
-		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
 		$buildFile = $this->build_file;
-
-		// set default build file name if not set
-		//
-		if ($buildFile == NULL) {
+		if ($buildFile == null) {
 			switch ($this->build_system) {
 
 				case 'ant':
@@ -100,12 +163,15 @@ class JavaSourcePackageVersion extends PackageVersion {
 
 		if ($this->build_system) {
 
-			// search archive for build file in build path
+			// search archive for build file
 			//
-			if ($archive->contains($buildPath, $buildFile)) {
+			$archive = new Archive($this->getPackagePath());
+			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+
+			if ($archive->contains($searchPath, $buildFile)) {
 				return response("Java source package version is ok for ".$this->build_system.".", 200);
 			} else {
-				return response("Could not find a build file called '".$buildFile."' within the '".$buildPath."' directory. You may need to set your build path or the path to your build file.", 404);
+				return response("Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
 			}
 		}
 	}

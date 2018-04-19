@@ -18,6 +18,7 @@
 
 namespace App\Http\Controllers\Projects;
 
+use DateTime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
@@ -40,19 +41,30 @@ class ProjectsController extends BaseController {
 	//
 	public function postCreate() {
 
+		// parse parameters
+		//
+		$fullName = Input::get('full_name');
+		$shortName = Input::get('short_name');
+		$description = Input::get('description');
+		$affiliation = Input::get('affiliation');
+		$trialProjectFlag = filter_var(Input::get('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
+		$excludePublicToolsFlag = filter_var(Input::get('exclude_public_tools_flag'), FILTER_VALIDATE_BOOLEAN);
+		$denialDate = Input::get('denial_date');
+		$deactivationDate = Input::get('deactivation_date');
+
 		// create new project
 		//
 		$project = new Project([
 			'project_uid' => Guid::create(),
 			'project_owner_uid' => session('user_uid'),
-			'full_name' => Input::get('full_name'),
-			'short_name' => Input::get('short_name'),
-			'description' => Input::get('description'),
-			'affiliation' => Input::get('affiliation'),
-			'trial_project_flag' => Input::get('trial_project_flag') ? true : false,
-			'exclude_public_tools_flag' => Input::get('exclude_public_tools_flag') ? true : false,
-			'denial_date' => Input::get('denial_date'),
-			'deactivation_date' => Input::get('deactivation_date')
+			'full_name' => $fullName,
+			'short_name' => $shortName,
+			'description' => $description,
+			'affiliation' => $affiliation,
+			'trial_project_flag' => $trialProjectFlag,
+			'exclude_public_tools_flag' => $excludePublicToolsFlag,
+			'denial_date' => $denialDate,
+			'deactivation_date' => $deactivationDate
 		]);
 		$project->save();
 
@@ -112,10 +124,21 @@ class ProjectsController extends BaseController {
 	//
 	public function updateIndex($projectUid) {
 
+		// get parameters
+		//
+		$fullName = Input::get('full_name');
+		$shortName = Input::get('short_name');
+		$description = Input::get('description');
+		$affiliation = Input::get('affiliation');
+		$trialProjectFlag = filter_var(Input::get('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
+		$excludePublicToolsFlag = filter_var(Input::get('exclude_public_tools_flag'), FILTER_VALIDATE_BOOLEAN);
+		$denialDate = Input::has('denial_date')? DateTime::createFromFormat('d-m-Y H:i:s', Input::get('denial_date')) : null;
+		$deactivationDate = Input::has('deactivation_date')? DateTime::createFromFormat('d-m-Y H:i:s', Input::get('deactivation_date')) : null;
+
 		// get model
 		//
 		$project = Project::where('project_uid', '=', $projectUid)->first();
-		$project->full_name = Input::get('full_name');
+		$project->full_name = $fullName;
 
 		// send email notifications of changes in project status
 		//
@@ -123,7 +146,7 @@ class ProjectsController extends BaseController {
 
 			// send an email to the project owner if it's revoked
 			//
-			if (!$project->denial_date && Input::get('denial_date')) {
+			if (!$project->denial_date && $denialDate) {
 				$this->user = User::getIndex($project->project_owner_uid);
 				if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
 					Mail::send('emails.project-denied', [
@@ -140,7 +163,7 @@ class ProjectsController extends BaseController {
 
 			// send an email to the project owner if it's reactivated
 			//
-			if ($project->deactivation_date != null && Input::get('deactivation_date') == '') {
+			if ($project->deactivation_date != null && $deactivationDate == '') {
 				if ($project->project_owner_uid) {
 					$this->user = User::getIndex($project->project_owner_uid);
 					if ($this->user && $this->user->email && filter_var($this->user->email, FILTER_VALIDATE_EMAIL)) {
@@ -161,14 +184,14 @@ class ProjectsController extends BaseController {
 
 		// update attributes
 		//
-		$project->full_name = Input::get('full_name');
-		$project->short_name = Input::get('short_name');
-		$project->description = Input::get('description');
-		$project->affiliation = Input::get('affiliation');
-		$project->trial_project_flag = Input::get('trial_project_flag');
-		$project->exclude_public_tools_flag = Input::get('exclude_public_tools_flag');
-		$project->denial_date = Input::get('denial_date');
-		$project->deactivation_date = Input::get('deactivation_date');
+		$project->full_name = $fullName;
+		$project->short_name = $shortName;
+		$project->description = $description;
+		$project->affiliation = $affiliation;
+		$project->trial_project_flag = $trialProjectFlag;
+		$project->exclude_public_tools_flag = $excludePublicToolsFlag;
+		$project->denial_date = $denialDate? $denialDate->format('Y-m-d H:i:s') : null;
+		$project->deactivation_date = $deactivationDate? $deactivationDate->format('Y-m-d H:i:s') : null;
 
 		// save and return changes
 		//
@@ -205,7 +228,7 @@ class ProjectsController extends BaseController {
 			$project->short_name = $item['short_name'];
 			$project->description = $item['description'];
 			$project->affiliation = $item['affiliation'];
-			$project->trial_project_flag = $item['trial_project_flag'];
+			$project->trial_project_flag = filter_var($item['trial_project_flag'], FILTER_VALIDATE_BOOLEAN);
 			$project->denial_date = $item['denial_date'];
 			$project->deactivation_date = $item['deactivation_date'];
 

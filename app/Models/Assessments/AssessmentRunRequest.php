@@ -45,4 +45,10 @@ class AssessmentRunRequest extends UserStamped {
 		'user_uuid',
 		'notify_when_complete_flag'
 	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'notify_when_complete_flag' => 'boolean'
+	];
 }

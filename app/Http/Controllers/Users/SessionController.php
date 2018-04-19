@@ -36,6 +36,7 @@ use App\Models\Users\LinkedAccountProvider;
 use App\Models\Users\UserEvent;
 use App\Models\Users\EmailVerification;
 use App\Models\Users\PasswordReset;
+use App\Models\Users\UserClassMembership;
 use App\Models\Viewers\Viewer;
 use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Users\AppPasswordsController;
@@ -56,7 +57,7 @@ class SessionController extends BaseController {
 	//
 	public function postLogin() {
 
-		// get input parameters
+		// parse parameters
 		//
 		$username = Input::get('username');
 		$password = Input::get('password');
@@ -158,6 +159,8 @@ class SessionController extends BaseController {
 			return Redirect::to(config('app.cors_url').'/#linked-account/error/linked-account-general-error');
 		}
 
+		// parse parameters
+		//
 		$state = Session::pull('oauth2_state'); // Forget it afterwards
 		$code = Input::get('code','');
 		$receivedState = Input::get('state'); // The state returned from OAuth server
@@ -258,11 +261,15 @@ class SessionController extends BaseController {
 	//
 	public function oauth2User() {
 
+		// check session
+		//
 		$token = $this->getAccessTokenFromSession();
 		if (is_null($token)) {
 			return response('Unauthorized OAuth2 access.', 401);
 		}
 
+		// check identity provider
+		//
 		$idp = new IdentityProvider();
 		try {
 			$oauth2_user = $idp->provider->getResourceOwner($token);
@@ -281,6 +288,13 @@ class SessionController extends BaseController {
 	}
 
 	public function registerOAuth2User() {
+
+		// parse parameters
+		//
+		$classCode = Input::get('class_code');
+
+		// check session
+		//
 		$token = $this->getAccessTokenFromSession();
 		if (is_null($token)) {
 			return response('Unauthorized OAuth2 access.', 401);
@@ -413,9 +427,26 @@ class SessionController extends BaseController {
 				'user_uid' => $user->user_uid,
 				'user_external_id' => $oauth2_user->getId(),
 				'linked_account_provider_code' => $idp->linked_provider,
-				'enabled_flag' => 1
+				'enabled_flag' => true
 			]);
 			$linkedAccount->save();
+
+			// add user class membership
+			//
+			if ($classCode && $classCode != '') {
+
+				// create new class membership
+				//
+				$membership = new UserClassMembership([
+					'class_user_uuid' => Guid::create(),
+					'user_uid' => $user->user_uid,
+					'class_code' => $classCode
+				]);
+
+				// save new class membership
+				//
+				$membership->save();
+			}
 
 			// log the successful OAauth2 account creation event
 			//
@@ -431,7 +462,7 @@ class SessionController extends BaseController {
 				// mark user account email verified flag
 				//
 				$userAccount = $user->getUserAccount();
-				$userAccount->email_verified_flag = 1;
+				$userAccount->email_verified_flag = true;
 				$userAccount->save();
 
 				// send welcome email
@@ -494,7 +525,13 @@ class SessionController extends BaseController {
 	 * to the IdP's authentication endpoint for logging in.
 	 */
 	public function oauth2Redirect() {
+
+		// parse parameters
+		//
 		$entityid = Input::get('entityid');
+
+		// check identity provider
+		//
 		$idp = new IdentityProvider($entityid);
 		if (is_null($idp->provider)) {
 			return response('Invalid Identity Provider "' . $entityid . '".', 401);
@@ -513,6 +550,11 @@ class SessionController extends BaseController {
 	 * account.
 	 */
 	private function linkOAuth2Account($user) {
+
+		// parse parameters
+		//
+		$confirmed = filter_var(Input::get('confirmed'), FILTER_VALIDATE_BOOLEAN);
+		$oauth2Id = Input::get('oauth2_id');
 
 		// Attempt to load the oauth2 account the user is currently logged in as.
 		//
@@ -544,7 +586,7 @@ class SessionController extends BaseController {
 		// make sure they don't already have an account
 		//
 		$account = LinkedAccount::where('user_uid','=',$user->user_uid)->where('linked_account_provider_code','=',$idp->linked_provider)->first();
-		if ($account && !(Input::has('confirmed') && Input::get('confirmed') === 'true' )) {
+		if ($account && !($confirmed && $confirmed === 'true')) {
 			return response()->json([
 				'error' => 'EXISTING_ACCOUNT',
 				'username' => $user->username,
@@ -554,7 +596,7 @@ class SessionController extends BaseController {
 
 		// verify they are logged in as the account they are attempting to link to.
 		//
-		if ($oauth2_id != Input::get('oauth2_id')) {
+		if ($oauth2_id != $oauth2Id) {
 			return response('Unauthorized OAuth2 access.', 401);
 		}
 
@@ -566,8 +608,8 @@ class SessionController extends BaseController {
 		//
 		$linkedAccount = new LinkedAccount([
 			'linked_account_provider_code' => $idp->linked_provider,
-			'user_external_id' => Input::get('oauth2_id'),
-			'enabled_flag' => 1,
+			'user_external_id' => $oauth2Id,
+			'enabled_flag' => true,
 			'user_uid' => $user->user_uid,
 			'create_date' => gmdate('Y-m-d H:i:s')
 		]);
@@ -605,12 +647,14 @@ class SessionController extends BaseController {
 	 */
 	public function oauth2Link() {
 
+		// check for session expiration
+		//
 		if (gmdate('U') - session('oauth2_access_time') >
 			(config('oauth2.session_expiration') * 60)) {
 			return response('OAuth2 access has expired.  If you would like to link an external account to an existing SWAMP account, please click "Sign In" and select an external Identity Provider.', 401);
 		}
 
-		// get input parameters
+		// parse parameters
 		//
 		$username = Input::get('username');
 		$password = Input::get('password');
@@ -854,7 +898,7 @@ class SessionController extends BaseController {
 		// When LDAP is enabled for users, the user may
 		// authenticate with LDAP but not have a corresponding
 		// UserAccount. So create one now. Since we trust the LDAP
-		// email address, set email_verified_flag to '1'.
+		// email address, set email_verified_flag to true.
 		//
 		if ((config('ldap.enabled')) &&
 			(count($userAccount) == 0)) {
@@ -862,8 +906,8 @@ class SessionController extends BaseController {
 					'ldap_profile_update_date' => gmdate('Y-m-d H:i:s'),
 					'user_uid' => $user->user_uid,
 					'promo_code_id' => null,
-					'enabled_flag' => 1,
-					'admin_flag' => 0,
+					'enabled_flag' => true,
+					'admin_flag' => false,
 					'email_verified_flag' => config('mail.enabled')? 1 : -1
 				]);
 				$userAccount->save();

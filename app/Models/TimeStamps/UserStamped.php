@@ -39,4 +39,12 @@ class UserStamped extends TimeStamped {
 		'create_user',
 		'update_user'
 	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'create_date' => 'datetime',
+		'update_date' => 'datetime',
+		'delete_date' => 'datetime'
+	];
 }

@@ -68,6 +68,13 @@ class Permission extends CreateStamped {
 		'policy'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'admin_only_flag' => 'boolean',
+		'auto_approve_flag' => 'boolean'
+	];
+
 	//
 	// accessor methods
 	//
@@ -82,10 +89,10 @@ class Permission extends CreateStamped {
 	//
 
 	public function isAdminOnly() {
-		return strval($this->admin_only_flag) == '1';
+		return $this->admin_only_flag;
 	}
 
 	public function isAutoApprove() {
-		return strval($this->auto_approve_flag) == '1';
+		return $this->auto_approve_flag;
 	}
 }

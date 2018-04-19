@@ -32,6 +32,9 @@ class ContactsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
 		$data = [
 			'first_name' => Input::get('first_name'),
 			'last_name' => Input::get('last_name'),
@@ -39,23 +42,26 @@ class ContactsController extends BaseController {
 			'subject' => Input::get('subject'),
 			'question' => Input::get('question')
 		];
+		$topic = Input::get('topic');
 
+		// send contact email
+		//
 		if (config('mail.enabled')) {
-			if (Input::get('topic') == 'security') {
+			if ($topic == 'security') {
 
 				// send report incident email
 				//
-				Mail::send('emails.security', $data, function($message) {
+				Mail::send('emails.security', $data, function($message) use ($data) {
 					$message->to(config('mail.security.address'), config('mail.security.name'));
-					$message->subject(Input::get('subject'));
+					$message->subject($data['subject']);
 				});
 			} else {
 
 				// send general contact email
 				//
-				Mail::send('emails.contact', $data, function($message) {
+				Mail::send('emails.contact', $data, function($message) use ($data) {
 					$message->to(config('mail.contact.address'), config('mail.contact.name'));
-					$message->subject(Input::get('subject'));
+					$message->subject($data['subject']);
 				});
 			}
 		} else {

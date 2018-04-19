@@ -2,9 +2,12 @@
 
 namespace Illuminate\Foundation\Auth;
 
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Cache\RateLimiter;
+use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Validation\ValidationException;
 
 trait ThrottlesLogins
 {
@@ -16,9 +19,8 @@ trait ThrottlesLogins
      */
     protected function hasTooManyLoginAttempts(Request $request)
     {
-        return app(RateLimiter::class)->tooManyAttempts(
-            $this->getThrottleKey($request),
-            $this->maxLoginAttempts(), $this->lockoutTime() / 60
+        return $this->limiter()->tooManyAttempts(
+            $this->throttleKey($request), $this->maxAttempts(), $this->decayMinutes()
         );
     }
 
@@ -26,60 +28,31 @@ trait ThrottlesLogins
      * Increment the login attempts for the user.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return int
+     * @return void
      */
     protected function incrementLoginAttempts(Request $request)
     {
-        app(RateLimiter::class)->hit(
-            $this->getThrottleKey($request)
+        $this->limiter()->hit(
+            $this->throttleKey($request), $this->decayMinutes()
         );
-    }
-
-    /**
-     * Determine how many retries are left for the user.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return int
-     */
-    protected function retriesLeft(Request $request)
-    {
-        $attempts = app(RateLimiter::class)->attempts(
-            $this->getThrottleKey($request)
-        );
-
-        return $this->maxLoginAttempts() - $attempts + 1;
     }
 
     /**
      * Redirect the user after determining they are locked out.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
+     * @return void
+     * @throws \Illuminate\Validation\ValidationException
      */
     protected function sendLockoutResponse(Request $request)
     {
-        $seconds = app(RateLimiter::class)->availableIn(
-            $this->getThrottleKey($request)
+        $seconds = $this->limiter()->availableIn(
+            $this->throttleKey($request)
         );
 
-        return redirect()->back()
-            ->withInput($request->only($this->loginUsername(), 'remember'))
-            ->withErrors([
-                $this->loginUsername() => $this->getLockoutErrorMessage($seconds),
-            ]);
-    }
-
-    /**
-     * Get the login lockout error message.
-     *
-     * @param  int  $seconds
-     * @return string
-     */
-    protected function getLockoutErrorMessage($seconds)
-    {
-        return Lang::has('auth.throttle')
-            ? Lang::get('auth.throttle', ['seconds' => $seconds])
-            : 'Too many login attempts. Please try again in '.$seconds.' seconds.';
+        throw ValidationException::withMessages([
+            $this->username() => [Lang::get('auth.throttle', ['seconds' => $seconds])],
+        ])->status(423);
     }
 
     /**
@@ -90,9 +63,18 @@ trait ThrottlesLogins
      */
     protected function clearLoginAttempts(Request $request)
     {
-        app(RateLimiter::class)->clear(
-            $this->getThrottleKey($request)
-        );
+        $this->limiter()->clear($this->throttleKey($request));
+    }
+
+    /**
+     * Fire an event when a lockout occurs.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return void
+     */
+    protected function fireLockoutEvent(Request $request)
+    {
+        event(new Lockout($request));
     }
 
     /**
@@ -101,28 +83,38 @@ trait ThrottlesLogins
      * @param  \Illuminate\Http\Request  $request
      * @return string
      */
-    protected function getThrottleKey(Request $request)
+    protected function throttleKey(Request $request)
     {
-        return mb_strtolower($request->input($this->loginUsername())).'|'.$request->ip();
+        return Str::lower($request->input($this->username())).'|'.$request->ip();
     }
 
     /**
-     * Get the maximum number of login attempts for delaying further attempts.
+     * Get the rate limiter instance.
      *
-     * @return int
+     * @return \Illuminate\Cache\RateLimiter
      */
-    protected function maxLoginAttempts()
+    protected function limiter()
     {
-        return property_exists($this, 'maxLoginAttempts') ? $this->maxLoginAttempts : 5;
+        return app(RateLimiter::class);
     }
 
     /**
-     * The number of seconds to delay further login attempts.
+     * Get the maximum number of attempts to allow.
      *
      * @return int
      */
-    protected function lockoutTime()
+    public function maxAttempts()
     {
-        return property_exists($this, 'lockoutTime') ? $this->lockoutTime : 60;
+        return property_exists($this, 'maxAttempts') ? $this->maxAttempts : 5;
+    }
+
+    /**
+     * Get the number of minutes to throttle for.
+     *
+     * @return int
+     */
+    public function decayMinutes()
+    {
+        return property_exists($this, 'decayMinutes') ? $this->decayMinutes : 1;
     }
 }

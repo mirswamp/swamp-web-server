@@ -12,7 +12,7 @@
 */
 
 $app = new Illuminate\Foundation\Application(
-	realpath(__DIR__.'/../')
+    realpath(__DIR__.'/../')
 );
 
 /*
@@ -27,19 +27,31 @@ $app = new Illuminate\Foundation\Application(
 */
 
 $app->singleton(
-	'Illuminate\Contracts\Http\Kernel',
-	'App\Http\Kernel'
+    Illuminate\Contracts\Http\Kernel::class,
+    App\Http\Kernel::class
 );
 
 $app->singleton(
-	'Illuminate\Contracts\Console\Kernel',
-	'App\Console\Kernel'
+    Illuminate\Contracts\Console\Kernel::class,
+    App\Console\Kernel::class
 );
 
 $app->singleton(
-	'Illuminate\Contracts\Debug\ExceptionHandler',
-	'App\Exceptions\Handler'
+    Illuminate\Contracts\Debug\ExceptionHandler::class,
+    App\Exceptions\Handler::class
 );
+
+// From http://stackoverflow.com/a/34084376, set log file not world-readable
+//
+$app->configureMonologUsing(function(Monolog\Logger $monolog) {
+
+	// Rely on built-in filename handler to append 2016-10-01 to log filename
+	//
+	$filename = storage_path('/logs/laravel.log');
+	$handler = new Monolog\Handler\RotatingFileHandler($filename, 0, \Monolog\Logger::DEBUG, true, 0660);
+	$handler->setFormatter(new \Monolog\Formatter\LineFormatter(null, null, true, true));
+	$monolog->pushHandler($handler);
+});
 
 /*
 |--------------------------------------------------------------------------

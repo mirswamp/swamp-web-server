@@ -28,11 +28,19 @@ class StringUtils {
 	//
 
 	public static function startsWith($haystack, $needle) {
+		if (!$haystack || !$needle) {
+			return false;
+		}
+		
 		$length = strlen($needle);
 		return (substr($haystack, 0, $length) === $needle);
 	}
 
-	public static function endsWith($haystack, $needle) {	
+	public static function endsWith($haystack, $needle) {
+		if (!$haystack || !$needle) {
+			return false;
+		}
+
 		$length = strlen($needle);
 		if ($length == 0) {
 			return true;

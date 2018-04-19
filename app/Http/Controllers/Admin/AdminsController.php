@@ -33,7 +33,7 @@ class AdminsController extends BaseController {
 	//
 	public function getIndex($userUid) {
 		$userAccount = UserAccount::where('user_uid', '=', $userUid)->first();
-		if ($userAccount->admin_flag == 1) {
+		if ($userAccount->admin_flag) {
 			return $userAccount;
 		} else {
 			return response('User is not an administrator.', 401);
@@ -45,7 +45,7 @@ class AdminsController extends BaseController {
 	public function getAll() {
 		$admins = UserAccount::where('admin_flag', '=', 1)->get();
 		$users = new Collection;
-		foreach( $admins as $admin ) {
+		foreach ($admins as $admin) {
 			$user = User::getIndex($admin->user_uid);
 			if ($user) {
 				$users[] = $user;
@@ -64,7 +64,7 @@ class AdminsController extends BaseController {
 
 		// update attributes
 		//
-		$userAccount->admin_flag = 0;
+		$userAccount->admin_flag = false;
 
 		// save and return changes
 		//
@@ -77,12 +77,18 @@ class AdminsController extends BaseController {
 	//
 	public function deleteIndex($userUid) {
 		$userAccount = UserAccount::where('user_uid', '=', $userUid)->first();
-		$userAccount->admin_flag = 0;
+		$userAccount->admin_flag = false;
 		$userAccount->save();
 		return $userAccount;
 	}
 
 	public function sendEmail() {
+
+		// parse parameters
+		//
+		$subject = Input::get('subject');
+		$body = Input::get('body');
+		$recipients = Input::get('recipients');
 
 		// return if email is not enabled
 		//
@@ -90,28 +96,23 @@ class AdminsController extends BaseController {
 			return response('Email has not been enabled.', 400);
 		}
 
-		if (!Input::has('subject')) {
+		if (!$subject) {
 			return response('Missing subject field.', 400);
-		} elseif (!Input::has('body')) {
+		} elseif (!$body) {
 			return response('Missing body field.', 400);
-		} elseif (!Input::has('recipients')) {
+		} elseif (!$recipients) {
 			return response('Missing recipients field.', 400);
 		}
 
-		$this->subject = Input::get('subject');
-		$body = Input::get('body');
-
+		$this->subject = $subject;
 		if (($this->subject == '') || ($body == '')) {
 			return response('The email subject and body fields must not be empty.', 400);
 		}
-
-		$recipients = Input::get('recipients');
-		if (sizeof( $recipients) < 1) {
+		if (sizeof($recipients) < 1) {
 			return response('The email must have at least one recipient.', 400);	
 		}
 
 		$failures = new Collection();
-
 		foreach ($recipients as $email) {
 			$user = User::getByEmail($email);
 			if (!$user) {

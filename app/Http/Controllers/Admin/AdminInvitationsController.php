@@ -32,17 +32,27 @@ class AdminInvitationsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		if (Input::has('invitee_uid')) {
+
+		// parse parameters
+		//
+		$inviterUid = Input::get('inviter_uid');
+		$inviteeUid = Input::get('invitee_uid');
+		$inviteeName = Input::get('invitee_name');
+		$confirmRoute = Input::get('confirm_route');
+
+		// create invitation(s)
+		//
+		if ($inviteeUid) {
 
 			// create a single admin invitation
 			//
 			$adminInvitation = new AdminInvitation([
 				'invitation_key' => Guid::create(),
-				'inviter_uid' => Input::get('inviter_uid'),
-				'invitee_uid' => Input::get('invitee_uid'),
+				'inviter_uid' => $inviterUid,
+				'invitee_uid' => $inviteeUid,
 			]);
 			$adminInvitation->save();
-			$adminInvitation->send(Input::get('invitee_name'), Input::get('confirm_route'));
+			$adminInvitation->send($inviteeName, $confirmRoute);
 			return $adminInvitation;
 		} else {
 
@@ -143,6 +153,11 @@ class AdminInvitationsController extends BaseController {
 	//
 	public function updateIndex($invitationKey) {
 
+		// parse parameters
+		//
+		$inviterUid = Input::get('inviter_uid');
+		$inviteeUid = Input::get('invitee_uid');
+
 		// get model
 		//
 		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
@@ -150,8 +165,8 @@ class AdminInvitationsController extends BaseController {
 		// update attributes
 		//
 		$adminInvitation->invitation_key = $invitationKey;
-		$adminInvitation->inviter_uid = Input::get('inviter_uid');
-		$adminInvitation->invitee_uid = Input::get('invitee_uid');
+		$adminInvitation->inviter_uid = $inviterUid;
+		$adminInvitation->invitee_uid = $inviteeUid;
 
 		// save and return changes
 		//
@@ -174,7 +189,7 @@ class AdminInvitationsController extends BaseController {
 			// update user account
 			//
 			$userAccount = UserAccount::where('user_uid', '=', $adminInvitation->invitee_uid)->first();
-			$userAccount->admin_flag = 1;
+			$userAccount->admin_flag = true;
 			$userAccount->save();
 			
 			return response()->json([

@@ -28,6 +28,7 @@ class UserAccount extends UserStamped {
 	//
 	protected $table = 'user_account';
 	protected $primaryKey = 'user_uid';
+	public $incrementing = false;
 
 	// mass assignment policy
 	//
@@ -59,6 +60,19 @@ class UserAccount extends UserStamped {
 		'ultimate_login_date', 
 		'penultimate_login_date',
 		'promo_code_id'
+	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'enabled_flag' => 'boolean',
+		'admin_flag' => 'boolean',
+		'email_verified_flag' => 'boolean',
+		'forcepwreset_flag' => 'boolean',
+		'hibernate_flag' => 'boolean',
+		'ldap_profile_update_date' => 'datetime',
+		'ultimate_login_date' => 'datetime',
+		'penultimate_login_date' => 'datetime'
 	];
 
 	//

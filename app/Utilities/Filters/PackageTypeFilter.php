@@ -27,10 +27,13 @@ use App\Models\Packages\PackageType;
 class PackageTypeFilter {
 	static function apply($query) {
 
-		// check for package type
+		// parse parameters
 		//
-		$type = Input::get('type');
-		if ($type != '') {
+		$type = Input::get('type', null);
+
+		// add to query
+		//
+		if ($type) {
 			$packageType = PackageType::where('name', '=', $type)->first();
 			if ($packageType) {
 				$query = $query->where('package_type_id', '=', $packageType->package_type_id); 

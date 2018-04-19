@@ -27,6 +27,7 @@ class ProjectMembership extends CreateStamped {
 	//
 	protected $table = 'project_user';
 	protected $primaryKey = 'membership_uid';
+	public $incrementing = false;
 
 	// mass assignment policy
 	//
@@ -46,6 +47,12 @@ class ProjectMembership extends CreateStamped {
 		'admin_flag'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'admin_flag' => 'boolean'
+	];
+	
 	//
 	// querying methods
 	//

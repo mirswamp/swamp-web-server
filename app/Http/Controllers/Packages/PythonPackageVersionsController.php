@@ -28,6 +28,9 @@ class PythonPackageVersionsController extends PackageVersionsController {
 	// get wheel information for new packages
 	//
 	public function getNewPythonWheelInfo() {
+
+		// parse parameters
+		//
 		$dirname = Input::get('dirname');
 
 		// create new package version
@@ -42,6 +45,9 @@ class PythonPackageVersionsController extends PackageVersionsController {
 	// get wheel information for existing packages
 	//
 	public function getPythonWheelInfo($packageVersionUuid) {
+
+		// parse parameters
+		//
 		$dirname = Input::get('dirname');
 
 		// find package version

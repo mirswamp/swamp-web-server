@@ -87,6 +87,12 @@ class AssessmentRun extends UserStamped {
 		'num_execution_records'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'num_execution_records' => 'integer'
+	];
+
 	//
 	// accessor methods
 	//

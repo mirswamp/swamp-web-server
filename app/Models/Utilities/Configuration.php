@@ -20,6 +20,7 @@
 namespace App\Models\Utilities;
 
 use App\Models\BaseModel;
+use App\Models\Users\UserClass;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Request;
 
@@ -30,11 +31,12 @@ class Configuration extends BaseModel {
 	protected $appends = [
 		'email_enabled',
 		'use_promo_code',
+		'classes_enabled',
 		'linked_accounts_enabled',
 		'github_authentication_enabled',
 		'google_authentication_enabled',
 		'ci_logon_authentication_enabled',
-		'api_explorer_enabled',
+		'stats_enabled',
 		'client_ip',
 		'ldap_readonly',
 		'app_password_max'
@@ -50,6 +52,10 @@ class Configuration extends BaseModel {
 
 	public function getUsePromoCodeAttribute() {
 		return config('app.use_promo_code');
+	}
+
+	public function getClassesEnabledAttribute() {
+		return UserClass::exists();
 	}
 
 	public function getLinkedAccountsEnabledAttribute() {
@@ -70,8 +76,8 @@ class Configuration extends BaseModel {
 		return config('app.ci_logon_authentication_enabled');
 	}
 
-	public function getApiExplorerEnabledAttribute() {
-		return config('app.api_explorer_enabled');
+	public function getStatsEnabledAttribute() {
+		return config('app.stats_enabled');
 	}
 
 	public function getClientIpAttribute() {

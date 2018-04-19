@@ -26,10 +26,18 @@ class CreateStamped extends BaseModel {
 	//
 	const CREATED_AT = 'create_date';
 	
+	// array / json conversion whitelist
+	//
 	protected $visible = [
 
 		// timestamp attributes
 		//
 		'create_date'
+	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'create_date' => 'datetime'
 	];
 }

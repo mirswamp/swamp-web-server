@@ -32,6 +32,16 @@ class JavaBytecodePackageVersion extends PackageVersion {
 		return "none";
 	}
 
+	function getBuildInfo() {
+		return [
+			'build_system' => $this->getBuildSystem(),
+			'config_dir' => null,
+			'config_cmd' => null,
+			'build_dir' => null,
+			'build_file' => null
+		];
+	}
+
 	function checkBuildSystem() {
 		return response("Build system ok.", 200);
 	}

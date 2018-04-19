@@ -24,12 +24,24 @@ namespace App\Services;
 
 use App\Models\Viewers\ViewerInstance;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
+use App\Services\HTCondor;
 
 class HTCondorCollector {
+
+	private static $global_trace_logging = false;
+
 	public static function getViewerData($proxyUrl) {
 		$retval = "";
+		$command = HTCondor::get_condor_env_command() . "condor_status ";
 		$HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');
-		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_viewer_vmip SWAMP_vmu_viewer_projectid -constraint SWAMP_vmu_viewer_url_uuid==\\\"$proxyUrl\\\"";
+		if (! preg_match('/localhost/', $HTCONDOR_COLLECTOR_HOST)) {
+			$command .= "-pool $HTCONDOR_COLLECTOR_HOST ";
+		}
+		$command .= "-any -af:V, SWAMP_vmu_viewer_vmip SWAMP_vmu_viewer_projectid -constraint SWAMP_vmu_viewer_url_uuid==\\\"$proxyUrl\\\"";
+		if (self::$global_trace_logging) {
+			Log::info("getViewerData command: $command");
+		}
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
 			$retval = preg_split("/,/", $output[0]);
@@ -44,7 +56,14 @@ class HTCondorCollector {
 	public static function getViewerInstance($viewerInstanceUuid) {
 	    $instance = new ViewerInstance();
         $HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');
-        $command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_viewer_state SWAMP_vmu_viewer_status SWAMP_vmu_viewer_url_uuid -constraint SWAMP_vmu_viewer_instance_uuid==\\\"$viewerInstanceUuid\\\"";
+        $command = HTCondor::get_condor_env_command() . "condor_status ";
+		if (! preg_match('/localhost/', $HTCONDOR_COLLECTOR_HOST)) {
+			$command .= "-pool $HTCONDOR_COLLECTOR_HOST ";
+		}
+		$command .= "-any -af:V, SWAMP_vmu_viewer_state SWAMP_vmu_viewer_status SWAMP_vmu_viewer_url_uuid -constraint SWAMP_vmu_viewer_instance_uuid==\\\"$viewerInstanceUuid\\\"";
+		if (self::$global_trace_logging) {
+			Log::info("getViewerInstance command: $command");
+		}
         exec($command, $output, $returnVar);
         if (($returnVar == 0) && (! empty($output))) {
 			list($state, $status, $proxy_url) = explode(', ', $output[0]);
@@ -57,7 +76,14 @@ class HTCondorCollector {
 
 	public static function insertStatuses($result) {
 		$HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');  
-		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, Name SWAMP_vmu_assessment_status -constraint \"isString(SWAMP_vmu_assessment_status)\"";
+		$command = HTCondor::get_condor_env_command() . "condor_status ";
+		if (! preg_match('/localhost/', $HTCONDOR_COLLECTOR_HOST)) {
+			$command .= "-pool $HTCONDOR_COLLECTOR_HOST ";
+		}
+		$command .= "-any -af:V, Name SWAMP_vmu_assessment_status -constraint \"isString(SWAMP_vmu_assessment_status)\"";
+		if (self::$global_trace_logging) {
+			Log::info("insertStatuses command: $command");
+		}
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
 			$condorResult = [];
@@ -83,7 +109,14 @@ class HTCondorCollector {
 		}
 		$condorResult = null;
 		$HTCONDOR_COLLECTOR_HOST = config('app.htcondorcollectorhost');  
-		$command = "condor_status -pool $HTCONDOR_COLLECTOR_HOST -any -af:V, SWAMP_vmu_assessment_status -constraint \"(strcmp(Name, \\\"$executionRecordUuid\\\") == 0)\"";
+		$command = HTCondor::get_condor_env_command() . "condor_status ";
+		if (! preg_match('/localhost/', $HTCONDOR_COLLECTOR_HOST)) {
+			$command .= "-pool $HTCONDOR_COLLECTOR_HOST ";
+		}
+		$command .= "-any -af:V, SWAMP_vmu_assessment_status -constraint \"(strcmp(Name, \\\"$executionRecordUuid\\\") == 0)\"";
+		if (self::$global_trace_logging) {
+			Log::info("insertStatus command: $command");
+		}
 		exec($command, $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
 			$outstr = '';

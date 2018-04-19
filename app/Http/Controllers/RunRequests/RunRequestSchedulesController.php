@@ -30,14 +30,21 @@ class RunRequestSchedulesController extends BaseController {
 	//
 	public function postCreate() {
 
-		if (Input::has('run_request_uuid')) {
+		// parse parameters
+		//
+		$runRequestUuid = Input::get('run_request_uuid', null);
+		$recurranceType = Input::get('recurrence_type', null);
+
+		// create new schedule
+		//
+		if ($runRequestUuid) {
 
 			// create a single model
 			//
 			$runRequestSchedule = new RunRequestSchedule([
 				'run_request_schedule_uuid' => Guid::create(),
-				'run_request_uuid' => Input::get('run_request_uuid'),
-				'recurrence_type' => Input::get('recurrence_type')
+				'run_request_uuid' => $runRquestUuid,
+				'recurrence_type' => $recurranceType
 			]);
 
 			// set optional attributes
@@ -99,13 +106,17 @@ class RunRequestSchedulesController extends BaseController {
 	//
 	public function updateIndex($runRequestScheduleUuid) {
 
+		// parse parameters
+		//
+		$runRequestUuid = Input::get('run_request_uuid');
+
 		// get model
 		//
 		$runRequestSchedule = $this->getIndex($runRequestScheduleUuid);
 
 		// update attributes
 		//
-		$runRequestSchedule->run_request_uuid = Input::get('run_request_uuid');
+		$runRequestSchedule->run_request_uuid = $runRequestUuid;
 
 		// set optional attributes
 		//
@@ -126,7 +137,13 @@ class RunRequestSchedulesController extends BaseController {
 	// update multiple
 	//
 	public function updateMultiple() {
+
+		// parse parameters
+		//
 		$inputs = Input::all();
+
+		// update schedules
+		//
 		$collection = new Collection;
 		for ($i = 0; $i < sizeOf($inputs); $i++) {
 

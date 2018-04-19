@@ -43,7 +43,7 @@ class UserPoliciesController extends BaseController {
 		//
 		$policy = Policy::where('policy_code','=', $policyCode)->first();
 		$user = User::getIndex($userUid);
-		$acceptFlag = Input::has('accept_flag');
+		$acceptFlag = filter_var(Input::get('accept_flag', null), FILTER_VALIDATE_BOOLEAN);
 
 		// check inputs
 		//

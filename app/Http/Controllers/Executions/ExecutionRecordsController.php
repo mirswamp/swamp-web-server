@@ -277,8 +277,13 @@ class ExecutionRecordsController extends BaseController {
 	//
 	public function killIndex($executionRecordUuid) {
 		$user = User::getIndex(session('user_uid'));
+
+		// parse parameters
+		//
 		$type = Input::get('type'); 
 
+		// check permissions
+		//
 		switch ($type) {
 
 			case 'execrunuid':

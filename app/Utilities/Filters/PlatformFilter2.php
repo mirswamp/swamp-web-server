@@ -28,17 +28,19 @@ use App\Models\Platforms\PlatformVersion;
 class PlatformFilter2 {
 	static function apply($query) {
 
-		// check for platform name
+		// parse parameters
 		//
-		$platformName = Input::get('platform_name');
-		if ($platformName != '') {
-			$query = $query->where('platform_name', '=', $platformName);
-		}
+		$platformName = Input::get('platform_name', null);
+		$platformUuid = Input::get('platform_uuid', null);
+		$platformVersion = Input::get('platform_version', null);
+		$platformVersionUuid = Input::get('platform_version_uuid', null);
 
-		// check for platform uuid
+		// add platform to query
 		//
-		$platformUuid = Input::get('platform_uuid');
-		if ($platformUuid != '') {
+		if ($platformName) {
+			$query = $query->where('platform_name', '=', $platformName);
+		}	
+		if ($platformUuid) {
 			$platformVersions = PlatformVersion::where('platform_uuid', '=', $platformUuid)->get();
 			$query = $query->where(function($query) use ($platformVersions) {
 				for ($i = 0; $i < sizeof($platformVersions); $i++) {
@@ -51,29 +53,24 @@ class PlatformFilter2 {
 			});
 		}
 
-		// check for platform version
+		// add platform version to query
 		//
-		$platformVersion = Input::get('platform_version');
 		if ($platformVersion == 'latest') {
 			$platform = Platform::where('platform_uuid', '=', $platformUuid)->first();
 			if ($platform) {
 				$latestVersion = $platform->getLatestVersion();
 				$query = $query->where('platform_version_uuid', '=', $latestVersion->platform_version_uuid);
 			}
-		} else if ($platformVersion != '') {
+		} else if ($platformVersion) {
 			$query = $query->where('platform_version_uuid', '=', $platformVersion);
 		}
-
-		// check for platform version uuid
-		//
-		$platformVersionUuid = Input::get('platform_version_uuid');
 		if ($platformVersionUuid == 'latest') {
 			$platform = Platform::where('platform_uuid', '=', $platformUuid)->first();
 			if ($platform) {
 				$latestVersion = $platform->getLatestVersion();
 				$query = $query->where('platform_version_uuid', '=', $latestVersion->platform_version_uuid);
 			}
-		} else if ($platformVersionUuid != '') {
+		} else if ($platformVersionUuid) {
 			$query = $query->where('platform_version_uuid', '=', $platformVersionUuid);
 		}
 

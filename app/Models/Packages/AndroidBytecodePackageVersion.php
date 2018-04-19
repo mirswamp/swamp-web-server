@@ -32,6 +32,16 @@ class AndroidBytecodePackageVersion extends JavaBytecodePackageVersion {
 		return 'android-apk';
 	}
 
+	function getBuildInfo() {
+		return [
+			'build_system' => $this->getBuildSystem(),
+			'config_dir' => null,
+			'config_cmd' => null,
+			'build_dir' => null,
+			'build_file' => null
+		];
+	}
+
 	function checkBuildSystem() {
 		response("Android bytecode package version is ok for APK.", 200);
 	}

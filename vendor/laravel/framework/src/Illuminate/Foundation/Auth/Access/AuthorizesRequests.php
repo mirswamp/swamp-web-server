@@ -2,26 +2,25 @@
 
 namespace Illuminate\Foundation\Auth\Access;
 
+use Illuminate\Support\Str;
 use Illuminate\Contracts\Auth\Access\Gate;
-use Illuminate\Auth\Access\UnauthorizedException;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 trait AuthorizesRequests
 {
     /**
-     * Authorize a given action against a set of arguments.
+     * Authorize a given action for the current user.
      *
      * @param  mixed  $ability
      * @param  mixed|array  $arguments
      * @return \Illuminate\Auth\Access\Response
      *
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function authorize($ability, $arguments = [])
     {
         list($ability, $arguments) = $this->parseAbilityAndArguments($ability, $arguments);
 
-        return $this->authorizeAtGate(app(Gate::class), $ability, $arguments);
+        return app(Gate::class)->authorize($ability, $arguments);
     }
 
     /**
@@ -32,36 +31,13 @@ trait AuthorizesRequests
      * @param  mixed|array  $arguments
      * @return \Illuminate\Auth\Access\Response
      *
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
+     * @throws \Illuminate\Auth\Access\AuthorizationException
      */
     public function authorizeForUser($user, $ability, $arguments = [])
     {
         list($ability, $arguments) = $this->parseAbilityAndArguments($ability, $arguments);
 
-        $gate = app(Gate::class)->forUser($user);
-
-        return $this->authorizeAtGate($gate, $ability, $arguments);
-    }
-
-    /**
-     * Authorize the request at the given gate.
-     *
-     * @param  \Illuminate\Contracts\Auth\Access\Gate  $gate
-     * @param  mixed  $ability
-     * @param  mixed|array  $arguments
-     * @return \Illuminate\Auth\Access\Response
-     *
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
-     */
-    public function authorizeAtGate(Gate $gate, $ability, $arguments)
-    {
-        try {
-            return $gate->authorize($ability, $arguments);
-        } catch (UnauthorizedException $e) {
-            throw $this->createGateUnauthorizedException(
-                $ability, $arguments, $e->getMessage(), $e
-            );
-        }
+        return app(Gate::class)->forUser($user)->authorize($ability, $arguments);
     }
 
     /**
@@ -73,24 +49,78 @@ trait AuthorizesRequests
      */
     protected function parseAbilityAndArguments($ability, $arguments)
     {
-        if (is_string($ability)) {
+        if (is_string($ability) && strpos($ability, '\\') === false) {
             return [$ability, $arguments];
         }
 
-        return [debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[2]['function'], $ability];
+        $method = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)[2]['function'];
+
+        return [$this->normalizeGuessedAbilityName($method), $ability];
     }
 
     /**
-     * Throw an unauthorized exception based on gate results.
+     * Normalize the ability name that has been guessed from the method name.
      *
      * @param  string  $ability
-     * @param  mixed|array  $arguments
-     * @param  string  $message
-     * @param  \Exception  $previousException
-     * @return \Symfony\Component\HttpKernel\Exception\HttpException
+     * @return string
      */
-    protected function createGateUnauthorizedException($ability, $arguments, $message = 'This action is unauthorized.', $previousException = null)
+    protected function normalizeGuessedAbilityName($ability)
     {
-        return new HttpException(403, $message, $previousException);
+        $map = $this->resourceAbilityMap();
+
+        return $map[$ability] ?? $ability;
+    }
+
+    /**
+     * Authorize a resource action based on the incoming request.
+     *
+     * @param  string  $model
+     * @param  string|null  $parameter
+     * @param  array  $options
+     * @param  \Illuminate\Http\Request|null  $request
+     * @return void
+     */
+    public function authorizeResource($model, $parameter = null, array $options = [], $request = null)
+    {
+        $parameter = $parameter ?: Str::snake(class_basename($model));
+
+        $middleware = [];
+
+        foreach ($this->resourceAbilityMap() as $method => $ability) {
+            $modelName = in_array($method, $this->resourceMethodsWithoutModels()) ? $model : $parameter;
+
+            $middleware["can:{$ability},{$modelName}"][] = $method;
+        }
+
+        foreach ($middleware as $middlewareName => $methods) {
+            $this->middleware($middlewareName, $options)->only($methods);
+        }
+    }
+
+    /**
+     * Get the map of resource methods to ability names.
+     *
+     * @return array
+     */
+    protected function resourceAbilityMap()
+    {
+        return [
+            'show' => 'view',
+            'create' => 'create',
+            'store' => 'create',
+            'edit' => 'update',
+            'update' => 'update',
+            'destroy' => 'delete',
+        ];
+    }
+
+    /**
+     * Get the list of resource methods which do not have model parameters.
+     *
+     * @return array
+     */
+    protected function resourceMethodsWithoutModels()
+    {
+        return ['index', 'create', 'store'];
     }
 }

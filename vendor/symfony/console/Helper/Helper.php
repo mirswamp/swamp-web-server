@@ -23,9 +23,7 @@ abstract class Helper implements HelperInterface
     protected $helperSet = null;
 
     /**
-     * Sets the helper set associated with this helper.
-     *
-     * @param HelperSet $helperSet A HelperSet instance
+     * {@inheritdoc}
      */
     public function setHelperSet(HelperSet $helperSet = null)
     {
@@ -33,9 +31,7 @@ abstract class Helper implements HelperInterface
     }
 
     /**
-     * Gets the helper set associated with this helper.
-     *
-     * @return HelperSet|null
+     * {@inheritdoc}
      */
     public function getHelperSet()
     {
@@ -51,15 +47,29 @@ abstract class Helper implements HelperInterface
      */
     public static function strlen($string)
     {
-        if (!function_exists('mb_strwidth')) {
-            return strlen($string);
-        }
-
         if (false === $encoding = mb_detect_encoding($string, null, true)) {
             return strlen($string);
         }
 
         return mb_strwidth($string, $encoding);
+    }
+
+    /**
+     * Returns the subset of a string, using mb_substr if it is available.
+     *
+     * @param string   $string String to subset
+     * @param int      $from   Start offset
+     * @param int|null $length Length to read
+     *
+     * @return string The string subset
+     */
+    public static function substr($string, $from, $length = null)
+    {
+        if (false === $encoding = mb_detect_encoding($string, null, true)) {
+            return substr($string, $from, $length);
+        }
+
+        return mb_substr($string, $from, $length, $encoding);
     }
 
     public static function formatTime($secs)

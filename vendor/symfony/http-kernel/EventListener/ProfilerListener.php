@@ -11,7 +11,6 @@
 
 namespace Symfony\Component\HttpKernel\EventListener;
 
-use Symfony\Component\HttpKernel\Event\GetResponseEvent;
 use Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent;
 use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
 use Symfony\Component\HttpKernel\Event\PostResponseEvent;
@@ -33,29 +32,19 @@ class ProfilerListener implements EventSubscriberInterface
     protected $onlyException;
     protected $onlyMasterRequests;
     protected $exception;
-    protected $requests = array();
     protected $profiles;
     protected $requestStack;
     protected $parents;
 
     /**
-     * Constructor.
-     *
      * @param Profiler                     $profiler           A Profiler instance
+     * @param RequestStack                 $requestStack       A RequestStack instance
      * @param RequestMatcherInterface|null $matcher            A RequestMatcher instance
-     * @param bool                         $onlyException      true if the profiler only collects data when an exception occurs, false otherwise
-     * @param bool                         $onlyMasterRequests true if the profiler only collects data when the request is a master request, false otherwise
-     * @param RequestStack|null            $requestStack       A RequestStack instance
+     * @param bool                         $onlyException      True if the profiler only collects data when an exception occurs, false otherwise
+     * @param bool                         $onlyMasterRequests True if the profiler only collects data when the request is a master request, false otherwise
      */
-    public function __construct(Profiler $profiler, RequestMatcherInterface $matcher = null, $onlyException = false, $onlyMasterRequests = false, RequestStack $requestStack = null)
+    public function __construct(Profiler $profiler, RequestStack $requestStack, RequestMatcherInterface $matcher = null, $onlyException = false, $onlyMasterRequests = false)
     {
-        if (null === $requestStack) {
-            // Prevent the deprecation notice to be triggered all the time.
-            // The onKernelRequest() method fires some logic only when the
-            // RequestStack instance is not provided as a dependency.
-            @trigger_error('Since version 2.4, the '.__METHOD__.' method must accept a RequestStack instance to get the request instead of using the '.__CLASS__.'::onKernelRequest method that will be removed in 3.0.', E_USER_DEPRECATED);
-        }
-
         $this->profiler = $profiler;
         $this->matcher = $matcher;
         $this->onlyException = (bool) $onlyException;
@@ -67,8 +56,6 @@ class ProfilerListener implements EventSubscriberInterface
 
     /**
      * Handles the onKernelException event.
-     *
-     * @param GetResponseForExceptionEvent $event A GetResponseForExceptionEvent instance
      */
     public function onKernelException(GetResponseForExceptionEvent $event)
     {
@@ -80,19 +67,7 @@ class ProfilerListener implements EventSubscriberInterface
     }
 
     /**
-     * @deprecated since version 2.4, to be removed in 3.0.
-     */
-    public function onKernelRequest(GetResponseEvent $event)
-    {
-        if (null === $this->requestStack) {
-            $this->requests[] = $event->getRequest();
-        }
-    }
-
-    /**
      * Handles the onKernelResponse event.
-     *
-     * @param FilterResponseEvent $event A FilterResponseEvent instance
      */
     public function onKernelResponse(FilterResponseEvent $event)
     {
@@ -119,22 +94,14 @@ class ProfilerListener implements EventSubscriberInterface
 
         $this->profiles[$request] = $profile;
 
-        if (null !== $this->requestStack) {
-            $this->parents[$request] = $this->requestStack->getParentRequest();
-        } elseif (!$master) {
-            // to be removed when requestStack is required
-            array_pop($this->requests);
-
-            $this->parents[$request] = end($this->requests);
-        }
+        $this->parents[$request] = $this->requestStack->getParentRequest();
     }
 
     public function onKernelTerminate(PostResponseEvent $event)
     {
         // attach children to parents
         foreach ($this->profiles as $request) {
-            // isset call should be removed when requestStack is required
-            if (isset($this->parents[$request]) && null !== $parentRequest = $this->parents[$request]) {
+            if (null !== $parentRequest = $this->parents[$request]) {
                 if (isset($this->profiles[$parentRequest])) {
                     $this->profiles[$parentRequest]->addChild($this->profiles[$request]);
                 }
@@ -148,15 +115,11 @@ class ProfilerListener implements EventSubscriberInterface
 
         $this->profiles = new \SplObjectStorage();
         $this->parents = new \SplObjectStorage();
-        $this->requests = array();
     }
 
     public static function getSubscribedEvents()
     {
         return array(
-            // kernel.request must be registered as early as possible to not break
-            // when an exception is thrown in any other kernel.request listener
-            KernelEvents::REQUEST => array('onKernelRequest', 1024),
             KernelEvents::RESPONSE => array('onKernelResponse', -100),
             KernelEvents::EXCEPTION => 'onKernelException',
             KernelEvents::TERMINATE => array('onKernelTerminate', -1024),

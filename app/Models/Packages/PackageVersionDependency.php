@@ -53,4 +53,11 @@ class PackageVersionDependency extends BaseModel {
 		'create_date',
 		'update_date'
 	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'create_date' => 'datetime',
+		'update_date' => 'datetime'
+	];
 }

@@ -46,34 +46,45 @@ class PackagesController extends BaseController {
 	// create
 	//
 	public function postCreate() {
-		if (self::$requireUniquePackageNames) {
 
-			// check for existing package name
-			//
-			$existingPackage = Package::where('name', '=', Input::get('name'))->first();
+		// parse parameters
+		//
+		$name = Input::get('name');
+		$description = Input::get('description');
+		$externalUrl = Input::get('external_url');
+		$packageTypeId = Input::get('package_type_id');
+		$packageLanguage = Input::get('package_language');
+		$packageSharingStatus = Input::get('package_sharing_status');
+
+		// check for existing package name
+		//
+		if (self::$requireUniquePackageNames) {
+			$existingPackage = Package::where('name', '=', $name)->first();
 			if ($existingPackage) {
-				return response('A package named '.Input::get('name').' already exists.  Please rename your package to a unique name and try again.', 500);
+				return response('A package named '.$name.' already exists.  Please rename your package to a unique name and try again.', 500);
 			}
 		}
 
-		// parse package language
+		// convert package language to string
 		//
-		$packageLanguage = Input::get('package_language');
 		if (is_array($packageLanguage)) {
 			$packageLanguage = implode(' ', $packageLanguage);
 		}
 
+		// create new package
+		//
 		$package = new Package([
 			'package_uuid' => Guid::create(),
-			'name' => Input::get('name'),
-			'description' => Input::get('description'),
-			'external_url' => Input::get('external_url'),
-			'package_type_id' => Input::get('package_type_id'),
+			'name' => $name,
+			'description' => $description,
+			'external_url' => $externalUrl,
+			'package_type_id' => $packageTypeId,
 			'package_language' => $packageLanguage,
 			'package_owner_uuid' => session('user_uid'),
-			'package_sharing_status' => Input::get('package_sharing_status')
+			'package_sharing_status' => $packageSharingStatus
 		]);
 		$package->save();
+
 		return $package;
 	}
 
@@ -585,7 +596,13 @@ class PackagesController extends BaseController {
 	// get platforms / platlform versions
 	//
 	public function getPackagePlatforms($packageUuid) {
+
+		// parse parameters
+		//
 		$packageVersionUuid = Input::get('package_version_uuid');
+
+		// get platforms
+		//
 		return PackagePlatform::where('package_uuid', '=', $packageUuid)->
 			where('package_version_uuid', '=', $packageVersionUuid)->get();
 	}
@@ -594,32 +611,41 @@ class PackagesController extends BaseController {
 	//
 	public function updateIndex($packageUuid) {
 
+		// parse parameters
+		//
+		$name = Input::get('name');
+		$description = Input::get('description');
+		$externalUrl = Input::get('external_url');
+		$packageTypeId = Input::get('package_type_id');
+		$packageOwnerUuid = Input::get('package_owner_uuid', null);
+		$packageSharingStatus = Input::get('package_sharing_status');
+
 		// get model
 		//
 		$package = $this->getIndex($packageUuid);
 
 		// check if name has changed
 		//
-		if (Input::get('name') != $package->name) {
+		if ($name != $package->name) {
 			if (self::$requireUniquePackageNames) {
 
 				// check new name against existing package names
 				//
-				$existingPackage = Package::where('name', '=', Input::get('name'))->first();
-				if ($existingPackage && ($existingPackage->package_uuid != Input::get('package_uuid'))) {
-					return response('A package named '.Input::get('name').' already exists.  Please rename your package to a unique name and try again.', 500);
+				$existingPackage = Package::where('name', '=', $name)->first();
+				if ($existingPackage && ($existingPackage->package_uuid != $packageUuid)) {
+					return response('A package named '.$name.' already exists.  Please rename your package to a unique name and try again.', 500);
 				}
 			}
 		}
 
 		// update attributes
 		//
-		$package->name = Input::get('name');
-		$package->description = Input::get('description');
-		$package->external_url = Input::get('external_url');
-		$package->package_type_id = Input::get('package_type_id');
-		$package->package_owner_uuid = Input::has('package_owner_uuid') ? Input::get('package_owner_uuid') : $package->package_owner_uuid;
-		$package->package_sharing_status = Input::get('package_sharing_status');
+		$package->name = $name;
+		$package->description = $description;
+		$package->external_url = $externalUrl;
+		$package->package_type_id = $packageTypeId;
+		$package->package_owner_uuid = $packageOwnerUuid ? $packageOwnerUuid : $package->package_owner_uuid;
+		$package->package_sharing_status = $packageSharingStatus;
 
 		// save and return changes
 		//
@@ -632,6 +658,10 @@ class PackagesController extends BaseController {
 	//
 	public function updateSharing($packageUuid) {
 
+		// parse parameters
+		//
+		$projectUuids = Input::get('project_uuids');
+
 		// remove previous sharing
 		//
 		$packageSharings = PackageSharing::where('package_uuid', '=', $packageUuid)->get();
@@ -642,7 +672,6 @@ class PackagesController extends BaseController {
 
 		// create new sharing
 		//
-		$projectUuids = Input::get('project_uuids');
 		$packageSharings = new Collection;
 		foreach ($projectUuids as $projectUuid) {
 			$packageSharing = new PackageSharing([
@@ -651,22 +680,7 @@ class PackagesController extends BaseController {
 			]);
 			$packageSharing->save();
 			$packageSharings[] = $packageSharing;
-		}	
-
-		/*
-		$projects = Input::get('projects');
-		$packageSharings = new Collection;
-		for ($i = 0; $i < sizeOf($projects); $i++) {
-			$project = $projects[$i];
-			$projectUid = $project['project_uid'];
-			$packageSharing = new PackageSharing([
-				'package_uuid' => $packageUuid,
-				'project_uuid' => $projectUuid
-			]);
-			$packageSharing->save();
-			$packageSharings->push($packageSharing);
 		}
-		*/
 
 		return $packageSharings;
 	}

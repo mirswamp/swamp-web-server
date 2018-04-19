@@ -48,4 +48,12 @@ class LinkedAccountProvider extends CreateStamped {
 		'create_user',
 		'update_user'
 	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'enabled_flag' => 'boolean',
+		'create_date' => 'datetime',
+		'update_date' => 'datetime'
+	];
 }

@@ -44,22 +44,33 @@ class ToolsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$name = Input::get('name');
+		$toolOwnerUuid = Input::get('tool_owner_uuid');
+		$isBuildNeeded = filter_var(Input::get('is_build_needed'), FILTER_VALIDATE_BOOLEAN);
+		$toolSharingStatus = Input::get('tool_sharing_status');
+
+		// create new tool
+		//
 		$tool = new Tool([
 			'tool_uuid' => Guid::create(),
-			'name' => Input::get('name'),
-			'tool_owner_uuid' => Input::get('tool_owner_uuid'),
-			'is_build_needed' => Input::get('is_build_needed'),
-			'tool_sharing_status' => Input::get('tool_sharing_status')
+			'name' => $name,
+			'tool_owner_uuid' => $toolOwnerUuid,
+			'is_build_needed' => $isBuildNeeded,
+			'tool_sharing_status' => $toolSharingStatus
 		]);
 		$tool->save();
+
 		return $tool;
 	}
 
 	// get all for admin user
 	//
-	public function getAll(){
+	public function getAll() {
 		$user = User::getIndex(session('user_uid'));
-		if ($user && $user->isAdmin()){
+		if ($user && $user->isAdmin()) {
 			$toolsQuery = Tool::orderBy('create_date', 'DESC');
 
 			// add filters
@@ -231,7 +242,13 @@ class ToolsController extends BaseController {
 	// get versions
 	//
 	public function getVersions($toolUuid) {
+
+		// parse parameters
+		//
 		$packageTypeName = Input::get('package-type');
+
+		// get tool versioins
+		//
 		if (!$packageTypeName) {
 
 			// return all tool versions associated with this tool
@@ -287,18 +304,18 @@ class ToolsController extends BaseController {
 	//
 	public function getToolPermissionStatus( $toolUuid ) {
 
-		// get parameters
+		// parse parameters
 		//
-		$packageUuid = Input::get('package_uuid');
-		$projectUid = Input::get('project_uid');
-		$userUid = Input::get('user_uid');
+		$packageUuid = Input::get('package_uuid', null);
+		$projectUid = Input::get('project_uid', null);
+		$userUid = Input::get('user_uid', null);
 
 		// fetch models
 		//
 		$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
-		$package = Input::has('package_uuid') ? Package::where('package_uuid','=', $packageUuid)->first() : null;
-		$project = Input::has('project_uid') ? Project::where('project_uid','=', $projectUid)->first() : null;
-		$user = Input::has('user_uid') ? User::getIndex($userUid) : User::getIndex(session('user_uid'));
+		$package = $packageUuid? Package::where('package_uuid','=', $packageUuid)->first() : null;
+		$project = $projectUid? Project::where('project_uid','=', $projectUid)->first() : null;
+		$user = $userUid ? User::getIndex($userUid) : User::getIndex(session('user_uid'));
 
 		// check models
 		//
@@ -330,18 +347,25 @@ class ToolsController extends BaseController {
 	//
 	public function updateIndex($toolUuid) {
 
+		// parse parameters
+		//
+		$name = Input::get('name');
+		$toolOwnerUuid = Input::get('tool_owner_uuid');
+		$isBuildNeeded = filter_var(Input::get('is_build_needed'), FILTER_VALIDATE_BOOLEAN);
+		$toolSharingStatus = Input::get('tool_sharing_status');
+
 		// get model
 		//
 		$tool = $this->getIndex($toolUuid);
 
 		// update attributes
 		//
-		$tool->name = Input::get('name');
-		if (Input::get('tool_owner_uuid')) {
-			$tool->tool_owner_uuid = Input::get('tool_owner_uuid');	
+		$tool->name = $name;
+		if ($toolOwnerUuid) {
+			$tool->tool_owner_uuid = $toolOwnerUuid;	
 		}
-		$tool->is_build_needed = Input::get('is_build_needed');
-		$tool->tool_sharing_status = Input::get('tool_sharing_status');
+		$tool->is_build_needed = $isBuildNeeded;
+		$tool->tool_sharing_status = $toolSharingStatus;
 
 		// save and return changes
 		//
@@ -354,6 +378,10 @@ class ToolsController extends BaseController {
 	//
 	public function updateSharing($toolUuid) {
 
+		// parse parameters
+		//
+		$projects = Input::get('projects');
+
 		// remove previous sharing
 		//
 		$toolSharings = ToolSharing::where('tool_uuid', '=', $toolUuid)->get();
@@ -364,7 +392,7 @@ class ToolsController extends BaseController {
 
 		// create new sharing
 		//
-		$input = Input::get('projects');
+		$input = $projects;
 		$toolSharings = new Collection;
 		for ($i = 0; $i < sizeOf($input); $i++) {
 			$project = $input[$i];

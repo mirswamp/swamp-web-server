@@ -3,10 +3,16 @@
 namespace Illuminate\Validation;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Contracts\Validation\ValidatesWhenResolved;
 
 class ValidationServiceProvider extends ServiceProvider
 {
+    /**
+     * Indicates if loading of the provider is deferred.
+     *
+     * @var bool
+     */
+    protected $defer = true;
+
     /**
      * Register the service provider.
      *
@@ -14,23 +20,9 @@ class ValidationServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->registerValidationResolverHook();
-
         $this->registerPresenceVerifier();
 
         $this->registerValidationFactory();
-    }
-
-    /**
-     * Register the "ValidatesWhenResolved" container hook.
-     *
-     * @return void
-     */
-    protected function registerValidationResolverHook()
-    {
-        $this->app->afterResolving(function (ValidatesWhenResolved $resolved) {
-            $resolved->validate();
-        });
     }
 
     /**
@@ -43,10 +35,10 @@ class ValidationServiceProvider extends ServiceProvider
         $this->app->singleton('validator', function ($app) {
             $validator = new Factory($app['translator'], $app);
 
-            // The validation presence verifier is responsible for determining the existence
-            // of values in a given data collection, typically a relational database or
-            // other persistent data stores. And it is used to check for uniqueness.
-            if (isset($app['validation.presence'])) {
+            // The validation presence verifier is responsible for determining the existence of
+            // values in a given data collection which is typically a relational database or
+            // other persistent data stores. It is used to check for "uniqueness" as well.
+            if (isset($app['db'], $app['validation.presence'])) {
                 $validator->setPresenceVerifier($app['validation.presence']);
             }
 
@@ -64,5 +56,17 @@ class ValidationServiceProvider extends ServiceProvider
         $this->app->singleton('validation.presence', function ($app) {
             return new DatabasePresenceVerifier($app['db']);
         });
+    }
+
+    /**
+     * Get the services provided by the provider.
+     *
+     * @return array
+     */
+    public function provides()
+    {
+        return [
+            'validator', 'validation.presence',
+        ];
     }
 }

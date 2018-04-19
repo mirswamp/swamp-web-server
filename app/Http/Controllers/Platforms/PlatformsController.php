@@ -36,13 +36,23 @@ class PlatformsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$name = Input::get('name');
+		$platformOwnerUuid = Input::get('platform_owner_uuid');
+		$platformSharingStatus = Input::get('platform_sharing_status');
+
+		// create new platform
+		//
 		$platform = new Platform([
 			'platform_uuid' => Guid::create(),
-			'name' => Input::get('name'),
-			'platform_owner_uuid' => Input::get('platform_owner_uuid'),
-			'platform_sharing_status' => Input::get('platform_sharing_status')
+			'name' => $name,
+			'platform_owner_uuid' => $platformOwnerUuid,
+			'platform_sharing_status' => $platformSharingStatus
 		]);
 		$platform->save();
+
 		return $platform;
 	}
 	
@@ -150,15 +160,21 @@ class PlatformsController extends BaseController {
 	//
 	public function updateIndex($platformUuid) {
 
+		// parse parameters
+		//
+		$name = Input::get('name');
+		$platformOwnerUuid = Input::get('platform_owner_uuid');
+		$platformSharingStatus = Input::get('platform_sharing_status');
+
 		// get model
 		//
 		$platform = $this->getIndex($platformUuid);
 
 		// update attributes
 		//
-		$platform->name = Input::get('name');
-		$platform->platform_owner_uuid = Input::get('platform_owner_uuid');
-		$platform->platform_sharing_status = Input::get('platform_sharing_status');
+		$platform->name = $name;
+		$platform->platform_owner_uuid = $platformOwnerUuid;
+		$platform->platform_sharing_status = $platformSharingStatus;
 
 		// save and return changes
 		//

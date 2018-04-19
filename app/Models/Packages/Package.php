@@ -69,12 +69,19 @@ class Package extends UserStamped {
 
 	// array / json appended model attributes
 	//
-	protected $appends = [
+	public $appends = [
 		'is_owned',
 		'external_url',
 		'package_type',
 		'version_strings',
 		'platform_user_selectable'
+	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'is_owned' => 'boolean',
+		'platform_user_selectable' => 'boolean'
 	];
 
 	//
@@ -138,54 +145,61 @@ class Package extends UserStamped {
 	}
 
 	public function getLatestVersion($projectUuid) {
-		if (!strpos($projectUuid, '+')) {
+		if (!$projectUuid) {
 
-			// get by a single project
+			// get package version associated with any project
 			//
-			$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid)
-				->where(function($query0) use ($projectUuid) {
-					$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
-					->orWhere(function($query1) use ($projectUuid) {
-						$query1->whereRaw("upper(version_sharing_status)='PROTECTED'")
-						->whereExists(function($query2) use ($projectUuid) {
-							$query2->select('package_version_uuid')->from('package_store.package_version_sharing')
-							->whereRaw('package_store.package_version_sharing.package_version_uuid=package_version_uuid')
-							->where('package_store.package_version_sharing.project_uuid', '=', $projectUuid);
+			$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid);
+		} else {
+			if (!strpos($projectUuid, '+')) {
+
+				// get by a single project
+				//
+				$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid)
+					->where(function($query0) use ($projectUuid) {
+						$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
+						->orWhere(function($query1) use ($projectUuid) {
+							$query1->whereRaw("upper(version_sharing_status)='PROTECTED'")
+							->whereExists(function($query2) use ($projectUuid) {
+								$query2->select('package_version_uuid')->from('package_store.package_version_sharing')
+								->whereRaw('package_store.package_version_sharing.package_version_uuid=package_version_uuid')
+								->where('package_store.package_version_sharing.project_uuid', '=', $projectUuid);
+							});
 						});
 					});
-				});
-		} else {
+			} else {
 
-			// get by multiple projects
-			//
-			$projectUuids = explode('+', $projectUuid);
-			foreach ($projectUuids as $projectUuid) {
-				if (!isset($assessmentRunsQuery)) {
-					$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid)
-						->where(function($query0) use ($projectUuid) {
-							$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
-							->orWhere(function($query1) use ($projectUuid) {
-								$query1->whereRaw("upper(version_sharing_status)='PROTECTED'")
-								->whereExists(function($query2) use ($projectUuid) {
-									$query2->select('package_version_uuid')->from('package_store.package_version_sharing')
-									->whereRaw('package_store.package_version_sharing.package_version_uuid=package_version_uuid')
-									->where('package_store.package_version_sharing.project_uuid', '=', $projectUuid);
+				// get by multiple projects
+				//
+				$projectUuids = explode('+', $projectUuid);
+				foreach ($projectUuids as $projectUuid) {
+					if (!isset($assessmentRunsQuery)) {
+						$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid)
+							->where(function($query0) use ($projectUuid) {
+								$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
+								->orWhere(function($query1) use ($projectUuid) {
+									$query1->whereRaw("upper(version_sharing_status)='PROTECTED'")
+									->whereExists(function($query2) use ($projectUuid) {
+										$query2->select('package_version_uuid')->from('package_store.package_version_sharing')
+										->whereRaw('package_store.package_version_sharing.package_version_uuid=package_version_uuid')
+										->where('package_store.package_version_sharing.project_uuid', '=', $projectUuid);
+									});
 								});
 							});
-						});
-				} else {
-					$packageVersionQuery = $packageVersionQuery->orWhere('package_uuid', '=', $this->package_uuid)
-						->where(function($query0) use ($projectUuid) {
-							$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
-							->orWhere(function($query1) use ($projectUuid) {
-								$query1->whereRaw("upper(version_sharing_status)='PROTECTED'")
-								->whereExists(function($query2) use ($projectUuid) {
-									$query2->select('package_version_uuid')->from('package_store.package_version_sharing')
-									->whereRaw('package_store.package_version_sharing.package_version_uuid=package_version_uuid')
-									->where('package_store.package_version_sharing.project_uuid', '=', $projectUuid);
+					} else {
+						$packageVersionQuery = $packageVersionQuery->orWhere('package_uuid', '=', $this->package_uuid)
+							->where(function($query0) use ($projectUuid) {
+								$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
+								->orWhere(function($query1) use ($projectUuid) {
+									$query1->whereRaw("upper(version_sharing_status)='PROTECTED'")
+									->whereExists(function($query2) use ($projectUuid) {
+										$query2->select('package_version_uuid')->from('package_store.package_version_sharing')
+										->whereRaw('package_store.package_version_sharing.package_version_uuid=package_version_uuid')
+										->where('package_store.package_version_sharing.project_uuid', '=', $projectUuid);
+									});
 								});
 							});
-						});
+					}
 				}
 			}
 		}

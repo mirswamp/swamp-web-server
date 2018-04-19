@@ -27,6 +27,7 @@ class Group extends CreateStamped {
 	protected $connection = 'assessment';
 	protected $table = 'group_list';
 	protected $primaryKey = 'group_uuid';
+	public $incrementing = false;
 
 	// mass assignment policy
 	//

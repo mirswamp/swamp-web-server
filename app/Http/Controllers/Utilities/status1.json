@@ -1,0 +1,245 @@
+{  
+   "Condor Queue":{  
+      "swa-csasub-dd-01.mirsam.org":{  
+         "fieldnames":[  
+            "EXECRUNUID",
+            "CMD",
+            "SUBMITTED",
+            "RUN TIME",
+            "ST",
+            "PRI",
+            "IMAGE",
+            "DISK",
+            "HOST",
+            "VM"
+         ],
+         "data":[  
+            [  
+               "51b39a66-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5755-0",
+               "08\/30 15:10",
+               "0+00:03:21",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5755_0"
+            ],
+            [  
+               "51b57298-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5754-0",
+               "08\/30 15:10",
+               "0+00:03:21",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5754_0"
+            ],
+            [  
+               "51b1df7f-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5753-0",
+               "08\/30 15:10",
+               "0+00:03:21",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5753_0"
+            ],
+            [  
+               "51b34d2e-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5752-0",
+               "08\/30 15:10",
+               "0+00:03:21",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5752_0"
+            ],
+            [  
+               "51b5b638-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5751-0",
+               "08\/30 15:10",
+               "0+00:03:40",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5751_0"
+            ],
+            [  
+               "51b755bc-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5750-0",
+               "08\/30 15:10",
+               "0+00:03:41",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5750_0"
+            ],
+            [  
+               "51b60c76-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5749-0",
+               "08\/30 15:10",
+               "0+00:03:41",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5749_0"
+            ],
+            [  
+               "51b3ece4-8d95-11e7-935d-001a4a81443e",
+               "aswamp-5748-0",
+               "08\/30 15:10",
+               "0+00:03:41",
+               "Running",
+               "0",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5748_0"
+            ],
+            [  
+               "vrun_40e842c5-eeea-11e6-84be-001a4a81443f_CodeDX",
+               "vswamp-5756-0",
+               "08\/30 15:13",
+               "0+00:00:26",
+               "Running",
+               "10",
+               "0.0",
+               "0.0",
+               "swa-exec-dd-01",
+               "swa-daemon_mirsam.org_5756_0"
+            ]
+         ],
+         "summary":{  
+            "jobs":9,
+            "completed":0,
+            "removed":0,
+            "idle":0,
+            "running":9,
+            "held":0,
+            "suspended":0
+         }
+      }
+   },
+   
+   "Collector Assessment Records":{  
+      "swa-csacol-dd-01.cosalab.org":{  
+         "fieldnames":[  
+            "execrunuid",
+            "vmhostname",
+            "projectid",
+            "status"
+         ],
+         "data":[  
+            {  
+               "execrunuid":"960a99c0-8d94-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5745-0",
+               "projectid":"40e842c5-eeea-11e6-84be-001a4a81443f",
+               "status":"Finished"
+            },
+            {  
+               "execrunuid":"960a0284-8d94-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5746-0",
+               "projectid":"40e842c5-eeea-11e6-84be-001a4a81443f",
+               "status":"Finished"
+            },
+            {  
+               "execrunuid":"95fb7d90-8d94-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5747-0",
+               "projectid":"40e842c5-eeea-11e6-84be-001a4a81443f",
+               "status":"Finished"
+            },
+            {  
+               "execrunuid":"51b3ece4-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5748-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            },
+            {  
+               "execrunuid":"51b60c76-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5749-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            },
+            {  
+               "execrunuid":"51b755bc-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5750-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            },
+            {  
+               "execrunuid":"51b5b638-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5751-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            },
+            {  
+               "execrunuid":"51b34d2e-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5752-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            },
+            {  
+               "execrunuid":"51b1df7f-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5753-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            },
+            {  
+               "execrunuid":"51b57298-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5754-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            },
+            {  
+               "execrunuid":"51b39a66-8d95-11e7-935d-001a4a81443e",
+               "vmhostname":"aswamp-5755-0",
+               "projectid":"c774c64d-3c31-4081-aa49-b1e048653cdf",
+               "status":"Performing assessment"
+            }
+         ]
+      }
+   },
+
+   "Collector Viewer Records":{  
+      "swa-csacol-dd-01.cosalab.org":{  
+         "fieldnames":[  
+            "vmhostname",
+            "name",
+            "state",
+            "status",
+            "vmip",
+            "projectid",
+            "instance_uuid",
+            "apikey",
+            "url_uuid"
+         ],
+         "data":[  
+            {  
+               "vmhostname":"vswamp",
+               "name":"CodeDX",
+               "state":"launching",
+               "status":"Waiting in HTCondor Queue",
+               "vmip":"null",
+               "projectid":"40e842c5-eeea-11e6-84be-001a4a81443f",
+               "instance_uuid":"d015b94c-8d95-11e7-935d-001a4a81443e",
+               "apikey":"D11E9514-8D95-11E7-A6EC-0B201032D129",
+               "url_uuid":"proxy-D11EBB98-8D95-11E7-A6EC-0B201032D129"
+            }
+         ]
+      }
+   }
+}

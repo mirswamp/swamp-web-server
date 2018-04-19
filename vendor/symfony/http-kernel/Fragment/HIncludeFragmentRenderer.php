@@ -33,8 +33,6 @@ class HIncludeFragmentRenderer extends RoutableFragmentRenderer
     private $charset;
 
     /**
-     * Constructor.
-     *
      * @param EngineInterface|Environment $templating            An EngineInterface or a Twig instance
      * @param UriSigner                   $signer                A UriSigner instance
      * @param string                      $globalDefaultTemplate The global default content (it can be a template name or the content)
@@ -110,11 +108,7 @@ class HIncludeFragmentRenderer extends RoutableFragmentRenderer
         }
         $renderedAttributes = '';
         if (count($attributes) > 0) {
-            if (\PHP_VERSION_ID >= 50400) {
-                $flags = ENT_QUOTES | ENT_SUBSTITUTE;
-            } else {
-                $flags = ENT_QUOTES;
-            }
+            $flags = ENT_QUOTES | ENT_SUBSTITUTE;
             foreach ($attributes as $attribute => $value) {
                 $renderedAttributes .= sprintf(
                     ' %s="%s"',

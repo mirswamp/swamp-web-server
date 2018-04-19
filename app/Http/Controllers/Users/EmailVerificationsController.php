@@ -34,13 +34,22 @@ class EmailVerificationsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$userUid = Input::get('user_uid');
+		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
+
+		// create new email verification
+		//
 		$emailVerification = new EmailVerification([
-			'user_uid' => Input::get('user_uid'),
+			'user_uid' => $userUid,
 			'verification_key' => Guid::create(),
-			'email' => Input::get('email')
+			'email' => $email
 		]);
 		$emailVerification->save();
 		$emailVerification->send(Input::get('verify_route'));
+
 		return $emailVerification;
 	}
 
@@ -58,16 +67,23 @@ class EmailVerificationsController extends BaseController {
 	//
 	public function updateIndex($verificationKey) {
 
+		// parse parameters
+		//
+		$userUid = Input::get('user_uid');
+		$verificationKey = Input::get('verification_key');
+		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
+		$verifyDate = Input::get('verify_date');
+
 		// get model
 		//
 		$emailVerification = EmailVerification::where('verification_key', '=', $verificationKey)->first();
 		
 		// update attributes
 		//
-		$emailVerification->user_uid = Input::get('user_uid');
-		$emailVerification->verification_key = Input::get('verification_key');
-		$emailVerification->email = Input::get('email');
-		$emailVerification->verify_date = Input::get('verify_date');
+		$emailVerification->user_uid = $userUid;
+		$emailVerification->verification_key = $verificationKey;
+		$emailVerification->email = $email;
+		$emailVerification->verify_date = $verifyDate;
 
 		// save changes
 		//
@@ -77,7 +93,7 @@ class EmailVerificationsController extends BaseController {
 		// update user account
 		//
 		$userAccount = UserAccount::where('user_uid', '=', $emailVerification->user_uid)->first();
-		$userAccount->email_verified_flag = $emailVerification->verify_date ? 1 : 0;
+		$userAccount->email_verified_flag = $emailVerification->verify_date != null;
 		$userAccount->save();
 
 		// return changes
@@ -152,7 +168,7 @@ class EmailVerificationsController extends BaseController {
 
 		// update user account
 		//
-		$userAccount->email_verified_flag = 1;
+		$userAccount->email_verified_flag = true;
 		$userAccount->save();
 
 		// save email verification
@@ -166,7 +182,7 @@ class EmailVerificationsController extends BaseController {
 	//
 	public function postResend() {
 
-		// get input parameters
+		// parse parameters
 		//
 		$username = Input::get('username');
 		$password = Input::get('password');

@@ -38,15 +38,25 @@ class ProjectInvitationsController extends BaseController {
 	//
 	public function postCreate() {
 
+		// parse parameters
+		//
+		$projectUid = Input::get('project_uid');
+		$inviterUid = Input::get('inviter_uid');
+		$inviteeName = Input::get('invitee_name');
+		$inviteeEmail = filter_var(Input::get('invitee_email'), FILTER_VALIDATE_EMAIL);
+		$inviteeUsername = Input::get('invitee_username');
+		$confirmRoute = Input::get('confirm_route');
+		$registerRoute = Input::get('register_route');
+
 		// create a single model
 		//
 		$projectInvitation = new ProjectInvitation([
-			'project_uid' => Input::get('project_uid'),
 			'invitation_key' => Guid::create(),
-			'inviter_uid' => Input::get('inviter_uid'),
-			'invitee_name' => Input::get('invitee_name'),
-			'invitee_email' => Input::get('invitee_email'),
-			'invitee_username' => Input::get('invitee_username')
+			'project_uid' => $projectUid,
+			'inviter_uid' => $inviterUid,
+			'invitee_name' => $inviteeName,
+			'invitee_email' => $inviteeEmail,
+			'invitee_username' => $inviteeUsername
 		]);
 
 		// check if project exists
@@ -70,7 +80,7 @@ class ProjectInvitationsController extends BaseController {
 				$configuration = new Configuration();
 				if ($configuration->getLdapReadOnlyAttribute()) {
 					return response([
-						"The email address '".htmlentities($projectInvitation->invitee_email)."' does not match an existing user."
+						"The email address '" . htmlentities($projectInvitation->invitee_email) . "' does not match an existing user."
 					], 409);
 				}
 			}
@@ -78,7 +88,7 @@ class ProjectInvitationsController extends BaseController {
 			$user = User::getByUsername($projectInvitation->invitee_username);
 			if (!$user) {
 				return response([
-					"The username '".htmlentities($projectInvitation->invitee_username)."' does not match an existing user."
+					"The username '" . htmlentities($projectInvitation->invitee_username) . "' does not match an existing user."
 				], 409);
 			}
 		} else {
@@ -90,7 +100,7 @@ class ProjectInvitationsController extends BaseController {
 		if ($user && $project->hasMember($user)) {
 			return response()->json([
 				'error' => [
-					'message' => Input::get('invitee_name').' is already a member'
+					'message' => $inviteeName . ' is already a member'
 				]
 			], 409);
 		}
@@ -101,14 +111,14 @@ class ProjectInvitationsController extends BaseController {
 
 			// check by invitee email
 			//
-			if (ProjectInvitation::where('project_uid','=',Input::get('project_uid'))
+			if (ProjectInvitation::where('project_uid', '=', $projectUid)
 				->where('invitee_email', '=', $projectInvitation->invitee_email)
 				->where('accept_date', '=', null)
 				->where('decline_date', '=', null)
 				->exists()) {
 				return response()->json([
 					'error' => [
-						'message' => Input::get('invitee_name').' already has a pending invitation'
+						'message' => $inviteeName . ' already has a pending invitation'
 					]
 				], 409);
 			}
@@ -116,14 +126,14 @@ class ProjectInvitationsController extends BaseController {
 
 			// check by invitee username
 			//
-			if (ProjectInvitation::where('project_uid','=',Input::get('project_uid'))
+			if (ProjectInvitation::where('project_uid', '=', $projectUid)
 				->where('invitee_username', '=', $projectInvitation->invitee_username)
 				->where('accept_date', '=', null)
 				->where('decline_date', '=', null)
 				->exists()) {
 				return response()->json([
 					'error' => [
-						'message' => Input::get('invitee_name').' already has a pending invitation'
+						'message' => $inviteeName . ' already has a pending invitation'
 					]
 				], 409);
 			}
@@ -137,7 +147,7 @@ class ProjectInvitationsController extends BaseController {
 			// send invitation if email is specified
 			//
 			if ($projectInvitation->invitee_email) {
-				$projectInvitation->send(Input::get('confirm_route'), Input::get('register_route'));
+				$projectInvitation->send($confirmRoute, $registerRoute);
 			}
 
 			// log the invitation event
@@ -158,7 +168,7 @@ class ProjectInvitationsController extends BaseController {
 	//
 	public function getIndex($invitationKey) {
 		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
-		$sender = User::getIndex( $projectInvitation->inviter_uid );
+		$sender = User::getIndex($projectInvitation->inviter_uid);
 		$sender = (!$sender || !$sender->isEnabled()) ? false : $sender;
 		if ($sender) {
 			$sender['user_uid'] = $projectInvitation->inviter_uid;
@@ -218,18 +228,26 @@ class ProjectInvitationsController extends BaseController {
 	//
 	public function updateIndex($invitationKey) {
 
+		// parse parameters
+		//
+		$projectUid = Input::get('project_uid');
+		$inviterUid = Input::get('inviter_uid');
+		$inviteeName = Input::get('invitee_name');
+		$inviteeEmail = filter_var(Input::get('invitee_email'), FILTER_VALIDATE_EMAIL);
+		$inviteeUsername = Input::get('invitee_username');
+
 		// get model
 		//
 		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
 		
 		// update attributes
 		//
-		$projectInvitation->project_uid = Input::get('project_uid');
+		$projectInvitation->project_uid = $projectUid;
 		$projectInvitation->invitation_key = $invitationKey;
-		$projectInvitation->inviter_uid = Input::get('inviter_uid');
-		$projectInvitation->invitee_name = Input::get('invitee_name');
-		$projectInvitation->invitee_email = Input::get('invitee_email');
-		$projectInvitation->invitee_username = Input::get('invitee_username');
+		$projectInvitation->inviter_uid = $inviterUid;
+		$projectInvitation->invitee_name = $inviteeName;
+		$projectInvitation->invitee_email = $inviteeEmail;
+		$projectInvitation->invitee_username = $inviteeUsername;
 
 		// save and return changes
 		//

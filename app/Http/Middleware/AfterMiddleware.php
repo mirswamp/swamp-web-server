@@ -32,19 +32,21 @@ class AfterMiddleware {
 	 */
 	public function handle($request, Closure $next)
 	{
-		$response = $next($request);
+		/*
+		return $next($request)->withHeaders([
+			'Access-Control-Allow-Origin' => $request->header('Origin'),
+			'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
+			'Access-Control-Allow-Headers' => 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token',
+			'Access-Control-Allow-Credentials' => 'true'
+		]);
+		*/
 
-		// allow wildcard CORS origin
-		//
+ 		$response = $next($request);
 		$response->headers->set('Access-Control-Allow-Origin', $request->header('Origin'));
-
-		// set response headers
-		//
 		$response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
 		$response->headers->set('Access-Control-Allow-Headers', 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token');
 		$response->headers->set('Access-Control-Allow-Credentials', 'true');
-		$response->headers->remove('Cache-Control');
-	
+
 		return $response;
 	}
 

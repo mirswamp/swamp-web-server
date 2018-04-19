@@ -2,6 +2,8 @@
 
 namespace Illuminate\Database\Connectors;
 
+use PDO;
+
 class MySqlConnector extends Connector implements ConnectorInterface
 {
     /**
@@ -21,44 +23,63 @@ class MySqlConnector extends Connector implements ConnectorInterface
         // connection's behavior, and some might be specified by the developers.
         $connection = $this->createConnection($dsn, $config, $options);
 
-        if (isset($config['unix_socket'])) {
+        if (! empty($config['database'])) {
             $connection->exec("use `{$config['database']}`;");
         }
 
-        $collation = $config['collation'];
+        $this->configureEncoding($connection, $config);
 
-        // Next we will set the "names" and "collation" on the clients connections so
-        // a correct character set will be used by this client. The collation also
-        // is set on the server but needs to be set here on this client objects.
-        if (isset($config['charset'])) {
-            $charset = $config['charset'];
-
-            $names = "set names '$charset'".
-                (! is_null($collation) ? " collate '$collation'" : '');
-
-            $connection->prepare($names)->execute();
-        }
         // Next, we will check to see if a timezone has been specified in this config
         // and if it has we will issue a statement to modify the timezone with the
         // database. Setting this DB timezone is an optional configuration item.
-        if (isset($config['timezone'])) {
-            $connection->prepare(
-                'set time_zone="'.$config['timezone'].'"'
-            )->execute();
-        }
+        $this->configureTimezone($connection, $config);
 
-        // If the "strict" option has been configured for the connection we will setup
-        // strict mode for this session. Strict mode enforces some extra rules when
-        // using the MySQL database system and is a quicker way to enforce them.
-        if (isset($config['strict'])) {
-            if ($config['strict']) {
-                $connection->prepare("set session sql_mode='STRICT_ALL_TABLES'")->execute();
-            } else {
-                $connection->prepare("set session sql_mode=''")->execute();
-            }
-        }
+        $this->setModes($connection, $config);
 
         return $connection;
+    }
+
+    /**
+     * Set the connection character set and collation.
+     *
+     * @param  \PDO  $connection
+     * @param  array  $config
+     * @return void
+     */
+    protected function configureEncoding($connection, array $config)
+    {
+        if (! isset($config['charset'])) {
+            return $connection;
+        }
+
+        $connection->prepare(
+            "set names '{$config['charset']}'".$this->getCollation($config)
+        )->execute();
+    }
+
+    /**
+     * Get the collation for the configuration.
+     *
+     * @param  array  $config
+     * @return string
+     */
+    protected function getCollation(array $config)
+    {
+        return isset($config['collation']) ? " collate '{$config['collation']}'" : '';
+    }
+
+    /**
+     * Set the timezone on the connection.
+     *
+     * @param  \PDO  $connection
+     * @param  array  $config
+     * @return void
+     */
+    protected function configureTimezone($connection, array $config)
+    {
+        if (isset($config['timezone'])) {
+            $connection->prepare('set time_zone="'.$config['timezone'].'"')->execute();
+        }
     }
 
     /**
@@ -71,7 +92,9 @@ class MySqlConnector extends Connector implements ConnectorInterface
      */
     protected function getDsn(array $config)
     {
-        return $this->configHasSocket($config) ? $this->getSocketDsn($config) : $this->getHostDsn($config);
+        return $this->hasSocket($config)
+                            ? $this->getSocketDsn($config)
+                            : $this->getHostDsn($config);
     }
 
     /**
@@ -80,7 +103,7 @@ class MySqlConnector extends Connector implements ConnectorInterface
      * @param  array  $config
      * @return bool
      */
-    protected function configHasSocket(array $config)
+    protected function hasSocket(array $config)
     {
         return isset($config['unix_socket']) && ! empty($config['unix_socket']);
     }
@@ -107,7 +130,51 @@ class MySqlConnector extends Connector implements ConnectorInterface
         extract($config, EXTR_SKIP);
 
         return isset($port)
-                        ? "mysql:host={$host};port={$port};dbname={$database}"
-                        : "mysql:host={$host};dbname={$database}";
+                    ? "mysql:host={$host};port={$port};dbname={$database}"
+                    : "mysql:host={$host};dbname={$database}";
+    }
+
+    /**
+     * Set the modes for the connection.
+     *
+     * @param  \PDO  $connection
+     * @param  array  $config
+     * @return void
+     */
+    protected function setModes(PDO $connection, array $config)
+    {
+        if (isset($config['modes'])) {
+            $this->setCustomModes($connection, $config);
+        } elseif (isset($config['strict'])) {
+            if ($config['strict']) {
+                $connection->prepare($this->strictMode())->execute();
+            } else {
+                $connection->prepare("set session sql_mode='NO_ENGINE_SUBSTITUTION'")->execute();
+            }
+        }
+    }
+
+    /**
+     * Set the custom modes on the connection.
+     *
+     * @param  \PDO  $connection
+     * @param  array  $config
+     * @return void
+     */
+    protected function setCustomModes(PDO $connection, array $config)
+    {
+        $modes = implode(',', $config['modes']);
+
+        $connection->prepare("set session sql_mode='{$modes}'")->execute();
+    }
+
+    /**
+     * Get the query to enable strict mode.
+     *
+     * @return string
+     */
+    protected function strictMode()
+    {
+        return "set session sql_mode='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'";
     }
 }

@@ -125,6 +125,22 @@ class User extends TimeStamped {
 		'update_date'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'enabled_flag' => 'boolean',
+		'admin_flag' => 'boolean',
+		'email_verified_flag' => 'boolean',
+		'forcepwreset_flag' => 'boolean',
+		'hibernate_flag' => 'boolean',
+		'ssh_access_flag' => 'boolean',
+		'has_linked_account' => 'boolean',
+		'ultimate_login_date' => 'datetime',
+		'penultimate_login_date' => 'datetime',
+		'create_date' => 'datetime',
+		'update_date' => 'datetime'
+	];
+
 	//
 	// accessor methods
 	//
@@ -189,7 +205,7 @@ class User extends TimeStamped {
 
 	public function getSshAccessFlagAttribute() {
 		$sshAccessPermission = UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', 'ssh-access')->first();
-		return $sshAccessPermission ? ($sshAccessPermission->getStatus() == 'granted' ? 1 : 0) : 0;
+		return $sshAccessPermission ? $sshAccessPermission->getStatus() == 'granted' : false;
 	}
 
 	public function getHasLinkedAccountAttribute() {
@@ -236,7 +252,7 @@ class User extends TimeStamped {
 
 	public function isAdmin() {
 		$userAccount = $this->getUserAccount();
-		return ($userAccount && (strval($userAccount->admin_flag) == '1'));
+		return $userAccount && $userAccount->admin_flag;
 	}
 
 	public function isOwner() {
@@ -245,7 +261,7 @@ class User extends TimeStamped {
 
 	public function isEnabled() {
 		$userAccount = $this->getUserAccount();
-		return ($userAccount && (strval($userAccount->enabled_flag) == '1'));
+		return $userAccount && $userAccount->enabled_flag;
 	}
 
 	public function getUserAccount() {
@@ -369,6 +385,12 @@ class User extends TimeStamped {
 
 	public function isValid(&$errors, $anyEmail = false) {
 
+		// parse parameters
+		//
+		$promoCode = Input::get('promo', null);
+		$emailVerification = Input::get('email-verification', null);
+		$userExternalId = Input::has('user_external_id', null);
+
 		// check username
 		//
 		if ($this->isNew()) {
@@ -427,30 +449,26 @@ class User extends TimeStamped {
 
 		// promo code presence check
 		//
-		$promo_found = false;
-		if (Input::has('promo')) {
+		$isValidPromoCode = false;
+		if ($promoCode) {
 			$pdo = DB::connection('mysql')->getPdo();
 			$sth = $pdo->prepare('SELECT * FROM project.promo_code WHERE promo_code = :promo AND expiration_date > NOW()');
 			$sth->execute([
-				':promo' => Input::get('promo')
+				':promo' => $promoCode
 			]);
 			$result = $sth->fetchAll(PDO::FETCH_ASSOC);
 			if (($result == false) || (sizeof($result) < 1)) {
-				if (!Input::has('email-verification')) {
-					$errors[] = '"'. Input::get('promo') . '" is not a valid SWAMP promotional code or has expired.';
+				if (!$emailVefification) {
+					$errors[] = '"' . $promoCode . '" is not a valid SWAMP promotional code or has expired.';
 				}
 			} else {
-				$promo_found = true;
+				$isValidPromoCode = true;
 			}
 		}
 
-		// user_external_id presense check
-		//
-		$user_external_id = Input::has('user_external_id');
-
 		// check to see if the domain name is valid
 		//
-		if (!$promo_found && ! $user_external_id && ($anyEmail !== true)) {
+		if (!$isValidPromoCode && ! $userExternalId && ($anyEmail !== true)) {
 			$domain = User::getEmailDomain($this->email);
 			if (!User::isValidEmailDomain($domain)) {
 				$errors[] = 'Email addresses from "'.$domain.'" are not allowed.';
@@ -469,7 +487,7 @@ class User extends TimeStamped {
 	}
 
 	public function hasBeenVerified() {
-		return $this->email_verified_flag == '1' || $this->email_verified_flag == '-1';
+		return boolval($this->email_verified_flag) || $this->email_verified_flag == '-1';
 	}
 
 	//
@@ -838,10 +856,16 @@ class User extends TimeStamped {
 	//
 
 	public function add() {
-		$encryption = config('app.password_encryption_method');
+
+		// parse parameters
+		//
+		$promoCode = Input::get('promo');
+		$userExternalId = Input::has('user_external_id')? Input::get('user_external_id') : null;
+		$linkedAccountProviderCode = Input::has('linked_account_provider_code')? Input::get('linked_account_provider_code') : null;
 
 		// encrypt password
 		//
+		$encryption = config('app.password_encryption_method');
 		if (strcasecmp($encryption, 'NONE') != 0) {
 
 			// encrypt password
@@ -866,11 +890,11 @@ class User extends TimeStamped {
 		// check for promo code information 
 		//
 		$promoCodeId = null;
-		if (Input::has('promo')) {
+		if ($promoCode && $promoCode != '') {
 			$pdo = DB::connection('mysql')->getPdo();
 			$sth = $pdo->prepare('SELECT * FROM project.promo_code WHERE promo_code = :promo AND expiration_date > NOW()');
 			$sth->execute([
-				':promo' => Input::get('promo')
+				':promo' => $promoCode
 			]);
 			$result = $sth->fetchAll(PDO::FETCH_ASSOC);
 			$promoCodeId = ($result != false) && (sizeof($result) > 0) ? $result[0]['promo_code_id'] : null;
@@ -890,10 +914,10 @@ class User extends TimeStamped {
 
 		// create linked account
 		//
-		if (Input::has('user_external_id') && Input::has('linked_account_provider_code')) {
+		if ($userExternalId && $linkedAccountProviderCode) {
 			$linkedAccount = new LinkedAccount([
-				'user_external_id' => Input::get('user_external_id'),
-				'linked_account_provider_code' => Input::get('linked_account_provider_code'),
+				'user_external_id' => $userExternalId,
+				'linked_account_provider_code' => $linkedAccountProviderCode,
 				'enabled_flag' => 1,
 				'user_uid' => $this->user_uid,
 				'create_date' => gmdate('Y-m-d H:i:s')

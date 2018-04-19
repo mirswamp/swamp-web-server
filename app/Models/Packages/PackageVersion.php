@@ -62,6 +62,7 @@ class PackageVersion extends UserStamped {
 		//
 		'package_path',
 		'source_path',
+		'exclude_paths',
 
 		// config attributes
 		//
@@ -126,6 +127,7 @@ class PackageVersion extends UserStamped {
 		// path attributes
 		//
 		'source_path',
+		'exclude_paths',
 		'filename',
 
 		// config attributes
@@ -169,6 +171,13 @@ class PackageVersion extends UserStamped {
 	//
 	protected $appends = [
 		'filename'
+	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'use_gradle_wrapper' => 'boolean',
+		'android_redo_build' => 'boolean'
 	];
 
 	//

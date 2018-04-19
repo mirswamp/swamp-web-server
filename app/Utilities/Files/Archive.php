@@ -125,17 +125,8 @@ class Archive {
 			$this->getExtension() == 'Z' || $this->getExtension() == 'gz';
 	}
 
-	public function contains($dirname, $filename) {
-		self::normalizePaths($dirname, $filename);
-
-		// get top level item names
-		//
-		if ($dirname && $dirname != '.') {
-			$path = $dirname.$filename;
-		} else {
-			$path = $filename;
-		}
-		$info = $this->getFileInfoList(null, $path);
+	public function getListing($path) {
+		$info = $this->getFileInfoList($path);
 		$names = self::infoArrayToNames($info);
 
 		// strip leading ./ from names
@@ -146,7 +137,25 @@ class Archive {
 			}
 		}
 
-		return in_array($path, $names);
+		return $names;
+	}
+
+	public function contains($dirname, $filename) {
+		self::normalizePaths($dirname, $filename);
+
+		if (StringUtils::startsWith($dirname, './')) {
+			$dirname = substr($names[$i], 2);
+		}
+
+		// look in top level of specified directory
+		//
+		if ($dirname && $dirname != '.') {
+			$path = $dirname.$filename;
+		} else {
+			$path = $filename;
+		}
+
+		return in_array($path, $this->getListing($dirname));
 	}
 
 	public function search($dirname, $filenames) {
@@ -184,18 +193,18 @@ class Archive {
 		});
 
 		for ($i = 0; $i < sizeof($names); $i++) {
-			$name = basename($names[$i]);
+			$name = $names[$i];
 			for ($j = 0; $j < sizeof($filenames); $j++) {
-				if ($filenames[$j] == $name) {
-					return $filenames[$j];
+				if (basename($name) == $filenames[$j]) {
+					return $name;
 				}
 			}
 		}
 	}
 
-	public function found($dirname, $filter) {
+	public function found($dirname, $filter, $recursive = true) {
 		self::normalizePaths($dirname, $filter);
-		return sizeof($this->getFileInfoList($dirname, $filter, true)) != 0;
+		return sizeof($this->getFileInfoList($dirname, $filter, $recursive)) != 0;
 	}
 
 	public function getFileInfoList($dirname = './', $filter = null, $recursive = false) {
@@ -285,7 +294,7 @@ class Archive {
 	// private attributes
 	//
 
-	private $path;
+	public $path;
 
 	//
 	// private directory utility methods
@@ -302,16 +311,31 @@ class Archive {
 		$prefix = $array[0];  
 		$length = strlen($prefix);
 
-		// compare the current prefix with the prefix of the same length of the other items
+		// find the common prefix
 		//
-		foreach ($array as $item) {
+		foreach ($array as $name) {
+
+			// strip leading ./
+			//
+			if (StringUtils::startsWith($name, './')) {
+				$name = substr($name, 2);
+			}
 
 			// check if there is a match; if not, decrease the prefix length by one
 			//
-			while ($length > 0 && substr($item, 0, $length) !== $prefix) {
+			while ($length > 0 && substr($name, 0, $length) !== $prefix) {
 				$length--;
 				$prefix = substr($prefix, 0, $length);
 			}
+		}
+
+		// find directory name of common prefix
+		//
+		$last = strpos($prefix, '/');
+		if ($last != false) {
+			$prefix = substr($prefix, 0, $last + 1);
+		} else {
+			$prefix = null;
 		}
 
 		if (!$prefix) {
@@ -346,7 +370,14 @@ class Archive {
 
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
-			if (!in_array($name, $dirnames)) {
+
+			// strip leading ./
+			//
+			if (StringUtils::startsWith($name, './')) {
+				$name = substr($name, 2);
+			}
+
+			if ($name && !in_array($name, $dirnames)) {
 
 				// add directory of name
 				//
@@ -374,6 +405,13 @@ class Archive {
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
 			if (self::isDirectoryName($name)) {
+
+				// strip leading ./
+				//
+				if (StringUtils::startsWith($name, './')) {
+					$name = substr($name, 2);
+				}
+
 				array_push($directoryNames, $name);
 			}
 		}
@@ -387,6 +425,13 @@ class Archive {
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
 			if (!self::isDirectoryName($name)) {
+
+				// strip leading ./
+				//
+				if (StringUtils::startsWith($name, './')) {
+					$name = substr($name, 2);
+				}
+
 				array_push($fileNames, $name);
 			}
 		}
@@ -949,8 +994,17 @@ class Archive {
 	private static function infoListToNames($list) {
 		$names = [];
 		for ($i = 0; $i < sizeof($list); $i++) {
-			array_push($names, $list[$i]['name']);
+			$name = $list[$i]['name'];
+
+			// strip leading ./
+			//
+			if (StringUtils::startsWith($name, './')) {
+				$name = substr($name, 2);
+			}
+
+			array_push($names, $name);
 		}
+
 		return $names;
 	}
 
@@ -958,8 +1012,23 @@ class Archive {
 		$tree = [];
 
 		function &findLeaf(&$tree, $name) {
+
+			// strip leading ./
+			//
+			if (StringUtils::startsWith($name, './')) {
+				$name = substr($name, 2);
+			}
+
 			for ($i = 0; $i < sizeof($tree); $i++) {
-				if ($tree[$i]['name'] == $name) {
+				$treeName = $tree[$i]['name'];
+
+				// strip leading ./
+				//
+				if (StringUtils::startsWith($treeName, './')) {
+					$treeName = substr($treeName, 2);
+				}
+
+				if ($treeName == $name) {
 					return $tree[$i];
 				} else if (array_key_exists('contents', $tree[$i])) {
 					$leaf = &findLeaf($tree[$i]['contents'], $name);
@@ -968,16 +1037,23 @@ class Archive {
 					}
 				}
 			}
+
 			$leaf = null;
 			return $leaf;
 		}
 
 		for ($i = 0; $i < sizeof($list); $i++) {
 			$item = $list[$i];
+			$dirname = dirname($item['name']);
+
+			// strip leading ./
+			//
+			if (StringUtils::startsWith($dirname, './')) {
+				$dirname = substr($dirname, 2);
+			}
 
 			// search for item in tree
 			//
-			$dirname = dirname($item['name']);
 			$leaf = &findLeaf($tree, $dirname != '/'? $dirname.'/' : $dirname);
 
 			if ($leaf != null) {

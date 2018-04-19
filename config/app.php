@@ -2,108 +2,146 @@
 
 return [
 
-	/*
-	|--------------------------------------------------------------------------
-	| Application Debug Mode
-	|--------------------------------------------------------------------------
-	|
-	| When your application is in debug mode, detailed error messages with
-	| stack traces will be shown on every error that occurs within your
-	| application. If disabled, a simple generic error page is shown.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Application Name
+    |--------------------------------------------------------------------------
+    |
+    | This value is the name of your application. This value is used when the
+    | framework needs to place the application's name in a notification or
+    | any other location as required by the application or its packages.
+    |
+    */
 
-	'debug' => env('APP_DEBUG', false),
+    'name' => env('APP_NAME', 'Laravel'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Application URL
-	|--------------------------------------------------------------------------
-	|
-	| This URL is used by the console to properly generate URLs when using
-	| the Artisan command line tool. You should set this to the root of
-	| your application so that it is used when running Artisan tasks.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Application Environment
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the "environment" your application is currently
+    | running in. This may determine how you prefer to configure various
+    | services your application utilizes. Set this in your ".env" file.
+    |
+    */
 
-	'url' => env('APP_URL', 'http://localhost/swamp-web-server/public'),
+    'env' => env('APP_ENV', 'production'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| CORS Application URL
-	|--------------------------------------------------------------------------
-	|
-	| This URL is used by the console to properly generate CORS urls.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Application Debug Mode
+    |--------------------------------------------------------------------------
+    |
+    | When your application is in debug mode, detailed error messages with
+    | stack traces will be shown on every error that occurs within your
+    | application. If disabled, a simple generic error page is shown.
+    |
+    */
 
-	'cors_url' => env('APP_CORS_URL', 'http://localhost/www-front-end'),
+    'debug' => env('APP_DEBUG', false),
 
-	/*
-	|--------------------------------------------------------------------------
-	| GitHub Authentication
-	|--------------------------------------------------------------------------
-	|
-	| This is whether or not to display and use GitHub authentication.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Application URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used by the console to properly generate URLs when using
+    | the Artisan command line tool. You should set this to the root of
+    | your application so that it is used when running Artisan tasks.
+    |
+    */
 
-	'github_authentication_enabled' => env('GITHUB_ENABLED', false),
+    'url' => env('APP_URL', 'http://localhost'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Google Authentication
-	|--------------------------------------------------------------------------
-	|
-	| This is whether or not to display and use GitHub authentication.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | CORS Application URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL is used by the console to properly generate CORS urls.
+    |
+    */
 
-	'google_authentication_enabled' => env('GOOGLE_ENABLED', false),
+    'cors_url' => env('APP_CORS_URL', 'http://localhost/www-front-end'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| CI Logon Authentication
-	|--------------------------------------------------------------------------
-	|
-	| This is whether or not to display and use federated authentication.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | GitHub Authentication
+    |--------------------------------------------------------------------------
+    |
+    | This is whether or not to display and use GitHub authentication.
+    |
+    */
 
-	'ci_logon_authentication_enabled' => env('CILOGON_ENABLED', false),
+    'github_authentication_enabled' => env('GITHUB_ENABLED', false),
 
-	/*
-	|--------------------------------------------------------------------------
-	| API Explorer
-	|--------------------------------------------------------------------------
-	|
-	| This is whether or not to display the API explorer.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Google Authentication
+    |--------------------------------------------------------------------------
+    |
+    | This is whether or not to display and use GitHub authentication.
+    |
+    */
 
-	'api_explorer_enabled' => env('API_EXPLORER_ENABLED', false),
+    'google_authentication_enabled' => env('GOOGLE_ENABLED', false),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Floodlight Host URL
-	|--------------------------------------------------------------------------
-	|
-	| The hostname or IP of the floodlight server.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | CI Logon Authentication
+    |--------------------------------------------------------------------------
+    |
+    | This is whether or not to display and use federated authentication.
+    |
+    */
 
-	'floodlight' => env('APP_FLOODLIGHT'),
+    'ci_logon_authentication_enabled' => env('CILOGON_ENABLED', false),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Name Server IP
-	|--------------------------------------------------------------------------
-	|
-	| The server used to look up the IPv4 address of running iVMs.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Statistics
+    |--------------------------------------------------------------------------
+    |
+    | This is whether or not to display application stats.
+    |
+    */
 
-	'nameserver' => env('APP_NAMESERVER'),
+    'stats_enabled' => env('APP_STATS', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Floodlight Host URL
+    |--------------------------------------------------------------------------
+    |
+    | The hostname or IP of the floodlight server.
+    |
+    */
+
+    'floodlight' => env('APP_FLOODLIGHT'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Name Server IP
+    |--------------------------------------------------------------------------
+    |
+    | The server used to look up the IPv4 address of running iVMs.
+    |
+    */
+
+    'nameserver' => env('APP_NAMESERVER'),
+
+    /*  
+    |--------------------------------------------------------------------------
+    | HTCondor Root
+    |--------------------------------------------------------------------------
+    |
+    | The root path of the htcondor install
+    |
+    */
+
+    'htcondorroot' => env('HTCONDOR_ROOT'),
+
 
     /*  
     |--------------------------------------------------------------------------
@@ -117,322 +155,237 @@ return [
     'htcondorcollectorhost' => env('HTCONDOR_COLLECTOR_HOST'),
 
 
-	/*
-	|--------------------------------------------------------------------------
-	| Promotional Code
-	|--------------------------------------------------------------------------
-	|
-	| This is whether or not to display and use a promotional code
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Promotional Code
+    |--------------------------------------------------------------------------
+    |
+    | This is whether or not to display and use a promotional code
+    |
+    */
 
-	'use_promo_code' => env('USE_PROMO_CODE', false),
+    'use_promo_code' => env('USE_PROMO_CODE', false),
 
-	/*
-	|--------------------------------------------------------------------------
-	| File Uploading
-	|--------------------------------------------------------------------------
-	|
-	| This path is used for incoming file uploads.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | File Uploading
+    |--------------------------------------------------------------------------
+    |
+    | This path is used for incoming file uploads.
+    |
+    */
 
-	'incoming' => env('APP_INCOMING', '/swamp/incoming/'),
+    'incoming' => env('APP_INCOMING', '/swamp/incoming/'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Results
-	|--------------------------------------------------------------------------
-	|
-	| This path is used for incoming file uploads.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Results
+    |--------------------------------------------------------------------------
+    |
+    | This path is used for incoming file uploads.
+    |
+    */
 
-	'outgoing' => env('APP_OUTGOING', '/swamp/outgoing/'),
+    'outgoing' => env('APP_OUTGOING', '/swamp/outgoing/'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Password Encryption
-	|--------------------------------------------------------------------------
-	|
-	| This setting determines the algorithm used by the application to encrypt 
-	| passwords.  Note:  If password encryption is handled by LDAP instead of
-	| the application code, then this value should be set to NONE. 
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Password Encryption
+    |--------------------------------------------------------------------------
+    |
+    | This setting determines the algorithm used by the application to encrypt 
+    | passwords.  Note:  If password encryption is handled by LDAP instead of
+    | the application code, then this value should be set to NONE. 
+    |
+    */
 
-	'password_encryption_method' => env('APP_PASSWORD_ENCRYPTION_METHOD', 'BCRYPT'),
+    'password_encryption_method' => env('APP_PASSWORD_ENCRYPTION_METHOD', 'BCRYPT'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| App Passwords
-	|--------------------------------------------------------------------------
-	|
-	| App Passwords for alternative login. 0 (or less) indicates app passwords
-	| are disabled. Note there is a hardcoded max of 100 app passwords (per
-	| user). Default is 10.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | App Passwords
+    |--------------------------------------------------------------------------
+    |
+    | App Passwords for alternative login. 0 (or less) indicates app passwords
+    | are disabled. Note there is a hardcoded max of 100 app passwords (per
+    | user). Default is 10.
+    |
+    */
 
-	'app_password_max' => env('APP_PASSWORD_MAX', 10),
+    'app_password_max' => env('APP_PASSWORD_MAX', 10),
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Application Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the default timezone for your application, which
+    | will be used by the PHP date and date-time functions. We have gone
+    | ahead and set this to a sensible default for you out of the box.
+    |
+    */
 
+    'timezone' => 'UTC',
 
-	/*
-	|--------------------------------------------------------------------------
-	| Application Route Whitelist Patterns
-	|--------------------------------------------------------------------------
-	|
-	| This array is used to configure which route patterns will bypass all
-	| route protection.  Use wisely.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Application Locale Configuration
+    |--------------------------------------------------------------------------
+    |
+    | The application locale determines the default locale that will be used
+    | by the translation service provider. You are free to set this value
+    | to any of the locales which will be supported by the application.
+    |
+    */
 
-	'whitelist' => array(
-		'login',
-		'logout',
-		'countries',
-		'password_resets*',
-		'verifications*',
-		'contacts*',
-		array( 
-			'users*' => array(
-				'get',
-				'post'
-			) 
-		),
-		array( 
-			'admin_invitations*' => array(
-				'get',
-				'put'
-			) 
-		),
-		array( 
-			'invitations*' => array(
-				'get',
-				'put'
-			) 
-		),
-		array( 
-			'admins*' => array(
-				'post'
-			) 
-		),
-		array( 
-			'memberships*' => array(
-				'post',
-				'put'
-			) 
-		),
-		array( 
-			'projects*' => array(
-				'get'
-			) 
-		),
-		'users/validate*',
-		'users/email*',
-		'packages/public',
-		'packages/types',
-		'tools/public',
-		'tools/restricted',
-		'platforms/public',
-		'github/login',
-		'idps',
+    'locale' => 'en',
 
-		// testing routes
-		//
-		'environment',
-		'name'
-	),
+    /*
+    |--------------------------------------------------------------------------
+    | Application Fallback Locale
+    |--------------------------------------------------------------------------
+    |
+    | The fallback locale determines the locale to use when the current one
+    | is not available. You may change the value to correspond to any of
+    | the language folders that are provided through your application.
+    |
+    */
 
-	/*
-	|--------------------------------------------------------------------------
-	| Application Routes which do not set Session Data
-	|--------------------------------------------------------------------------
-	|
-	| This array is used to configure which route patterns do not set session
-	| information (i.e., no session cookie will be set).
-	|
-	*/
+    'fallback_locale' => 'en',
 
-	'nosession' => array(
-		'packages/public',
-		'packages/types',
-		'tools/public',
-		'tools/restricted',
-		'platforms/public',
-		'countries',
-		'idps',
+    /*
+    |--------------------------------------------------------------------------
+    | Encryption Key
+    |--------------------------------------------------------------------------
+    |
+    | This key is used by the Illuminate encrypter service and should be set
+    | to a random, 32 character string, otherwise these encrypted strings
+    | will not be safe. Please do this before deploying an application!
+    |
+    */
 
-		// testing routes
-		//
-		'environment'
-	),
+    'key' => env('APP_KEY'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Application Timezone
-	|--------------------------------------------------------------------------
-	|
-	| Here you may specify the default timezone for your application, which
-	| will be used by the PHP date and date-time functions. We have gone
-	| ahead and set this to a sensible default for you out of the box.
-	|
-	*/
+    'cipher' => env('APP_CIPHER', 'AES-256-CBC'),
 
-	'timezone' => 'UTC',
+    /*
+    |--------------------------------------------------------------------------
+    | Logging Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the log settings for your application. Out of
+    | the box, Laravel uses the Monolog PHP logging library. This gives
+    | you a variety of powerful log handlers / formatters to utilize.
+    |
+    | Available Settings: "single", "daily", "syslog", "errorlog"
+    |
+    */
 
-	/*
-	|--------------------------------------------------------------------------
-	| Application Locale Configuration
-	|--------------------------------------------------------------------------
-	|
-	| The application locale determines the default locale that will be used
-	| by the translation service provider. You are free to set this value
-	| to any of the locales which will be supported by the application.
-	|
-	*/
+    'log' => env('APP_LOG', 'single'),
 
-	'locale' => 'en',
+    'log_level' => env('APP_LOG_LEVEL', 'debug'),
 
-	/*
-	|--------------------------------------------------------------------------
-	| Application Fallback Locale
-	|--------------------------------------------------------------------------
-	|
-	| The fallback locale determines the locale to use when the current one
-	| is not available. You may change the value to correspond to any of
-	| the language folders that are provided through your application.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Autoloaded Service Providers
+    |--------------------------------------------------------------------------
+    |
+    | The service providers listed here will be automatically loaded on the
+    | request to your application. Feel free to add your own services to
+    | this array to grant expanded functionality to your applications.
+    |
+    */
 
-	'fallback_locale' => 'en',
+    'providers' => [
 
-	/*
-	|--------------------------------------------------------------------------
-	| Encryption Key
-	|--------------------------------------------------------------------------
-	|
-	| This key is used by the Illuminate encrypter service and should be set
-	| to a random, 32 character string, otherwise these encrypted strings
-	| will not be safe. Please do this before deploying an application!
-	|
-	*/
+        /*
+         * Laravel Framework Service Providers...
+         */
+        Illuminate\Auth\AuthServiceProvider::class,
+        Illuminate\Broadcasting\BroadcastServiceProvider::class,
+        Illuminate\Bus\BusServiceProvider::class,
+        Illuminate\Cache\CacheServiceProvider::class,
+        Illuminate\Foundation\Providers\ConsoleSupportServiceProvider::class,
+        Illuminate\Cookie\CookieServiceProvider::class,
+        Illuminate\Database\DatabaseServiceProvider::class,
+        Illuminate\Encryption\EncryptionServiceProvider::class,
+        Illuminate\Filesystem\FilesystemServiceProvider::class,
+        Illuminate\Foundation\Providers\FoundationServiceProvider::class,
+        Illuminate\Hashing\HashServiceProvider::class,
+        Illuminate\Mail\MailServiceProvider::class,
+        Illuminate\Notifications\NotificationServiceProvider::class,
+        Illuminate\Pagination\PaginationServiceProvider::class,
+        Illuminate\Pipeline\PipelineServiceProvider::class,
+        Illuminate\Queue\QueueServiceProvider::class,
+        Illuminate\Redis\RedisServiceProvider::class,
+        Illuminate\Auth\Passwords\PasswordResetServiceProvider::class,
+        Illuminate\Session\SessionServiceProvider::class,
+        Illuminate\Translation\TranslationServiceProvider::class,
+        Illuminate\Validation\ValidationServiceProvider::class,
+        Illuminate\View\ViewServiceProvider::class,
 
-	'key' => env('APP_KEY', 'SomeRandomString'),
-	
-	'cipher' => env('APP_CIPHER', MCRYPT_RIJNDAEL_128),
+        /*
+         * Package Service Providers...
+         */
 
-	/*
-	|--------------------------------------------------------------------------
-	| Logging Configuration
-	|--------------------------------------------------------------------------
-	|
-	| Here you may configure the log settings for your application. Out of
-	| the box, Laravel uses the Monolog PHP logging library. This gives
-	| you a variety of powerful log handlers / formatters to utilize.
-	|
-	| Available Settings: "single", "daily", "syslog", "errorlog"
-	|
-	*/
+        /*
+         * Application Service Providers...
+         */
+        App\Providers\AppServiceProvider::class,
+        App\Providers\AuthServiceProvider::class,
+        // App\Providers\BroadcastServiceProvider::class,
+        App\Providers\EventServiceProvider::class,
+        App\Providers\RouteServiceProvider::class,
 
-	'log' => env('APP_LOGGING', 'syslog'),
+    ],
 
-	/*
-	|--------------------------------------------------------------------------
-	| Autoloaded Service Providers
-	|--------------------------------------------------------------------------
-	|
-	| The service providers listed here will be automatically loaded on the
-	| request to your application. Feel free to add your own services to
-	| this array to grant expanded functionality to your applications.
-	|
-	*/
+    /*
+    |--------------------------------------------------------------------------
+    | Class Aliases
+    |--------------------------------------------------------------------------
+    |
+    | This array of class aliases will be registered when this application
+    | is started. However, feel free to register as many as you wish as
+    | the aliases are "lazy" loaded so they don't hinder performance.
+    |
+    */
 
-	'providers' => [
+    'aliases' => [
 
-		/*
-		 * Laravel Framework Service Providers...
-		 */
-		'Illuminate\Foundation\Providers\ArtisanServiceProvider',
-		'Illuminate\Auth\AuthServiceProvider',
-		'Illuminate\Bus\BusServiceProvider',
-		'Illuminate\Cache\CacheServiceProvider',
-		'Illuminate\Foundation\Providers\ConsoleSupportServiceProvider',
-		'Illuminate\Routing\ControllerServiceProvider',
-		'Illuminate\Cookie\CookieServiceProvider',
-		'Illuminate\Database\DatabaseServiceProvider',
-		'Illuminate\Encryption\EncryptionServiceProvider',
-		'Illuminate\Filesystem\FilesystemServiceProvider',
-		'Illuminate\Foundation\Providers\FoundationServiceProvider',
-		'Illuminate\Hashing\HashServiceProvider',
-		'Illuminate\Mail\MailServiceProvider',
-		'Illuminate\Pagination\PaginationServiceProvider',
-		'Illuminate\Pipeline\PipelineServiceProvider',
-		'Illuminate\Queue\QueueServiceProvider',
-		'Illuminate\Redis\RedisServiceProvider',
-		'Illuminate\Auth\Passwords\PasswordResetServiceProvider',
-		'Illuminate\Session\SessionServiceProvider',
-		'Illuminate\Translation\TranslationServiceProvider',
-		'Illuminate\Validation\ValidationServiceProvider',
-		'Illuminate\View\ViewServiceProvider',
+        'App' => Illuminate\Support\Facades\App::class,
+        'Artisan' => Illuminate\Support\Facades\Artisan::class,
+        'Auth' => Illuminate\Support\Facades\Auth::class,
+        'Blade' => Illuminate\Support\Facades\Blade::class,
+        'Broadcast' => Illuminate\Support\Facades\Broadcast::class,
+        'Bus' => Illuminate\Support\Facades\Bus::class,
+        'Cache' => Illuminate\Support\Facades\Cache::class,
+        'Config' => Illuminate\Support\Facades\Config::class,
+        'Cookie' => Illuminate\Support\Facades\Cookie::class,
+        'Crypt' => Illuminate\Support\Facades\Crypt::class,
+        'DB' => Illuminate\Support\Facades\DB::class,
+        'Eloquent' => Illuminate\Database\Eloquent\Model::class,
+        'Event' => Illuminate\Support\Facades\Event::class,
+        'File' => Illuminate\Support\Facades\File::class,
+        'Gate' => Illuminate\Support\Facades\Gate::class,
+        'Hash' => Illuminate\Support\Facades\Hash::class,
+        'Lang' => Illuminate\Support\Facades\Lang::class,
+        'Log' => Illuminate\Support\Facades\Log::class,
+        'Mail' => Illuminate\Support\Facades\Mail::class,
+        'Notification' => Illuminate\Support\Facades\Notification::class,
+        'Password' => Illuminate\Support\Facades\Password::class,
+        'Queue' => Illuminate\Support\Facades\Queue::class,
+        'Redirect' => Illuminate\Support\Facades\Redirect::class,
+        'Redis' => Illuminate\Support\Facades\Redis::class,
+        'Request' => Illuminate\Support\Facades\Request::class,
+        'Response' => Illuminate\Support\Facades\Response::class,
+        'Route' => Illuminate\Support\Facades\Route::class,
+        'Schema' => Illuminate\Support\Facades\Schema::class,
+        'Session' => Illuminate\Support\Facades\Session::class,
+        'Storage' => Illuminate\Support\Facades\Storage::class,
+        'URL' => Illuminate\Support\Facades\URL::class,
+        'Validator' => Illuminate\Support\Facades\Validator::class,
+        'View' => Illuminate\Support\Facades\View::class,
 
-		/*
-		 * Application Service Providers...
-		 */
-		'App\Providers\AppServiceProvider',
-		'App\Providers\BusServiceProvider',
-		'App\Providers\ConfigServiceProvider',
-		'App\Providers\EventServiceProvider',
-		'App\Providers\RouteServiceProvider',
-
-	],
-
-	/*
-	|--------------------------------------------------------------------------
-	| Class Aliases
-	|--------------------------------------------------------------------------
-	|
-	| This array of class aliases will be registered when this application
-	| is started. However, feel free to register as many as you wish as
-	| the aliases are "lazy" loaded so they don't hinder performance.
-	|
-	*/
-
-	'aliases' => [
-
-		'App'       => 'Illuminate\Support\Facades\App',
-		'Artisan'   => 'Illuminate\Support\Facades\Artisan',
-		'Auth'      => 'Illuminate\Support\Facades\Auth',
-		'Blade'     => 'Illuminate\Support\Facades\Blade',
-		'Bus'       => 'Illuminate\Support\Facades\Bus',
-		'Cache'     => 'Illuminate\Support\Facades\Cache',
-		'Config'    => 'Illuminate\Support\Facades\Config',
-		'Cookie'    => 'Illuminate\Support\Facades\Cookie',
-		'Crypt'     => 'Illuminate\Support\Facades\Crypt',
-		'DB'        => 'Illuminate\Support\Facades\DB',
-		'Eloquent'  => 'Illuminate\Database\Eloquent\Model',
-		'Event'     => 'Illuminate\Support\Facades\Event',
-		'File'      => 'Illuminate\Support\Facades\File',
-		'Hash'      => 'Illuminate\Support\Facades\Hash',
-		'Input'     => 'Illuminate\Support\Facades\Input',
-		'Inspiring' => 'Illuminate\Foundation\Inspiring',
-		'Lang'      => 'Illuminate\Support\Facades\Lang',
-		'Log'       => 'Illuminate\Support\Facades\Log',
-		'Mail'      => 'Illuminate\Support\Facades\Mail',
-		'Password'  => 'Illuminate\Support\Facades\Password',
-		'Queue'     => 'Illuminate\Support\Facades\Queue',
-		'Redirect'  => 'Illuminate\Support\Facades\Redirect',
-		'Redis'     => 'Illuminate\Support\Facades\Redis',
-		'Request'   => 'Illuminate\Support\Facades\Request',
-		'Response'  => 'Illuminate\Support\Facades\Response',
-		'Route'     => 'Illuminate\Support\Facades\Route',
-		'Schema'    => 'Illuminate\Support\Facades\Schema',
-		'Session'   => 'Illuminate\Support\Facades\Session',
-		'Storage'   => 'Illuminate\Support\Facades\Storage',
-		'URL'       => 'Illuminate\Support\Facades\URL',
-		'Validator' => 'Illuminate\Support\Facades\Validator',
-		'View'      => 'Illuminate\Support\Facades\View',
-
-	],
+    ],
 
 ];

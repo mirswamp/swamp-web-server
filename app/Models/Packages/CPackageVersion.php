@@ -21,6 +21,7 @@ namespace App\Models\Packages;
 use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
+use App\Utilities\Strings\StringUtils;
 
 class CPackageVersion extends PackageVersion {
 
@@ -29,29 +30,108 @@ class CPackageVersion extends PackageVersion {
 	//
 
 	function getBuildSystem() {
-
-		// check in build path
+		
+		// search archive for build files
 		//
 		$archive = new Archive($this->getPackagePath());
-		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
+		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+		$path = $archive->search($searchPath, ['makefile', 'Makefile', 'configure', 'configure.ac']);
 
-		// perform top down search of archive
+		// deduce build system from build file
 		//
-		$found = $archive->search($buildPath, ['makefile', 'Makefile', 'configure', 'configure.ac']);
+		switch (basename($path)) {
+			
+			case 'makefile':
+			case 'Makefile':
+				return 'make';
 
-		if ($found) {
-			switch (basename($found)) {
-				case 'makefile':
-				case 'Makefile':
-					return 'make';
-				case 'configure':
-					return 'configure+make';
-				case 'configure.ac':
-					return 'autotools+configure+make';
-				default:
-					return null;
-			}
+			case 'configure':
+				return 'configure+make';
+
+			case 'configure.ac':
+				return 'autotools+configure+make';
+
+			default:
+				return null;
 		}
+	}
+
+	function getBuildInfo() {
+		
+		// initialize build info
+		//
+		$buildSystem = null;
+		$configDir = null;
+		$configCmd = null;
+		$buildDir = null;
+		$buildFile = null;
+
+		// search archive for build files
+		//
+		$archive = new Archive($this->getPackagePath());
+		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+		$path = $archive->search($searchPath, ['makefile', 'Makefile', 'cmake', 'configure', 'configure.ac']);
+
+		// strip off leading source path
+		//
+		if (StringUtils::startsWith($path, $this->source_path)) {
+			$path = substr($path, strlen($this->source_path));
+		}
+
+		// deduce build system from build file
+		//
+		switch (basename($path)) {
+
+			case 'makefile':
+			case 'Makefile':
+				$buildSystem = 'make';
+				$buildDir = dirname($path);
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
+				break;
+
+			case 'cmake':
+				$buildSystem = 'cmake+make';
+				$configDir = dirname($path);
+				if ($configDir == '.') {
+					$configDir = null;
+				}
+				$configCmd = 'cmake .';
+				break;
+
+			case 'configure':
+				$buildSystem = 'configure+make';
+				$configDir = dirname($path);
+				if ($configDir == '.') {
+					$configDir = null;
+				}
+				$configCmd = './configure';
+				$buildDir = $configDir;
+				break;
+
+			case 'configure.ac':
+				$buildSystem = 'autotools+configure+make';
+				$configDir = dirname($path);
+				if ($configDir == '.') {
+					$configDir = null;
+				}
+				$configCmd = 'mkdir -p m4 && autoreconf --install --force || ./autogen.sh && ./configure';
+				$buildDir = $configDir;
+				break;
+
+			default:
+				$buildSystem = null;
+				break;
+		}
+
+		return [
+			'build_system' => $buildSystem,
+			'config_dir' => $configDir,
+			'config_cmd' => $configCmd,
+			'build_dir' => $buildDir,
+			'build_file' => $buildFile
+		];
 	}
 
 	function checkBuildSystem() {
@@ -59,29 +139,27 @@ class CPackageVersion extends PackageVersion {
 
 			case 'make':
 
-				// create archive from package
+				// search archive for build file
 				//
 				$archive = new Archive($this->getPackagePath());
-				$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
 				$buildFile = $this->build_file;
 
-				// search archive for build file in build path
-				//
 				if ($buildFile != NULL) {
-					if ($archive->contains($buildPath, $buildFile)) {
+					if ($archive->found($searchPath, $buildFile)) {
 						return response("C/C++ package build system ok for make.", 200);
 					} else {
-						return response("Could not find a build file called '".$buildFile."' within the '".$buildPath."' directory.  You may need to set your build path or the path to your build file.", 404);
+						return response("Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
 					}
 				}
 
-				// search archive for default build file in build path
+				// search archive for default build file
 				//
-				if ($archive->contains($buildPath, 'makefile') || 
-					$archive->contains($buildPath, 'Makefile')) {
+				if ($archive->found($searchPath, 'makefile') || 
+					$archive->found($searchPath, 'Makefile')) {
 					return response("C/C++ package build system ok for make.", 200);
 				} else {
-					return response("Could not find a build file called 'makefile' or 'Makefile' within '".$this->source_path."' directory. You may need to set your build path or the path to your build file.", 404);
+					return response("Could not find a build file called 'makefile' or 'Makefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
 				}
 				break;
 

@@ -43,23 +43,35 @@ class RunRequestsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$projectUuid = Input::get('project_uuid');
+		$name = Input::get('name');
+		$description = Input::get('description');
+
+		// create new run request
+		//
 		$runRequest = new RunRequest([
 			'run_request_uuid' => Guid::create(),
-			'project_uuid' => Input::get('project_uuid'),
-			'name' => Input::get('name'),
-			'description' => Input::get('description')
+			'project_uuid' => $projectUuid,
+			'name' => $name,
+			'description' => $description
 		]);
 		$runRequest->save();
+
 		return $runRequest;
 	}
 
 	public function postOneTimeAssessmentRunRequests() {
 
-		// get parameters
+		// parse parameters
 		//
 		$assessmentRunUuids = Input::get('assessment-run-uuids');
-		$notifyWhenComplete = Input::get('notify-when-complete');
+		$notifyWhenComplete = filter_var(Input::get('notify-when-complete'), FILTER_VALIDATE_BOOLEAN);
 
+		// create new run requests
+		//
 		$assessmentRunRequests = new Collection;
 		$runRequest = RunRequest::where('name', '=', 'One-time')->first();
 		if ($runRequest != NULL) {
@@ -89,22 +101,29 @@ class RunRequestsController extends BaseController {
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
 						'run_request_id' => $runRequest->run_request_id,
 						'user_uuid' => session('user_uid'),
-						'notify_when_complete_flag' => $notifyWhenComplete == 'true'? 1 : 0
+						'notify_when_complete_flag' => $notifyWhenComplete
 					]);
 					$assessmentRunRequest->save();
 					$assessmentRunRequests->push($assessmentRunRequest);
 				}
 			}
 		}
+		
 		return $assessmentRunRequests;
 	}
 
 	public function postAssessmentRunRequests($runRequestUuid) {
+
+		// parse parameters
+		//
+		$assessmentRunUuids = Input::get('assessment-run-uuids');
+		$notifyWhenComplete = filter_var(Input::get('notify-when-complete'), FILTER_VALIDATE_BOOLEAN);
+
+		// create new run requests
+		//
 		$assessmentRunRequests = new Collection;
 		$runRequest = $this->getIndex($runRequestUuid);
 		if ($runRequest != NULL) {
-			$assessmentRunUuids = Input::get('assessment-run-uuids');
-			$notifyWhenComplete = Input::get('notify-when-complete');
 
 			// check permissions on each assessment run
 			//
@@ -131,7 +150,7 @@ class RunRequestsController extends BaseController {
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
 						'run_request_id' => $runRequest->run_request_id,
 						'user_uuid' => session('user_uid'),
-						'notify_when_complete_flag' => $notifyWhenComplete == 'true'? 1 : 0
+						'notify_when_complete_flag' => $notifyWhenComplete
 					]);
 					$assessmentRunRequest->save();
 					$assessmentRunRequests->push($assessmentRunRequest);
@@ -225,15 +244,21 @@ class RunRequestsController extends BaseController {
 	//
 	public function updateIndex($runRequestUuid) {
 
+		// parse parameters
+		//
+		$projectUuid = Input::get('project_uuid');
+		$name = Input::get('name');
+		$description = Input::get('description');
+
 		// get model
 		//
 		$runRequest = $this->getIndex($runRequestUuid);
 
 		// update attributes
 		//
-		$runRequest->project_uuid = Input::get('project_uuid');
-		$runRequest->name = Input::get('name');
-		$runRequest->description = Input::get('description');
+		$runRequest->project_uuid = $projectUuid;
+		$runRequest->name = $name;
+		$runRequest->description = $description;
 
 		// save and return changes
 		//

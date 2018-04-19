@@ -81,13 +81,19 @@ class LinkedAccountsController extends BaseController {
 	}
 
 	public function setEnabledFlag($linkedAccountId) {
-		$value = Input::get('enabled_flag');
+
+		// parse parameters
+		//
+		$enabled = filter_var(Input::get('enabled_flag'), FILTER_VALIDATE_BOOLEAN);
+
+		// get user info
+		//
 		$active_user = User::getIndex(session('user_uid'));
 		$account = LinkedAccount::where('linked_account_id', '=', $linkedAccountId)->first();
 		$user = User::getIndex($account->user_uid);
 
 		if (($user->user_uid == $active_user->user_uid ) || $active_user->isAdmin()) {
-			$account->enabled_flag = $value ? 1 : 0;
+			$account->enabled_flag = $enabled;
 			$account->save();
 			$idp = new IdentityProvider();
 			$userEvent = new UserEvent([

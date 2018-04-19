@@ -181,7 +181,7 @@ class PermissionsController extends BaseController {
 
 	public function requestPermissions($userUid) {
 
-		// get parameters
+		// parse parameters
 		//
 		$permissionCode = Input::get('permission_code');
 		$title = Input::get('title');
@@ -379,11 +379,11 @@ class PermissionsController extends BaseController {
 
 	public function setPermissions($userUid) {
 
-		// get parameters
+		// parse parameters
 		//
-		$permissionCode = Input::get('permission_code');
-		$comment = Input::get('comment');
-		$status = Input::has('status')? Input::get('status') : null;
+		$permissionCode = Input::get('permission_code', null);
+		$comment = Input::get('comment', null);
+		$status = Input::get('status', null);
 
 		// lookup relevant data
 		//

@@ -31,7 +31,7 @@ class PackageVersionDependenciesController extends BaseController {
 	//
 	public function postCreate() {
 
-		// fetch parameters
+		// parse parameters
 		//
 		$packageVersionUuid = Input::get('package_version_uuid');
 		$platformVersionUuid = Input::get('platform_version_uuid');
@@ -69,7 +69,7 @@ class PackageVersionDependenciesController extends BaseController {
 	//
 	public function update($packageVersionDependencyId) {
 
-		// fetch parameters
+		// parse parameters
 		//
 		$packageVersionUuid = Input::get('package_version_uuid');
 		$platformVersionUuid = Input::get('platform_version_uuid');
@@ -93,19 +93,26 @@ class PackageVersionDependenciesController extends BaseController {
 	}
 
 	public function updateAll() {
+
+		// parse parameters
+		//
 		$dependencies = Input::get('data')? : [];
+
+		// update dependencies
+		//
 		$results = new Collection();
-		foreach( $dependencies as $pvd ){
-			$p = null;
-			if (array_key_exists('package_version_dependency_id', $pvd)) {
-				$p = PackageVersionDependency::where('package_version_dependency_id','=',$pvd['package_version_dependency_id'])->first();
-				$p->dependency_list = $pvd['dependency_list'];
+		foreach ($dependencies as $dependency) {
+			$packageVersionDependency = null;
+			if (array_key_exists('package_version_dependency_id', $dependency)) {
+				$packageVersionDependency = PackageVersionDependency::where('package_version_dependency_id', '=', $dependency['package_version_dependency_id'])->first();
+				$packageVersionDependency->dependency_list = $dependency['dependency_list'];
 			} else {
-				$p = new PackageVersionDependency( $pvd );
+				$packageVersionDependency = new PackageVersionDependency($dependency);
 			}
-			$p->save();
-			$results->push($p);
+			$packageVersionDependency->save();
+			$results->push($packageVersionDependency);
 		}
+
 		return $results;
 	}
 

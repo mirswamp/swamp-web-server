@@ -27,17 +27,19 @@ use App\Models\Packages\PackageVersion;
 class PackageFilter2 {
 	static function apply($query, $projectUuid) {
 
-		// check for package name
+		// parse parameters
 		//
-		$packageName = Input::get('package_name');
-		if ($packageName != '') {
+		$packageName = Input::get('package_name', null);
+		$packageUuid = Input::get('package_uuid', null);
+		$packageVersion = Input::get('package_version', null);
+		$packageVersionUuid = Input::get('package_version_uuid', null);
+
+		// add package to query
+		//
+		if ($packageName) {
 			$query = $query->where('package_name', '=', $packageName);
 		}
-
-		// check for package uuid
-		//
-		$packageUuid = Input::get('package_uuid');
-		if ($packageUuid != '') {
+		if ($packageUuid) {
 			$packageVersions = PackageVersion::where('package_uuid', '=', $packageUuid)->get();
 			$query = $query->where(function($query) use($packageVersions) {
 				for ($i = 0; $i < sizeof($packageVersions); $i++) {
@@ -50,9 +52,8 @@ class PackageFilter2 {
 			});
 		}
 
-		// check for package version
+		// add package version to query
 		//
-		$packageVersion = Input::get('package_version');
 		if ($packageVersion == 'latest') {
 			$package = Package::where('package_uuid', '=', $packageUuid)->first();
 			if ($package) {
@@ -61,13 +62,9 @@ class PackageFilter2 {
 					$query = $query->where('package_version_uuid', '=', $latestVersion->package_version_uuid);
 				}
 			}
-		} else if ($packageVersion != '') {
+		} else if ($packageVersion) {
 			$query = $query->where('package_version_uuid', '=', $packageVersion);
-		}
-
-		// check for package version uuid
-		//
-		$packageVersionUuid = Input::get('package_version_uuid');
+		}	
 		if ($packageVersionUuid == 'latest') {
 			$package = Package::where('package_uuid', '=', $packageUuid)->first();
 			if ($package) {
@@ -76,7 +73,7 @@ class PackageFilter2 {
 					$query = $query->where('package_version_uuid', '=', $latestVersion->package_version_uuid);
 				}
 			}
-		} else if ($packageVersionUuid != '') {
+		} else if ($packageVersionUuid) {
 			$query = $query->where('package_version_uuid', '=', $packageVersionUuid);
 		}
 

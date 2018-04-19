@@ -28,11 +28,20 @@ class RestrictedDomainsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$domainName = Input::get('domain_name');
+		$description = Input::get('description');
+
+		// create new restricted domain
+		//
 		$restrictedDomain = new RestrictedDomain([
-			'domain_name' => Input::get('domain_name'),
-			'description' => Input::get('description')
+			'domain_name' => $domainName,
+			'description' => $description
 		]);
 		$restrictedDomain->save();
+
 		return $restrictedDomain;
 	}
 
@@ -47,14 +56,19 @@ class RestrictedDomainsController extends BaseController {
 	//
 	public function updateIndex($restrictedDomainId) {
 
+		// parse parameters
+		//
+		$domainName = Input::get('domain_name');
+		$description = Input::get('description');
+
 		// get model
 		//
 		$restrictedDomain = $this->getIndex($restrictedDomainId);
 
 		// update attributes
 		//
-		$restrictedDomain->domain_name = Input::get('domain_name');
-		$restrictedDomain->description = Input::get('description');
+		$restrictedDomain->domain_name = $domainName;
+		$restrictedDomain->description = $description;
 
 		// save and return changes
 		//
@@ -81,7 +95,13 @@ class RestrictedDomainsController extends BaseController {
 	// update multiple
 	//
 	public function updateMultiple() {
+
+		// parse parameters
+		//
 		$inputs = Input::all();
+
+		// update
+		//
 		$collection = new Collection;
 		for ($i = 0; $i < sizeOf($inputs); $i++) {
 
@@ -111,6 +131,7 @@ class RestrictedDomainsController extends BaseController {
 			//
 			$restrictedDomain->save();
 		}
+		
 		return $collection;
 	}
 }

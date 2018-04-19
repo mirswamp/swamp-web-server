@@ -39,10 +39,15 @@ class PasswordResetsController extends BaseController {
 	//
 	public function postCreate() {
 
+		// parse parameters
+		//
+		$username = Input::get('username');
+		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
+
 		// find current user by username or email
 		//
-		$user = User::getByUsername(Input::get('username'));
-		$user = $user ? $user : User::getByEmail(Input::get('email')); 
+		$user = User::getByUsername($username);
+		$user = $user ? $user : User::getByEmail($email); 
 		if (!$user) {
 			return response()->json([
 				'success' => true
@@ -106,7 +111,7 @@ class PasswordResetsController extends BaseController {
 	//
 	public function updateIndex() {
 
-		// get input parameters
+		// parse parameters
 		//
 		$password = Input::get('password');
 		$passwordResetKey = Input::get('password_reset_key');

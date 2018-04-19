@@ -69,6 +69,13 @@ class LinkedAccount extends CreateStamped {
 		'description'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'enabled_flag' => 'boolean',
+		'create_date' => 'datetime'
+	];
+
 	//
 	// accessor methods
 	//

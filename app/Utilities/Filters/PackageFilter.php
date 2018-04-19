@@ -28,35 +28,32 @@ use App\Models\Packages\PackageVersion;
 class PackageFilter {
 	static function apply($query, $projectUuid) {
 
-		// check for package name
+		// parse parameters
 		//
-		$packageName = Input::get('package_name');
-		if ($packageName != '') {
+		$packageName = Input::get('package_name', null);
+		$packageUuid = Input::get('package_uuid', null);
+		$packageVersion = Input::get('package_version', null);
+		$packageVersionUuid = Input::get('package_version_uuid', null);
+
+		// add package to query
+		//
+		if ($packageName) {
 			$query = $query->where('package_name', '=', $packageName);
 		}
-
-		// check for package uuid
-		//
-		$packageUuid = Input::get('package_uuid');
-		if ($packageUuid != '') {
+		if ($packageUuid) {
 			$query = $query->where('package_uuid', '=', $packageUuid);
 		}
 
-		// check for package version
+		// add package version to query
 		//
-		$packageVersion = Input::get('package_version');
 		if ($packageVersion == 'latest') {
 			$query = $query->whereNull('package_version_uuid');
-		} else if ($packageVersion != '') {
+		} else if ($packageVersion) {
 			$query = $query->where('package_version_uuid', '=', $packageVersion);
 		}
-
-		// check for package version uuid
-		//
-		$packageVersionUuid = Input::get('package_version_uuid');
 		if ($packageVersionUuid == 'latest') {
 			$query = $query->whereNull('package_version_uuid');
-		} else if ($packageVersionUuid != '') {
+		} else if ($packageVersionUuid) {
 			$query = $query->where('package_version_uuid', '=', $packageVersionUuid);
 		}
 

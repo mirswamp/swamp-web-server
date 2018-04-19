@@ -77,9 +77,6 @@ class XliffFileLoaderTest extends TestCase
         $this->assertEquals(array('foo' => 'bar', 'extra' => 'extra', 'key' => '', 'test' => 'with'), $catalogue->all('domain1'));
     }
 
-    /**
-     * @requires extension mbstring
-     */
     public function testEncoding()
     {
         $loader = new XliffFileLoader();
@@ -87,7 +84,16 @@ class XliffFileLoaderTest extends TestCase
 
         $this->assertEquals(utf8_decode('föö'), $catalogue->get('bar', 'domain1'));
         $this->assertEquals(utf8_decode('bär'), $catalogue->get('foo', 'domain1'));
-        $this->assertEquals(array('notes' => array(array('content' => utf8_decode('bäz')))), $catalogue->getMetadata('foo', 'domain1'));
+        $this->assertEquals(array('notes' => array(array('content' => utf8_decode('bäz'))), 'id' => '1'), $catalogue->getMetadata('foo', 'domain1'));
+    }
+
+    public function testTargetAttributesAreStoredCorrectly()
+    {
+        $loader = new XliffFileLoader();
+        $catalogue = $loader->load(__DIR__.'/../fixtures/with-attributes.xlf', 'en', 'domain1');
+
+        $metadata = $catalogue->getMetadata('foo', 'domain1');
+        $this->assertEquals('translated', $metadata['target-attributes']['state']);
     }
 
     /**
@@ -158,10 +164,68 @@ class XliffFileLoaderTest extends TestCase
         $loader = new XliffFileLoader();
         $catalogue = $loader->load(__DIR__.'/../fixtures/withnote.xlf', 'en', 'domain1');
 
-        $this->assertEquals(array('notes' => array(array('priority' => 1, 'content' => 'foo'))), $catalogue->getMetadata('foo', 'domain1'));
+        $this->assertEquals(array('notes' => array(array('priority' => 1, 'content' => 'foo')), 'id' => '1'), $catalogue->getMetadata('foo', 'domain1'));
         // message without target
-        $this->assertEquals(array('notes' => array(array('content' => 'bar', 'from' => 'foo'))), $catalogue->getMetadata('extra', 'domain1'));
+        $this->assertEquals(array('notes' => array(array('content' => 'bar', 'from' => 'foo')), 'id' => '2'), $catalogue->getMetadata('extra', 'domain1'));
         // message with empty target
-        $this->assertEquals(array('notes' => array(array('content' => 'baz'), array('priority' => 2, 'from' => 'bar', 'content' => 'qux'))), $catalogue->getMetadata('key', 'domain1'));
+        $this->assertEquals(array('notes' => array(array('content' => 'baz'), array('priority' => 2, 'from' => 'bar', 'content' => 'qux')), 'id' => '123'), $catalogue->getMetadata('key', 'domain1'));
+    }
+
+    public function testLoadVersion2()
+    {
+        $loader = new XliffFileLoader();
+        $resource = __DIR__.'/../fixtures/resources-2.0.xlf';
+        $catalogue = $loader->load($resource, 'en', 'domain1');
+
+        $this->assertEquals('en', $catalogue->getLocale());
+        $this->assertEquals(array(new FileResource($resource)), $catalogue->getResources());
+        $this->assertSame(array(), libxml_get_errors());
+
+        $domains = $catalogue->all();
+        $this->assertCount(3, $domains['domain1']);
+        $this->assertContainsOnly('string', $catalogue->all('domain1'));
+
+        // target attributes
+        $this->assertEquals(array('target-attributes' => array('order' => 1)), $catalogue->getMetadata('bar', 'domain1'));
+    }
+
+    public function testLoadVersion2WithNoteMeta()
+    {
+        $loader = new XliffFileLoader();
+        $resource = __DIR__.'/../fixtures/resources-notes-meta.xlf';
+        $catalogue = $loader->load($resource, 'en', 'domain1');
+
+        $this->assertEquals('en', $catalogue->getLocale());
+        $this->assertEquals(array(new FileResource($resource)), $catalogue->getResources());
+        $this->assertSame(array(), libxml_get_errors());
+
+        // test for "foo" metadata
+        $this->assertTrue($catalogue->defines('foo', 'domain1'));
+        $metadata = $catalogue->getMetadata('foo', 'domain1');
+        $this->assertNotEmpty($metadata);
+        $this->assertCount(3, $metadata['notes']);
+
+        $this->assertEquals('state', $metadata['notes'][0]['category']);
+        $this->assertEquals('new', $metadata['notes'][0]['content']);
+
+        $this->assertEquals('approved', $metadata['notes'][1]['category']);
+        $this->assertEquals('true', $metadata['notes'][1]['content']);
+
+        $this->assertEquals('section', $metadata['notes'][2]['category']);
+        $this->assertEquals('1', $metadata['notes'][2]['priority']);
+        $this->assertEquals('user login', $metadata['notes'][2]['content']);
+
+        // test for "baz" metadata
+        $this->assertTrue($catalogue->defines('baz', 'domain1'));
+        $metadata = $catalogue->getMetadata('baz', 'domain1');
+        $this->assertNotEmpty($metadata);
+        $this->assertCount(2, $metadata['notes']);
+
+        $this->assertEquals('x', $metadata['notes'][0]['id']);
+        $this->assertEquals('x_content', $metadata['notes'][0]['content']);
+
+        $this->assertEquals('target', $metadata['notes'][1]['appliesTo']);
+        $this->assertEquals('quality', $metadata['notes'][1]['category']);
+        $this->assertEquals('Fuzzy', $metadata['notes'][1]['content']);
     }
 }

@@ -72,6 +72,14 @@ class Project extends CreateStamped {
 		'owner'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'trial_project_flag' => 'boolean',
+		'exclude_public_tools_flag' => 'boolean',
+		'deactivation_date' => 'datetime'
+	];
+
 	//
 	// accessor methods
 	//
@@ -127,7 +135,7 @@ class Project extends CreateStamped {
 	}
 
 	public function isTrialProject() {
-		return strval($this->trial_project_flag) == '1';
+		return $this->trial_project_flag;
 	}
 
 	//

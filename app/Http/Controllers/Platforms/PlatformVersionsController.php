@@ -26,8 +26,14 @@ class PlatformVersionsController extends BaseController {
 	// upload
 	//
 	public function postUpload() {
-		if (Input::hasFile('file')) {
-			$file = Input::file('file');
+
+		// parse parameters
+		//
+		$file = Input::hasFile('file')? Input::file('file') : null;
+
+		// upload file
+		//
+		if ($file) {
 
 			// query uploaded file
 			//
@@ -120,19 +126,31 @@ class PlatformVersionsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$platformUuid = Input::get('platform_uuid');
+		$versionString = Input::get('version_string');
+		$releaseDate = Input::get('release_date');
+		$retireDate = Input::get('retire_date');
+		$notes = Input::get('notes');
+		$platformPath = Input::get('platform_path');
+		$deploymentCmd = Input::get('deployment_cmd');
+
+		// create new platform version
+		//
 		$platformVersion = new ToolVersion([
 			'platform_version_uuid' => Guid::create(),
-			'platform_uuid' => Input::get('platform_uuid'),
-			'version_string' => Input::get('version_string'),
-
-			'release_date' => Input::get('release_date'),
-			'retire_date' => Input::get('retire_date'),
-			'notes' => Input::get('notes'),
-
-			'platform_path' => Input::get('platform_path'),
-			'deployment_cmd' => Input::get('deployment_cmd')
+			'platform_uuid' => $platformUuid,
+			'version_string' => $versionString,
+			'release_date' => $releaseDate,
+			'retire_date' => $retireDate,
+			'notes' => $notes,
+			'platform_path' => $platformPath,
+			'deployment_cmd' => $deploymentCmd
 		]);
 		$platformVersion->save();
+		
 		return $platformVersion;
 	}
 
@@ -153,22 +171,31 @@ class PlatformVersionsController extends BaseController {
 	//
 	public function updateIndex($platformVersionUuid) {
 
+		// parse parameters
+		//
+		$platformVersionUuid = Input::get('platform_version_uuid');
+		$platformUuid = Input::get('platform_uuid');
+		$versionString = Input::get('version_string');
+		$releaseDate = Input::get('release_date');
+		$retireDate = Input::get('retire_date');
+		$notes = Input::get('notes');
+		$platformPath = Input::get('platform_path');
+		$deploymentCmd = Input::get('deployment_cmd');
+
 		// get model
 		//
 		$platformVersion = $this->getIndex($platformVersionUuid);
 
 		// update attributes
 		//
-		$platformVersion->platform_version_uuid = Input::get('platform_version_uuid');
-		$platformVersion->platform_uuid = Input::get('platform_uuid');
-		$platformVersion->version_string = Input::get('version_string');
-
-		$platformVersion->release_date = Input::get('release_date');
-		$platformVersion->retire_date = Input::get('retire_date');
-		$platformVersion->notes = Input::get('notes');
-
-		$platformVersion->platform_path = Input::get('platform_path');
-		$platformVersion->deployment_cmd = Input::get('deployment_cmd');
+		$platformVersion->platform_version_uuid = $platformVersionUuid;
+		$platformVersion->platform_uuid = $platformUuid;
+		$platformVersion->version_string = $versionString;
+		$platformVersion->release_date = $releaseDate;
+		$platformVersion->retire_date = $retireDate;
+		$platformVersion->notes = $notes;
+		$platformVersion->platform_path = $platformPath;
+		$platformVersion->deployment_cmd = $deploymentCmd;
 
 		// save and return changes
 		//

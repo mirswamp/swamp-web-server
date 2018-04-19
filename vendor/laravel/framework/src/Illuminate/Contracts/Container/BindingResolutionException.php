@@ -2,9 +2,10 @@
 
 namespace Illuminate\Contracts\Container;
 
-use Illuminate\Container\BindingResolutionException as BaseException;
+use Exception;
+use Psr\Container\ContainerExceptionInterface;
 
-class BindingResolutionException extends BaseException
+class BindingResolutionException extends Exception implements ContainerExceptionInterface
 {
     //
 }

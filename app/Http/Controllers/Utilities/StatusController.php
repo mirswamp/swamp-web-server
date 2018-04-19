@@ -18,17 +18,38 @@
 
 namespace App\Http\Controllers\Utilities;
 
+use Illuminate\Support\Facades\Input;
 use App\Http\Controllers\BaseController;
 use App\Services\SWAMPStatus;
 
 class StatusController extends BaseController {
+
+	// return sample JSON results data
+	//
+	// const sampleStatus = 'status.json';
+	const sampleStatus = null;
+
+	//
+	// querying methods
+	//
+
 	public function getCurrent() {
+
+		// parse parameters
+		//
+		$interval = Input::get('database-record-interval');
 
 		// read from local JSON file (testing)
 		//
-		//$string = file_get_contents(__DIR__ .'/status.json');
-		//return json_decode($string, true);
+		if (self::sampleStatus) {
+			return response()->json(json_decode(file_get_contents(__DIR__ .'/'.self::sampleStatus)));
+		}
 
-		return SWAMPStatus::getCurrent();
+		$options = array();
+		$options['database-record-interval'] = 0;
+		if (!empty($interval)) {
+			$options['database-record-interval'] = $interval;
+		}
+		return SWAMPStatus::getCurrent($options);
 	}
 }

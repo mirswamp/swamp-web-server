@@ -51,6 +51,10 @@ class ExecutionRecord extends TimeStamped {
 		'assessment_run_uuid',
 		'run_request_uuid',
 		'user_uuid',
+		'launch_flag',
+		'launch_counter',
+		'complete_flag',
+		'submitted_to_condor_flag',
 		'project_uuid',
 		'status',
 		'run_date',
@@ -69,6 +73,10 @@ class ExecutionRecord extends TimeStamped {
 		'assessment_run_uuid',
 		'run_request_uuid',
 		'user_uuid',
+		'launch_flag',
+		'launch_counter',
+		'complete_flag',
+		'submitted_to_condor_flag',
 		'project_uuid',
 		'status',
 		'run_date',
@@ -101,17 +109,26 @@ class ExecutionRecord extends TimeStamped {
 		'vm_ready_flag'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'launch_flag' => 'boolean',
+		'launch_counter' => 'integer',
+		'complete_flag' => 'boolean',
+		'submitted_to_condor_flag' => 'boolean',
+		'run_date' => 'datetime',
+		'completion_date' => 'datetime',
+		'weakness_cnt' => 'integer',
+		'vm_ready_flag' => 'boolean'
+	];
+
 	//
 	// accessor methods
 	//
 
 	public function getPackageAttribute() {
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $this->package_version_uuid)->first();
-		if ($packageVersion != null) {
-			$package = Package::where('package_uuid', '=', $packageVersion->package_uuid)->first();
-		} else {
-			$package = null;
-		}
+		$packageVersion = $this->getPackageVersion();
+		$package = $packageVersion? $packageVersion->getPackage() : null;
 
 		// get package info from results
 		//
@@ -130,28 +147,13 @@ class ExecutionRecord extends TimeStamped {
 	}
 
 	public function getToolAttribute() {
-		$tool = null;
-		$toolVersion = ToolVersion::where('tool_version_uuid', '=', $this->tool_version_uuid)->first();
-
-		// get tool version from assessment results
-		//
-		if (!$toolVersion) {
-			$assessmentResult = AssessmentResult::where('assessment_result_uuid', '=', $this->assessment_result_uuid)->first();
-			if ($assessmentResult) {
-				$tool = Tool::where('tool_uuid', '=', $assessmentResult->tool_uuid)->first();
-			}
-		}
-
-		// get tool from version or results
-		//
-		if ($toolVersion != null) {
-			$tool = Tool::where('tool_uuid', '=', $toolVersion->tool_uuid)->first();
-		} else if ($assessmentResult) {
-			$toolVersion = ToolVersion::where('tool_version_uuid', '=', $assessmentResult->tool_version_uuid)->first();
-			if ($toolVersion) {
-				$tool = Tool::where('tool_uuid', '=', $toolVersion->tool_uuid)->first();
-			}
-		}
+		$toolVersion = $this->getToolVersion();
+		$tool = $toolVersion? $toolVersion->getTool() : null;
+		$packageVersion = $this->getPackageVersion();
+		$package = $packageVersion? $packageVersion->getPackage() : null;
+		$project = $this->getProject();
+		$user = User::getIndex(session('user_uid'));
+		$policy = $tool? $tool->getUserPolicy($user) : null;
 
 		// get tool info from results
 		//
@@ -166,20 +168,18 @@ class ExecutionRecord extends TimeStamped {
 				($assessmentResult? $assessmentResult->tool_version : ''),
 			'tool_uuid' => $tool? $tool->tool_uuid : '',
 			'tool_version_uuid' => $toolVersion? $toolVersion->tool_version_uuid : '',
+			'policy_code' => $tool? $tool->policy_code : '',
 			'viewer_names' => $tool? $tool->viewer_names : ($assessmentResult? (new Tool([
 				'tool_uuid' => $assessmentResult->tool_uuid
 			]))->viewer_names : ''),
-			'is_restricted' => $tool? $tool->is_restricted : ''
+			'is_restricted' => $tool? $tool->is_restricted : '',
+			'permission' => $policy? 'granted' : 'no_policy'
 		];
 	}
 
-	public function getPlatformAttribute() {
-		$platformVersion = PlatformVersion::where('platform_version_uuid', '=', $this->platform_version_uuid)->first();
-		if ($platformVersion != null) {
-			$platform = Platform::where('platform_uuid', '=', $platformVersion->platform_uuid)->first();
-		} else {
-			$platform = null;
-		}
+	public function getPlatformAttribute() {	
+		$platformVersion = $this->getPlatformVersion();
+		$platform = $platformVersion? $platformVersion->getPlatform() : null;
 
 		// get platform info from results
 		//
@@ -233,6 +233,29 @@ class ExecutionRecord extends TimeStamped {
 	//
 	// querying methods
 	//
+
+	public function getPackageVersion() {
+		return PackageVersion::where('package_version_uuid', '=', $this->package_version_uuid)->first();
+	}
+
+	public function getToolVersion() {
+		$toolVersion = ToolVersion::where('tool_version_uuid', '=', $this->tool_version_uuid)->first();
+
+		// get tool version from results
+		//
+		if (!$toolVersion) {
+			$assessmentResult = AssessmentResult::where('assessment_result_uuid', '=', $this->assessment_result_uuid)->first();
+			if ($assessmentResult) {
+				$toolVersion = ToolVersion::where('tool_version_uuid', '=', $assessmentResult->tool_version_uuid)->first();
+			}
+		}
+
+		return $toolVersion;
+	}
+
+	public function getPlatformVersion() {
+		return PlatformVersion::where('platform_version_uuid', '=', $this->platform_version_uuid)->first();
+	}
 
 	public function getProject() {
 		return Project::where('project_uid', '=', $this->project_uuid)->first();

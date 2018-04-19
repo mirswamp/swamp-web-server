@@ -33,8 +33,13 @@ class ToolVersionsController extends BaseController {
 	//
 	public function postUpload() {	
 
-		if (Input::hasFile('file')) {
-			$file = Input::file('file');
+		// parse parameters
+		//
+		$file = Input::hasFile('file')? Input::file('file') : null;
+
+		// create new tool version
+		//
+		if ($file) {
 
 			// query uploaded file
 			//
@@ -125,21 +130,37 @@ class ToolVersionsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$toolUuid = Input::get('tool_uuid');
+		$versionString = Input::get('version_string');
+		$releaseDate = Input::get('release_date');
+		$retireDate = Input::get('retire_date');
+		$notes = Input::get('notes');
+		$toolPath = Input::get('tool_path');
+		$toolExecutable =  Input::get('tool_executable');
+		$toolArguments = Input::get('tool_arguments');
+		$toolDirectory = Input::get('tool_directory');
+
+		// create new tool version
+		//
 		$toolVersion = new ToolVersion([
 			'tool_version_uuid' => Guid::create(),
-			'tool_uuid' => Input::get('tool_uuid'),
-			'version_string' => Input::get('version_string'),
+			'tool_uuid' => $toolUuid,
+			'version_string' => $versionString,
 
-			'release_date' => Input::get('release_date'),
-			'retire_date' => Input::get('retire_date'),
-			'notes' => Input::get('notes'),
+			'release_date' => $releaseDate,
+			'retire_date' => $retireDate,
+			'notes' => $notes,
 
-			'tool_path' => Input::get('tool_path'),
-			'tool_executable' => Input::get('tool_executable'),
-			'tool_arguments' => Input::get('tool_arguments'),
-			'tool_directory' => Input::get('tool_directory')
+			'tool_path' => $toolPath,
+			'tool_executable' => $toolExecutable,
+			'tool_arguments' => $toolArguments,
+			'tool_directory' => $toolDirectory
 		]);
 		$toolVersion->save();
+
 		return $toolVersion;
 	}
 
@@ -154,24 +175,37 @@ class ToolVersionsController extends BaseController {
 	//
 	public function updateIndex($toolVersionUuid) {
 
+		// parse parameters
+		//
+		$toolVersionUuid = Input::get('tool_version_uuid');
+		$toolUuid = Input::get('tool_uuid');
+		$versionString = Input::get('version_string');
+		$releaseDate = Input::get('release_date');
+		$retireDate = Input::get('retire_date');
+		$notes = Input::get('notes');
+		$toolPath = Input::get('tool_path');
+		$toolExecutable = Input::get('tool_executable');
+		$toolArguments = Input::get('tool_arguments');
+		$toolDirectory = Input::get('tool_directory');
+
 		// get model
 		//
 		$toolVersion = $this->getIndex($toolVersionUuid);
 
 		// update attributes
 		//
-		$toolVersion->tool_version_uuid = Input::get('tool_version_uuid');
-		$toolVersion->tool_uuid = Input::get('tool_uuid');
-		$toolVersion->version_string = Input::get('version_string');
+		$toolVersion->tool_version_uuid = $toolVersionUuid;
+		$toolVersion->tool_uuid = $toolUuid;
+		$toolVersion->version_string = $versionString;
 
-		$toolVersion->release_date = Input::get('release_date');
-		$toolVersion->retire_date = Input::get('retire_date');
-		$toolVersion->notes = Input::get('notes');
+		$toolVersion->release_date = $releaseDate;
+		$toolVersion->retire_date = $retireDate;
+		$toolVersion->notes = $notes;
 
-		$toolVersion->tool_path = Input::get('tool_path');
-		$toolVersion->tool_executable = Input::get('tool_executable');
-		$toolVersion->tool_arguments = Input::get('tool_arguments');
-		$toolVersion->tool_directory = Input::get('tool_directory');
+		$toolVersion->tool_path = $toolPath;
+		$toolVersion->tool_executable = $toolExecutable;
+		$toolVersion->tool_arguments = $toolArguments;
+		$toolVersion->tool_directory = $toolDirectory;
 
 		// save and return changes
 		//

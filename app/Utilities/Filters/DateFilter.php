@@ -28,22 +28,36 @@ class DateFilter {
 	// check for after date
 	//
 	static function after($query) {
-		$after = Input::get('after');
-		if ($after != '') {
+
+		// parse parameters
+		//
+		$after = Input::get('after', null);
+		
+		// add to query
+		//
+		if ($after) {
 			$afterDate = new \DateTime($after);
 			$query = $query->where('create_date', '>=', $afterDate);
 		}
+
 		return $query;
 	}
 
 	// check for before date
 	//
 	static function before($query) {
-		$before = Input::get('before');
-		if ($before != '') {
+
+		// parse parameters
+		//
+		$before = Input::get('before', null);
+
+		// add to query
+		//
+		if ($before) {
 			$beforeDate = new \DateTime($before);
 			$query = $query->where('create_date', '<=', $beforeDate);
 		}
+
 		return $query;
 	}
 

@@ -27,6 +27,9 @@ class RubyPackageVersionsController extends PackageVersionsController {
 	// get ruby gem information for new packages
 	//
 	public function getNewRubyGemInfo() {
+
+		// parse parameters
+		//
 		$dirname = Input::get('dirname');
 
 		// create new package version
@@ -41,6 +44,9 @@ class RubyPackageVersionsController extends PackageVersionsController {
 	// get ruby gem information for existing packages
 	//
 	public function getRubyGemInfo($packageVersionUuid) {
+
+		// parse parameters
+		//
 		$dirname = Input::get('dirname');
 
 		// find package version

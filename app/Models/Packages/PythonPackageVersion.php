@@ -31,56 +31,112 @@ class PythonPackageVersion extends PackageVersion {
 
 	function getBuildSystem() {
 
-		// check in package path and build path
+		// check for wheels
 		//
-		$archive = new Archive($this->getPackagePath());
 		$packagePath = $this->getPackagePath();
-		$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
-
-		// check for setuptools
-		//
 		if (StringUtils::endsWith($packagePath, '.whl')) {
 			return 'wheels';
-
-		// check for ant
-		//
-		} else if ($archive->found($buildPath, 'setup.py')) {
-			return 'setuptools';
-
-		// build system not found
-		//
 		} else {
-			return null;
+
+			// search archive for build files
+			//
+			$archive = new Archive($packagePath);
+			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+
+			// deduce build system from build file
+			//
+			if ($archive->found($searchPath, 'setup.py')) {
+				return 'python-setuptools';
+			} else {
+
+				// build system not found
+				//
+				return null;
+			}
 		}
+	}
+
+	function getBuildInfo() {
+
+		// initialize build info
+		//
+		$buildSystem = null;
+		$configDir = null;
+		$configCmd = null;
+		$buildDir = null;
+		$buildFile = null;
+
+		// check for wheels
+		//
+		$packagePath = $this->getPackagePath();
+		if (StringUtils::endsWith($packagePath, '.whl')) {
+			$buildSystem = 'wheels';
+		} else {
+
+			// search archive for build files
+			//
+			$archive = new Archive($packagePath);
+			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+			$path = $archive->search($searchPath, ['setup.py']);
+
+			// strip off leading source path
+			//
+			if (StringUtils::startsWith($path, $this->source_path)) {
+				$path = substr($path, strlen($this->source_path));
+			}
+
+			// deduce build system from build file
+			//
+			switch (basename($path)) {
+
+				case 'setup.py':
+					$buildSystem = 'python-setuptools';
+					$buildDir = dirname($path);
+					if ($buildDir == '.') {
+						$buildDir = null;
+					}
+					break;
+
+				default:
+					$buildSystem = null;
+					break;
+			}
+		}
+
+		return [
+			'build_system' => $buildSystem,
+			'config_dir' => $configDir,
+			'config_cmd' => $configCmd,
+			'build_dir' => $buildDir,
+			'build_file' => $buildFile
+		];
 	}
 
 	function checkBuildSystem() {
 		switch ($this->build_system) {
 
-			case 'none':
-				return response("Python package ok for no build.", 200);
+			case 'wheels';
+				return response("Python package ok for build with wheels.", 200);
 				break;
 
 			case 'distutils':
+			case 'python-setuptools':
 
-				// create archive from package
+				// search archive for build file
 				//
 				$archive = new Archive($this->getPackagePath());
-				$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
 				$buildFile = $this->build_file;
 
-				// search archive for build file in build path
-				//
 				if ($buildFile != NULL) {
-					if ($archive->contains($buildPath, $buildFile)) {
-						return response("Python package build system ok for build with distutils.", 200);
+					if ($archive->contains($searchPath, $buildFile)) {
+						return response("Python package build system ok for build with ". $this->build_system . ".", 200);
 					} else {
-						return response("Could not find a build file called '".$buildFile."' within the '".$buildPath."' directory. You may need to set your build path or the path to your build file.", 404);
+						return response("Could not find a build file called '".$buildFile."' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
 					}
 				}
-				break;
 
-			case 'other':
+			default:
 				return response("Python package ok for no build.", 200);
 				break;
 		}

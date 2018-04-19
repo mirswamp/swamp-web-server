@@ -85,6 +85,14 @@ class Tool extends UserStamped {
 		'is_restricted'
 	];
 
+	// attribute types
+	//
+	protected $casts = [
+		'is_build_needed' => 'boolean',
+		'is_owned' => 'boolean',
+		'is_restricted' => 'boolean'
+	];
+
 	// list of tool names that are restricted
 	//
 	protected $restrictedTools = [
@@ -381,13 +389,21 @@ class Tool extends UserStamped {
 				return $this->getProjectMemberPermission($package, $project, $user);
 			}
 		} else {
-
-			// return user policy permission
-			//
-			$permissionCode = $this->getPermissionCode();
-			$ownerPermission = null;
-			return $user->getPolicyPermission($permissionCode, $ownerPermission);
+			return $this->getPolicyPermission($user);
 		}
+	}
+
+	public function getUserPolicy($user) {
+		if ($user) {
+			return $user->getPolicy($this->policy_code);
+		}
+		return null;
+	}
+
+	public function getPolicyPermission($user) {
+		$permissionCode = $this->getPermissionCode();
+		$ownerPermission = null;
+		return $user->getPolicyPermission($permissionCode, $ownerPermission);
 	}
 
 	public function getProjectOwnerPermissionStatus($package, $project, $user) {
@@ -495,7 +511,8 @@ class Tool extends UserStamped {
 			//
 			if (!$userPermission || ($userPermission->status !== 'granted')) {
 				return response()->json([
-					'status' => 'no_permission'
+					'status' => 'no_permission',
+					'permission_code' => $permissionCode
 				], 401);
 			}
 

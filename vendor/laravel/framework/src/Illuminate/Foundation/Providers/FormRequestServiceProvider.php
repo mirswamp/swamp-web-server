@@ -6,6 +6,7 @@ use Illuminate\Routing\Redirector;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Foundation\Http\FormRequest;
 use Symfony\Component\HttpFoundation\Request;
+use Illuminate\Contracts\Validation\ValidatesWhenResolved;
 
 class FormRequestServiceProvider extends ServiceProvider
 {
@@ -20,18 +21,20 @@ class FormRequestServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bootstrap the application events.
+     * Bootstrap the application services.
      *
      * @return void
      */
     public function boot()
     {
-        $this->app['events']->listen('router.matched', function () {
-            $this->app->resolving(function (FormRequest $request, $app) {
-                $this->initializeRequest($request, $app['request']);
+        $this->app->afterResolving(ValidatesWhenResolved::class, function ($resolved) {
+            $resolved->validate();
+        });
 
-                $request->setContainer($app)->setRedirector($app->make(Redirector::class));
-            });
+        $this->app->resolving(FormRequest::class, function ($request, $app) {
+            $this->initializeRequest($request, $app['request']);
+
+            $request->setContainer($app)->setRedirector($app->make(Redirector::class));
         });
     }
 
@@ -53,8 +56,10 @@ class FormRequestServiceProvider extends ServiceProvider
             $current->cookies->all(), $files, $current->server->all(), $current->getContent()
         );
 
+        $form->setJson($current->json());
+
         if ($session = $current->getSession()) {
-            $form->setSession($session);
+            $form->setLaravelSession($session);
         }
 
         $form->setUserResolver($current->getUserResolver());

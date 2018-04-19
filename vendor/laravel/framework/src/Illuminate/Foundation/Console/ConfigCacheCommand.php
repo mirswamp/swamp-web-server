@@ -4,6 +4,7 @@ namespace Illuminate\Foundation\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Contracts\Console\Kernel as ConsoleKernelContract;
 
 class ConfigCacheCommand extends Command
 {
@@ -46,7 +47,7 @@ class ConfigCacheCommand extends Command
      *
      * @return void
      */
-    public function fire()
+    public function handle()
     {
         $this->call('config:clear');
 
@@ -66,9 +67,9 @@ class ConfigCacheCommand extends Command
      */
     protected function getFreshConfiguration()
     {
-        $app = require $this->laravel->basePath().'/bootstrap/app.php';
+        $app = require $this->laravel->bootstrapPath().'/app.php';
 
-        $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap();
+        $app->make(ConsoleKernelContract::class)->bootstrap();
 
         return $app['config']->all();
     }

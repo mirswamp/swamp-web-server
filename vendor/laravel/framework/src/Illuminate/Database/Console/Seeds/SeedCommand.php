@@ -3,6 +3,7 @@
 namespace Illuminate\Database\Console\Seeds;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Console\ConfirmableTrait;
 use Symfony\Component\Console\Input\InputOption;
 use Illuminate\Database\ConnectionResolverInterface as Resolver;
@@ -50,7 +51,7 @@ class SeedCommand extends Command
      *
      * @return void
      */
-    public function fire()
+    public function handle()
     {
         if (! $this->confirmToProceed()) {
             return;
@@ -58,7 +59,9 @@ class SeedCommand extends Command
 
         $this->resolver->setDefaultConnection($this->getDatabase());
 
-        $this->getSeeder()->run();
+        Model::unguarded(function () {
+            $this->getSeeder()->__invoke();
+        });
     }
 
     /**

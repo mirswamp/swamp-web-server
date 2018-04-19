@@ -23,12 +23,18 @@ use App\Models\TimeStamps\CreateStamped;
 
 class TimeStamped extends CreateStamped {
 
+	// attributes
+	//
+	public $timestamps = true;
+
 	// use non-standard timestamp field names
 	//
 	const CREATED_AT = 'create_date';
 	const UPDATED_AT = 'update_date';
 	const DELETED_AT = 'delete_date';
 
+	// array / json conversion whitelist
+	//
 	protected $visible = [
 
 		// timestamp attributes
@@ -36,5 +42,13 @@ class TimeStamped extends CreateStamped {
 		'create_date',
 		'update_date',
 		'delete_date'
+	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'create_date' => 'datetime',
+		'update_date' => 'datetime',
+		'delete_date' => 'datetime'
 	];
 }

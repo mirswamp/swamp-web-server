@@ -26,6 +26,19 @@ use App\Models\BaseModel;
 
 class ViewerInstance extends BaseModel {
 
+    // viewer status codes
+    // reconcile with VIEWER_STATE* values in vmu_ViewerSupport.pm
+	//
+    const VIEWER_STATE_NO_RECORD        = 0;
+    const VIEWER_STATE_LAUNCHING        = 1;
+    const VIEWER_STATE_READY            = 2;
+    const VIEWER_STATE_STOPPING         = -1; 
+    const VIEWER_STATE_SHUTDOWN         = -3; 
+    const VIEWER_STATE_ERROR            = -5; 
+    const VIEWER_STATE_TERMINATING      = -6; 
+    const VIEWER_STATE_TERMINATED       = -7; 
+    const VIEWER_STATE_TERMINATE_FAILED = -8; 
+
 	// database attributes
 	//
 	protected $connection = 'viewer_store';
@@ -50,4 +63,81 @@ class ViewerInstance extends BaseModel {
 		'update_user',
 		'update_date'
 	];
+
+	// static function for use in SWAMPStatus.php
+	//
+	public static function state_to_name($state) {
+		switch ($state) {
+			case 0:
+			return "no record";
+			break;
+			case 1:
+			return "launching";
+			break;
+			case 2:
+			return "ready";
+			break;
+			case -1:
+			return "stopping";
+			break;
+			case -3:
+			return "shutdown";
+			break;
+			case -5:
+			return "error";
+			break;
+			case -6:
+			return "terminating";
+			break;
+			case -7:
+			return "terminated";
+			break;
+			case -8:
+			return "terminate failed";
+			break;
+		}
+	}
+
+	//
+	// querying methods
+	//
+
+	// convert state value to text
+	//
+	public function stateToName() {
+		return self::state_to_name($this->state);
+	}
+
+	// current viewer vm has been launched and is on its way up - not yet ready
+	//
+	public function isLoading() {
+		$state = intval($this->state);
+		return ($state == self::VIEWER_STATE_LAUNCHING);
+	}
+
+	// current viewer vm has been launched and is ready for redirect
+	//
+	public function isReady() {
+		$state = intval($this->state);
+		return ($state == self::VIEWER_STATE_READY 
+			|| $state == self::VIEWER_STATE_TERMINATE_FAILED) 
+			&& $this->proxy_url; 
+	}
+
+	// previous viewer vm is in shutdown or termination and blocks current viewer vm
+	//
+	public function isBlocked() {
+		$state = intval($this->state);
+		return $state == self::VIEWER_STATE_STOPPING ||
+			$state == self::VIEWER_STATE_ERROR ||
+			$state == self::VIEWER_STATE_TERMINATING;
+	}
+
+	// there is no current or previous viewer vm extant
+	public function isOKToLaunch() {
+		$state = intval($this->state);
+		return $state == self::VIEWER_STATE_NO_RECORD ||
+			$state == self::VIEWER_STATE_SHUTDOWN ||
+			$state == self::VIEWER_STATE_TERMINATED;
+	}
 }

@@ -28,8 +28,14 @@ class EventDateFilter {
 	// check for after date
 	//
 	static function after($query) {
-		$after = Input::get('after');
-		if ($after != '') {
+
+		// parse parameters
+		//
+		$after = Input::get('after', null);
+
+		// add to query
+		//
+		if ($after) {
 			$afterDate = new \DateTime($after);
 			$afterDate->setTime(0, 0);
 			$query = $query->where('event_date', '>=', $afterDate);
@@ -40,8 +46,14 @@ class EventDateFilter {
 	// check for before date
 	//
 	static function before($query) {
-		$before = Input::get('before');
-		if ($before != '') {
+
+		// parse parameters
+		//
+		$before = Input::get('before', null);
+
+		// add to query
+		//
+		if ($before) {
 			$beforeDate = new \DateTime($before);
 			$beforeDate->setTime(24, 0);
 			$query = $query->where('event_date', '<=', $beforeDate);

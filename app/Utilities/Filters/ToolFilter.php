@@ -28,36 +28,33 @@ use App\Models\Tools\ToolVersion;
 class ToolFilter {
 	static function apply($query) {
 
-		// check for tool name
+		// parse parameters
 		//
-		$toolName = Input::get('tool_name');
-		if ($toolName != '') {
+		$toolName = Input::get('tool_name', null);
+		$toolUuid = Input::get('tool_uuid', null);
+		$toolVersion = Input::get('tool_version', null);
+		$toolVersionUuid = Input::get('tool_version_uuid', null);
+
+		// add tool to query
+		//
+		if ($toolName) {
 			$query = $query->where('tool_name', '=', $toolName);
 		}
-
-		// check for tool uuid
-		//
-		$toolUuid = Input::get('tool_uuid');
-		if ($toolUuid != '') {
+		if ($toolUuid) {
 			$query = $query->where('tool_uuid', '=', $toolUuid);
 		}
 
-		// check for tool version
+		// add tool version to query
 		//
-		$toolVersion = Input::get('tool_version');
 		if ($toolVersion == 'latest') {
 			$query = $query->whereNull('tool_version_uuid');
-		} else if ($toolVersion != '') {
+		} else if ($toolVersion) {
 			$query = $query->where('tool_version_uuid', '=', $toolVersion);
 		}
-
-		// check for tool version uuid
-		//
-		$toolVersionUuid = Input::get('tool_version_uuid');
 		if ($toolVersionUuid == 'latest') {
 			$tool = Tool::where('tool_uuid', '=', $toolVersionUuid)->first();
 			$query = $query->whereNull('tool_version_uuid');
-		} else if ($toolVersionUuid != '') {
+		} else if ($toolVersionUuid) {
 			$query = $query->where('tool_version_uuid', '=', $toolVersionUuid);
 		}
 		

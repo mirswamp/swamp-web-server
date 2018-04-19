@@ -33,15 +33,14 @@ class ProjectEventsController extends BaseController {
 	public static function getByUser($userUid) {
 		$projectEvents = new Collection;
 
+		// parse parameters
+		//
+		$projectUid = Input::get('project_uuid');
+
 		// get user
 		//
 		$user = User::getIndex($userUid);
 		if ($user) {
-
-			// get optional project paramter
-			//
-			$projectUid = Input::get('project_uuid');
-
 			if ($projectUid != '') {
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
@@ -93,15 +92,14 @@ class ProjectEventsController extends BaseController {
 	public static function getNumByUser($userUid) {
 		$num = 0;
 
+		// parse parameters
+		//
+		$projectUid = Input::get('project_uuid');
+
 		// get user
 		//
 		$user = User::getIndex($userUid);
 		if ($user) {
-
-			// get optional project paramter
-			//
-			$projectUid = Input::get('project_uuid');
-
 			if ($projectUid != '') {
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project->isReadableBy($user)) {
@@ -149,15 +147,14 @@ class ProjectEventsController extends BaseController {
 	public static function getUserProjectEvents($userUid) {
 		$userProjectEvents = new Collection;
 
+		// parse parameters
+		//
+		$projectUid = Input::get('project_uuid');
+
 		// get user
 		//
 		$user = User::getIndex($userUid);
 		if ($user) {
-
-			// get optional project paramter
-			//
-			$projectUid = Input::get('project_uuid');
-
 			if ($projectUid != '') {
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
@@ -209,15 +206,14 @@ class ProjectEventsController extends BaseController {
 	public static function getNumUserProjectEvents($userUid) {
 		$num = 0;
 
+		// parse parameters
+		//
+		$projectUid = Input::get('project_uuid');
+
 		// get user
 		//
 		$user = User::getIndex($userUid);
 		if ($user) {
-
-			// get optional project paramter
-			//
-			$projectUid = Input::get('project_uuid');
-
 			if ($projectUid != '') {
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {

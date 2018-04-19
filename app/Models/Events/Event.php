@@ -35,4 +35,10 @@ class Event extends BaseModel {
 		'event_type', 
 		'event_date'
 	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'event_date' => 'datetime'
+	];
 }

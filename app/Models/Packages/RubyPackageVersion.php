@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
+use App\Utilities\Strings\StringUtils;
 
 class RubyPackageVersion extends PackageVersion {
 
@@ -65,21 +66,20 @@ class RubyPackageVersion extends PackageVersion {
 
 		// check file extension of archive file
 		//
-		$path_parts = pathinfo($this->getPackagePath());
-		if ($path_parts['extension'] == 'gem') {
+		$extension = pathinfo($this->getPackagePath(), PATHINFO_EXTENSION);
+		if ($extension == 'gem') {
 			return 'ruby-gem';
 		} else {
 
-			// check in build path
+			// search archive for build files
 			//
 			$archive = new Archive($this->getPackagePath());
-			$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
+			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+			$foundGemfile = $archive->found($searchPath, 'Gemfile');
+			$foundRakefile = $archive->found($searchPath, 'Rakefile');
 
-			// check for build files
+			// deduce build system from build files
 			//
-			$foundGemfile = $archive->found($buildPath, 'Gemfile');
-			$foundRakefile = $archive->found($buildPath, 'Rakefile');
-
 			if ($foundGemfile && $foundRakefile) {
 				return 'bundler+rake'; 
 			} else if ($foundGemfile) {
@@ -92,43 +92,105 @@ class RubyPackageVersion extends PackageVersion {
 		}
 	}
 
+	function getBuildInfo() {
+
+		// initialize build info
+		//
+		$buildSystem = null;
+		$configDir = null;
+		$configCmd = null;
+		$buildDir = null;
+		$buildFile = null;
+
+		$extension = pathinfo($this->getPackagePath(), PATHINFO_EXTENSION);
+		if ($extension == 'gem') {
+			$buildSystem = 'ruby-gem';
+		} else {
+
+			// search archive for build files
+			//
+			$archive = new Archive($this->getPackagePath());
+			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+			$gemPath = $archive->search($searchPath, ['Gemfile', 'gemfile']);
+			$rakePath = $archive->search($searchPath, ['Rakefile', 'rakefile']);
+
+			// strip off leading source path
+			//
+			if (StringUtils::startsWith($gemPath, $this->source_path)) {
+				$gemPath = substr($gemPath, strlen($this->source_path));
+			}
+			if (StringUtils::startsWith($rakePath, $this->source_path)) {
+				$rakePath = substr($rakePath, strlen($this->source_path));
+			}
+
+			// deduce build system from build files
+			//
+			if ($gemPath && $rakePath) {
+				$buildSystem = 'bundler+rake';
+				$buildDir = dirname($rakePath);
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
+			} else if ($gemPath) {
+				$buildSystem = 'bundler+other';
+				$buildDir = dirname($gemPath);
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
+			} else if ($rakePath) {
+				$buildSystem = 'rake';
+				$buildDir = dirname($rakePath);
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
+			} else {
+				$buildSystem = null;
+			}
+		}
+
+		return [
+			'build_system' => $buildSystem,
+			'config_dir' => $configDir,
+			'config_cmd' => $configCmd,
+			'build_dir' => $buildDir,
+			'build_file' => $buildFile
+		];
+	}
+
 	function checkBuildSystem() {
 		switch ($this->build_system) {
 
 			case 'bundler+rake':
 
-				// create archive from package
+				// search archive for Gemfile
 				//
 				$archive = new Archive($this->getPackagePath());
-				$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
-				$buildFile = $this->build_file;
+				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
 
-				// check for Gemfile
-				//
-				if (!$archive->contains($buildPath, 'Gemfile')) {
-					return response("Could not find a Gemfile within the '".$buildPath."' directory.  You may need to set your build path or the path to your build file.", 404);
+				if (!$archive->contains($searchPath, 'Gemfile')) {
+					return response("Could not find a Gemfile within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
 				}
 
-				// search archive for build file in build path
+				// search archive for build file
 				//
-				if ($buildFile != NULL) {
+				if ($this->build_file != null) {
 
 					// check for specified build file
 					//
-					if ($archive->contains($buildPath, $buildFile)) {
+					if ($archive->contains($searchPath, $this->build_file)) {
 						return response("Ruby package build system ok for bundler+rake.", 200);
 					} else {
-						return response("Could not find a build file called '".$buildFile."' within the '".$buildPath."' directory.  You may need to set your build path or the path to your build file.", 404);
+						return response("Could not find a build file called '" . $this->build_file . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
 					}
 				} else {
 
-					// search archive for default build file in build path
+					// search archive for default build file
 					//
-					if ($archive->contains($buildPath, 'rakefile') || 
-						$archive->contains($buildPath, 'Rakefile')) {
+					if ($archive->contains($searchPath, 'rakefile') || 
+						$archive->contains($searchPath, 'Rakefile')) {
 						return response("Ruby package build system ok for bundler+rake.", 200);
 					} else {
-						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '".$this->source_path."' directory. You may need to set your build path or the path to your build file.", 404);
+						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
 					}
 				}
 				break;
@@ -136,49 +198,43 @@ class RubyPackageVersion extends PackageVersion {
 			case 'bundler':
 			case 'bundler+other':
 
-				// create archive from package
+				// search archive for Gemfile
 				//
 				$archive = new Archive($this->getPackagePath());
-				$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
-				$buildFile = $this->build_file;
+				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
 
-				// check for Gemfile
-				//
-				if ($archive->contains($buildPath, 'Gemfile')) {
+				if ($archive->contains($searchPath, 'Gemfile')) {
 					return response("Ruby package build system ok for bundler+other.", 200);
 				} else {
-					return response("Could not find a Gemfile within the '".$buildPath."' directory.  You may need to set your build path or the path to your build file.", 404);
+					return response("Could not find a Gemfile within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
 				}
 				break;
 
 			case 'rake':
 
-				// create archive from package
+				// search archive for specified build file
 				//
 				$archive = new Archive($this->getPackagePath());
-				$buildPath = Archive::concatPaths($this->source_path, $this->build_dir);
-				$buildFile = $this->build_file;
+				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
 
-				// search archive for build file in build path
-				//
-				if ($buildFile != NULL) {
+				if ($this->build_file != NULL) {
 
 					// check for specified build file
 					//
-					if ($archive->contains($buildPath, $buildFile)) {
+					if ($archive->contains($searchPath, $this->build_file)) {
 						return response("Ruby package build system ok for rake.", 200);
 					} else {
-						return response("Could not find a build file called '".$buildFile."' within the '".$buildPath."' directory.  You may need to set your build path or the path to your build file.", 404);
+						return response("Could not find a build file called '" . $this->build_file . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
 					}
 				} else {
 
-					// search archive for default build file in build path
+					// search archive for default build file
 					//
-					if ($archive->contains($buildPath, 'rakefile') || 
-						$archive->contains($buildPath, 'Rakefile')) {
+					if ($archive->contains($searchPath, 'rakefile') || 
+						$archive->contains($searchPath, 'Rakefile')) {
 						return response("Ruby package build system ok for rake.", 200);
 					} else {
-						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '".$this->source_path."' directory. You may need to set your build path or the path to your build file.", 404);
+						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
 					}		
 				}
 				break;
@@ -194,7 +250,7 @@ class RubyPackageVersion extends PackageVersion {
 
 			case 'other':
 			case 'no-build':
-				return response("Ruby package build system ok for ".$this->build_system.".", 200);
+				return response("Ruby package build system ok for " . $this->build_system . ".", 200);
 		}
 	}
 

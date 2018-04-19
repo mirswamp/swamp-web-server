@@ -349,10 +349,17 @@ class AppPasswordsController extends BaseController {
 	 *         63 characters.
 	 */
 	private function getInputLabel() {
+
+		// parse parameters
+		//
 		$label = Input::get('label', '');
-		if (strlen($label) > 63) { // Make sure new label isn't too long
+
+		// make sure new label isn't too long
+		//
+		if (strlen($label) > 63) { 
 			$label = substr($label, 0, 63);
 		}
+
 		return $label;
 	}
 

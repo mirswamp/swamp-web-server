@@ -48,4 +48,11 @@ class PackageType extends TimeStamped {
 		'default_platform_uuid',
 		'default_platform_version_uuid'
 	];
+
+	// attribute types
+	//
+	protected $casts = [
+		'package_type_enabled' => 'boolean',
+		'platform_user_selectable' => 'boolean'
+	];
 }

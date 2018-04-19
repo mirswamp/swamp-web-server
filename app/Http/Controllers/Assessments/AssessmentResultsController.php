@@ -52,8 +52,10 @@ class AssessmentResultsController extends BaseController {
 
 	// return sample JSON results data
 	//
-	const sampleResults = null;
-	// const sampleResults = 'nativereport.json';
+	const SAMPLERESULTS = null;
+	const SAMPLERRORS = null;
+	// const SAMPLERESULTS = 'nativereport.json';
+	// const SAMPLERRORS = 'errorreport.json';
 
 	// get by index
 	//
@@ -93,7 +95,6 @@ class AssessmentResultsController extends BaseController {
 	}
 
 	static public function launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid) {
-		// Log::info("launchViewer - aRU: $assessmentResultsUuid vU: $viewerUuid pU: $projectUuid");
 
 		// get latest version of viewer
 		//
@@ -128,7 +129,7 @@ class AssessmentResultsController extends BaseController {
 		//
 		$select = $pdo->query('SELECT @returnPath, @returnString, @viewerInstanceUuid');
 		$results = $select->fetchAll();
-		// Log::info("launchViewer returns: " . print_r($results, true));
+
 		return $results;
 	}
 
@@ -162,54 +163,105 @@ class AssessmentResultsController extends BaseController {
 			}
 		}
 
-		// check for sample (test) results
+		// check for sample test results
 		//
-		if (!self::sampleResults) {
-			$viewer = Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
+		if (self::SAMPLERESULTS) {
 
-			// check for cached results in storage directory
+			// return results
 			//
-			if (strtolower($viewer->name) == 'native') {
-				$resultsDir = config('app.outgoing').'/'.$assessmentResultsUuid.'/'.'nativereport.json';
-				if (file_exists($resultsDir)) {
-					$results = file_get_contents($resultsDir, $assessmentResultsUuid);
-
-					// return results
-					//
-					return [
-						"assessment_results_uuid" => $assessmentResultsUuid,
-						"results" => $this->getJSON($results, $assessmentResultsUuid),
-						"results_status" => 'SUCCESS'
-					];
-				}
-			}
-
-			// call stored procedure
-			//
-			// Log::info("calling launchViewer - aRU: $assessmentResultsUuid vU: $viewerUuid pU: $projectUuid");
-			$results = self::launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid);
-
-			// get stored procedure results
-			//
-			// Log::info("results from stored procedure = ".print_r($results, true));
-
-			// set param values
-			//
-			if ($assessmentResultsUuid == 'none') {
-				$assessmentResultsUuid = '';
-			}
-
-			$returnPath = $results[0]["@returnPath"];
-			$returnString = $results[0]["@returnString"];
-			$viewerInstanceUuid = $results[0]["@viewerInstanceUuid"];
-		} else {
-
-			// retun test results
-			//
-			$returnPath = __DIR__.'/'.self::sampleResults;
-			$returnString = "SUCCESS";
-			$viewerInstanceUuid = null;
+			return [
+				"assessment_results_uuid" => $assessmentResultsUuid,
+				"results" => json_decode(file_get_contents(__DIR__.'/'.self::SAMPLERESULTS), true),
+				"results_status" => 'SUCCESS'
+			];
 		}
+
+		// check for sample error results
+		//
+		if (self::SAMPLERRORS) {
+
+			// return results
+			//
+			return [
+				"assessment_results_uuid" => $assessmentResultsUuid,
+				"results" => $this->getJSONErrors(file_get_contents(__DIR__.'/'.self::SAMPLERRORS), $assessmentResultsUuid),
+				"results_status" => 'FAILED'
+			];
+		}
+
+		// fetch results
+		//
+		$viewer = Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
+
+		// check for cached results in storage directory
+		//
+		if (strtolower($viewer->name) == 'native') {
+			$resultsDir = config('app.outgoing').'/'.$assessmentResultsUuid.'/'.'nativereport.json';
+			if (file_exists($resultsDir)) {
+				$results = file_get_contents($resultsDir, $assessmentResultsUuid);
+
+				// return results
+				//
+				return [
+					"assessment_results_uuid" => $assessmentResultsUuid,
+					"results" => $this->getJSONResults($results, $assessmentResultsUuid),
+					"results_status" => 'SUCCESS'
+				];
+			}
+		}
+
+		// get viewer version from viewer
+		//
+		$viewerVersion = $viewer->getLatestVersion();	
+
+		// look up existing viewer instance from database 
+		//
+		if ($viewerVersion) {	
+			$viewerInstance = ViewerInstance::where('viewer_version_uuid', '=', $viewerVersion->viewer_version_uuid)->where('project_uuid', '=', $projectUuid)->first();
+			if ($viewerInstance) {	
+				$viewerInstanceUuid = $viewerInstance->viewer_instance_uuid;
+				$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid); 
+				Log::info("getResults - state: " . $instance->stateToName());
+
+				if ($instance->isBlocked()) {
+					Log::info("getResults - state: " . $instance->stateToName() . " isBlocked");
+					return [
+                		"assessment_results_uuid" => $assessmentResultsUuid,
+                		"results" => null,
+                		"results_status" => 'TRYAGAIN'
+					];
+				} else if ($instance->isLoading()) {
+					Log::info("getResults - state: " . $instance->stateToName() . " isLoading");
+					return [
+						"results_viewer_status" => 'Loading',
+						"results_status" => 'LOADING',
+						"viewer_instance" => $viewerInstanceUuid
+					];
+				} else if (!$instance->isOKToLaunch() && !$instance->isReady()) {
+					Log::info("getResults - state: " . $instance->stateToName() . " not isOKToLaunch and not isReady");
+					return [
+                		"assessment_results_uuid" => $assessmentResultsUuid,
+                		"results" => null,
+                		"results_status" => 'NOLAUNCH'
+            		];
+  
+				}
+			}	
+		}
+
+		// call stored procedure
+		//
+		$results = self::launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid);
+
+		// set param values
+		//
+		if ($assessmentResultsUuid == 'none') {
+			$assessmentResultsUuid = '';
+		}
+
+		$returnPath = $results[0]["@returnPath"];
+		$returnString = $results[0]["@returnString"];
+		$viewerInstanceUuid = $results[0]["@viewerInstanceUuid"];
 
 		// log viewer launching
 		//
@@ -229,114 +281,136 @@ class AssessmentResultsController extends BaseController {
 			];
 		} else if (StringUtils::endsWith($returnPath, '.html') || StringUtils::endsWith($returnPath, '.json')) {
 
-			// return native results data
+			// return native results
 			//
-			$options = [
-				"ssl" => [
-					"verify_peer" => false,
-					"verify_peer_name" => false
-				]
-			];
-			$results = @file_get_contents($returnPath, false, stream_context_create($options));
+			return $this->getNativeResults($assessmentResultsUuid, $returnPath, $returnString);
+		} else {
 
-			// remove results file
+			// return viewer results
 			//
-			//unlink($returnPath);
+			return $this->getViewerResults($assessmentResultsUuid, $viewerInstanceUuid, $returnPath, $returnString);
+		}
+	}
 
-			// remove all files in results directory
+	//
+	// utility results methods
+	//
+
+	public function getNativeResults($assessmentResultsUuid, $returnPath, $returnString) {
+
+		// return native results data
+		//
+		$options = [
+			"ssl" => [
+				"verify_peer" => false,
+				"verify_peer_name" => false
+			]
+		];
+		$results = @file_get_contents($returnPath, false, stream_context_create($options));
+
+		// remove results file
+		//
+		//unlink($returnPath);
+
+		// remove all files in results directory
+		//
+		//array_map('unlink', glob(dirname($returnPath).'/*.*'));
+
+		// remove results directory
+		//
+		//rmdir(dirname($returnPath));
+
+		// recursively remove results folder
+		//
+		if (StringUtils::endsWith($returnPath, 'nativereport.html')) {
+			self::rrmdir(dirname($returnPath));
+		}
+
+		// parse the failed json report
+		//
+		if (StringUtils::endsWith($returnPath, 'failedreport.json')) {
+
+			// for failedreport, mark returnString as Failed and parse the failed JSON
 			//
-			//array_map('unlink', glob(dirname($returnPath).'/*.*'));
+			$returnString = 'FAILED';
+			$results = $this->getJSONErrors($results, $assessmentResultsUuid);
+		}
 
-			// remove results directory
-			//
-			//rmdir(dirname($returnPath));
+		// parse the success json report
+		if (StringUtils::endsWith($returnPath, 'nativereport.json')) {
+			$results = $this->getJSONResults($results, $assessmentResultsUuid);
+		}
 
-			// recursively remove results folder
-			//
-			if (StringUtils::endsWith($returnPath, 'nativereport.html')) {
-				self::rrmdir(dirname($returnPath));
-			}
+		if ($results) {
 
-			// parse json
-			//
-			if (StringUtils::endsWith($returnPath, '.json')) {
-				$results = $this->getJSON($results, $assessmentResultsUuid);
-			}
-
-			if ($results) {
-
-				// return results
-				//
-				return [
-					"assessment_results_uuid" => $assessmentResultsUuid,
-					"results" => $results,
-					"results_status" => $returnString
-				];
-			} else {
-				return response('Could not return results from '.$returnPath, 500);
-			}
-			
 			// return results
 			//
 			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results" => file_get_contents($returnUrl),
+				"results" => $results,
 				"results_status" => $returnString
 			];
 		} else {
+			return response('Could not return results from '.$returnPath, 500);
+		}
+		
+		return [
+			"assessment_results_uuid" => $assessmentResultsUuid,
+			"results" => file_get_contents($returnUrl),
+			"results_status" => $returnString
+		];
+	}
 
-			// get url/status from viewer instance if present
-			// otherwise just use what database gave us.
-			// FIXME viewer is always present when url has no .html?
-			//
-			if ($viewerInstanceUuid) {
-				$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
+	public function getViewerResults($assessmentResultsUuid, $viewerInstanceUuid, $returnPath, $returnString) {
 
-				// TODO what is return value of status when returns immediately
+		// get url/status from viewer instance if present
+		// otherwise just use what database gave us.
+		// FIXME viewer is always present when url has no .html?
+		//
+		if ($viewerInstanceUuid) {
+			$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
+			Log::info("getViewerResults - state: " . $instance->stateToName());
+
+			// TODO what is return value of status when returns immediately
+
+			if ($instance->isLoading() || !$instance->isReady()) {
+				Log::info("getViewerResults - state: " . $instance->stateToName() . " isLoading or not isReady");
+				return [
+					"results_viewer_status" => $instance->status,
+					"results_status" => 'LOADING',
+					"viewer_instance" => $viewerInstanceUuid
+				];
+			} else {
 
 				// if proxy url, return it
 				//
-				if ($instance->state && ($instance->state == 2) && $instance->proxy_url) {
-					$connection = DB::connection('assessment');
-					$pdo = $connection->getPdo();
-					$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
-					$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
-					if ($base_url) {
-						$returnUrl = $base_url.$instance->proxy_url;
+				$connection = DB::connection('assessment');
+				$pdo = $connection->getPdo();
+				$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
+				$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
+				if ($base_url) {
+					$returnUrl = $base_url.$instance->proxy_url;
 
-						// log success
-						//
-						Log::info("Successfully launched viewer.", [
-							'viewer_instance_uuid' => $viewerInstanceUuid
-						]);
+					// log success
+					//
+					Log::info("Successfully launched viewer.", [
+						'viewer_instance_uuid' => $viewerInstanceUuid
+					]);
 
-						return [
-							"assessment_results_uuid" => $assessmentResultsUuid,
-							"results_url" => $returnUrl,
-							"results_status" => $returnString
-						];
-					}
-				}
-
-				// otherwise return viewer status
-				//
-				else {
 					return [
-						"results_viewer_status" => $instance->status,
-						"results_status" => "LOADING",
-						"viewer_instance" => $viewerInstanceUuid
+						"assessment_results_uuid" => $assessmentResultsUuid,
+						"results_url" => $returnUrl,
+						"results_status" => $returnString
 					];
 				}
 			}
-
-			// return results url
-			//
-			return [
-				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results_url" => config('app.url').'/'.$returnPath,
-				"results_status" => $returnString
-			];
 		}
+
+		return [
+			"assessment_results_uuid" => $assessmentResultsUuid,
+			"results_url" => config('app.url').'/'.$returnPath,
+			"results_status" => $returnString
+		];
 	}
 
 	public static function rrmdir($dir) {
@@ -356,9 +430,31 @@ class AssessmentResultsController extends BaseController {
 		rmdir($dir);
 	}
 
+	// parse JSON errors
+	//
+	public function getJSONErrors($results, $assessmentResultUuid) {
+		$results = json_decode($results, true);
+		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
+
+		// append error link
+		//
+		$resultsDir = '/swamp/SCAProjects/'.$assessmentResult->project_uuid.'/A-Results/';
+        $results['url'] = config('app.url').str_replace($resultsDir, '/results/', $assessmentResult->file_path);
+
+		return $results;
+	}
+
 	// parse JSON results
 	//
-	public function getJSON($results, $assessmentResultUuid) {
+	public function getJSONResults($results, $assessmentResultUuid) {
+
+		// parse parameters
+		//
+		$from = filter_var(Input::get('from'), FILTER_VALIDATE_INT);
+		$to = filter_var(Input::get('to'), FILTER_VALIDATE_INT);
+
+		// parse results
+		//
 		$results = json_decode($results, true);
 		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
 
@@ -373,15 +469,11 @@ class AssessmentResultsController extends BaseController {
 		// select results
 		//
 		if ($bugCount > 1) {
-			if (Input::has('from') && Input::has('to')) {
-				$from = Input::get('from');
-				$to = Input::get('to');
+			if ($from != null && $to != null) {
 				$results['AnalyzerReport']['BugInstances'] = array_slice($results['AnalyzerReport']['BugInstances'], $from - 1, $to - $from + 1);
-			} else if (Input::has('from')) {
-				$from = Input::get('from');
+			} else if ($from != null) {
 				$results['AnalyzerReport']['BugInstances'] = array_slice($results['AnalyzerReport']['BugInstances'], $from - 1);
-			} else if (Input::has('to')) {
-				$to = Input::get('to');
+			} else if ($to != null) {
 				$results['AnalyzerReport']['BugInstances'] = array_slice($results['AnalyzerReport']['BugInstances'], 0, $to);
 			}
 		}
@@ -400,7 +492,7 @@ class AssessmentResultsController extends BaseController {
 
 		// append create date
 		//
-		$results['AnalyzerReport']['create_date'] = $assessmentResult->create_date;
+		$results['AnalyzerReport']['create_date'] = $assessmentResult->create_date->format('Y/m/d H:i:s');
 
 		return $results;
 	}
@@ -409,7 +501,7 @@ class AssessmentResultsController extends BaseController {
 	//
 	public function getScarf($assessmentResultsUuid) {
 		if ($assessmentResultsUuid != "none") {
-			foreach( explode( ',',$assessmentResultsUuid ) as $resultUuid ){
+			foreach (explode( ',', $assessmentResultsUuid) as $resultUuid) {
 				try {
 					$assessmentResult = AssessmentResult::where('assessment_result_uuid', '=', $resultUuid)->first();
 					$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
@@ -533,11 +625,15 @@ class AssessmentResultsController extends BaseController {
 					'error' => 'permission_denied',
 					'error_description' => 'User project permissions for the assessment are invalid.'
 				], 403);
+
+			/*
 			} elseif (strcmp($returnString,'ERROR: DOWNLOADING OF COMMERCIAL TOOL RESULTS NOT ALLOWED') == 0) {
 				return response()->json([
 					'error' => 'permission_denied',
 					'error_description' => 'Downloading of results generated by commercial tools is not permitted.'
 				], 403);
+			*/
+				
 			} else {
 
 				// 'ERROR: UNSPECIFIED ERROR' or some other error response
@@ -595,11 +691,13 @@ class AssessmentResultsController extends BaseController {
 		$pdo = $connection->getPdo();
 
 		$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
+		Log::info("getInstanceStatus - state: " . $instance->stateToName());
 		// TODO what is return value of status when returns immediately
 
 		// if proxy url, return it
 		//
-		if ($instance->state && ($instance->state == 2) && $instance->proxy_url) {
+		if ($instance->isReady()) {
+			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " isReady");
 			$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 			$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
 			if ($base_url) {
@@ -620,10 +718,18 @@ class AssessmentResultsController extends BaseController {
 
 		// otherwise return viewer status
 		//
-		else {
+		else if ($instance->isLoading()) {
+			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " isLoading");
 			return [
 				"results_viewer_status" => $instance->status,
 				"results_status" => "LOADING",
+				"viewer_instance" => $viewerInstanceUuid
+			];
+		}
+		else {
+			return [
+				"results_viewer_status" => 'Terminated',
+				"results_status" => "CLOSED",
 				"viewer_instance" => $viewerInstanceUuid
 			];
 		}

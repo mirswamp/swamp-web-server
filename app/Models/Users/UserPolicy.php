@@ -28,6 +28,7 @@ class UserPolicy extends CreateStamped {
 	//
 	protected $table = 'user_policy';
 	protected $primaryKey = 'policy_code';
+	public $incrementing = false;
 
 	// mass assignment policy
 	//

@@ -34,11 +34,20 @@ class ProjectMembershipsController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse params
+		//
+		$projectUid = Input::get('project_uid');
+		$userUid = Input::get('user_uid');
+		$adminFlag = filter_var(Input::get('admin_flag'), FILTER_VALIDATE_BOOLEAN);
+
+		// create new project membership
+		//
 		$projectMembership = new ProjectMembership([
 			'membership_uid' => Guid::create(),
-			'project_uid' => Input::get('project_uid'),
-			'user_uid' => Input::get('user_uid'),
-			'admin_flag' => Input::get('admin_flag') == 'true'
+			'project_uid' => $projectUid,
+			'user_uid' => $userUid,
+			'admin_flag' => $adminFlag
 		]);
 		$projectMembership->save();
 
@@ -67,13 +76,17 @@ class ProjectMembershipsController extends BaseController {
 	//
 	public function updateIndex($membershipUid) {
 
+		// parse parameters
+		//
+		$adminFlag = filter_var(Input::get('admin_flag'), FILTER_VALIDATE_BOOLEAN);
+
 		// get model
 		//
 		$projectMembership = ProjectMembership::where('membership_uid', '=', $membershipUid)->get()->first();
 		
 		// update attributes
 		//
-		$projectMembership->admin_flag = Input::get('admin_flag');
+		$projectMembership->admin_flag = $adminFlag;
 
 		// save and return changes
 		//
@@ -90,7 +103,14 @@ class ProjectMembershipsController extends BaseController {
 	// update multiple
 	//
 	public function updateAll() {
+
+		// parse parameters
+		//
 		$input = Input::all();
+		$adminFlag = filter_var($item['admin_flag'], FILTER_VALIDATE_BOOLEAN);
+
+		// update project memberships
+		//
 		$collection = new Collection;
 		for ($i = 0; $i < sizeOf($input); $i++) {
 
@@ -104,7 +124,7 @@ class ProjectMembershipsController extends BaseController {
 			//
 			$projectMembership->project_uid = $item['project_uid'];
 			$projectMembership->user_uid = $item['user_uid'];
-			$projectMembership->admin_flag = $item['admin_flag'];
+			$projectMembership->admin_flag = $adminFlag;
 			
 			// save updated project membership
 			//

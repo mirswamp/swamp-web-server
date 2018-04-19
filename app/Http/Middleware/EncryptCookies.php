@@ -12,6 +12,9 @@ class EncryptCookies extends Middleware
      * @var array
      */
     protected $except = [
+
+        // make an exception for the CodeDX session cookie
         //
+        'jsessionid'
     ];
 }

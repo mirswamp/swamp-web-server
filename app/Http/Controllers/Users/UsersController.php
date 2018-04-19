@@ -37,6 +37,7 @@ use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Projects\ProjectInvitation;
 use App\Models\Admin\AdminInvitation;
+use App\Models\Users\UserClassMembership;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\LimitFilter;
@@ -47,15 +48,29 @@ class UsersController extends BaseController {
 	// create
 	//
 	public function postCreate() {
+
+		// parse parameters
+		//
+		$firstName = Input::get('first_name');
+		$lastName = Input::get('last_name');
+		$preferredName = Input::get('preferred_name');
+		$username = Input::get('username');
+		$password = Input::get('password');
+		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
+		$affiliation = Input::get('affiliation');
+		$classCode = Input::get('class_code');
+
+		// create new user
+		//
 		$user = new User([
-			'first_name' => Input::get('first_name'),
-			'last_name' => Input::get('last_name'),
-			'preferred_name' => Input::get('preferred_name'),
-			'username' => Input::get('username'),
-			'password' => Input::get('password'),
 			'user_uid' => Guid::create(),
-			'email' => Input::get('email'),
-			'affiliation' => Input::get('affiliation')
+			'first_name' => $firstName,
+			'last_name' => $lastName,
+			'preferred_name' => $preferredName,
+			'username' => $username,
+			'password' => $password,
+			'email' => $email,
+			'affiliation' => $affiliation
 		]);
 
 		// For LDAP extended error messages, check the exception message for the
@@ -76,6 +91,17 @@ class UsersController extends BaseController {
 			}
 		}
 
+		// create new class membership
+		//
+		if ($classCode && $classCode != '') {
+			$classMembership = new UserClassMembership([
+				'class_user_uuid' => Guid::create(),
+				'user_uid' => $user->user_uid,
+				'class_code' => $classCode
+			]);
+			$classMembership->save();
+		}
+
 		// return response
 		//
 		return $user;
@@ -84,15 +110,29 @@ class UsersController extends BaseController {
 	// check validity
 	//
 	public function postValidate() {
+
+		// parse parameters
+		//
+		$userUid = Input::get('user_uid');
+		$firstName = Input::get('first_name');
+		$lastName = Input::get('last_name');
+		$preferredName = Input::get('preferred_name');
+		$username = Input::get('username');
+		$password = Input::get('password');
+		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
+		$affiliation =  Input::get('affiliation');
+
+		// create new (temporary) user
+		//
 		$user = new User([
-			'user_uid' => Input::get('user_uid'),
-			'first_name' => Input::get('first_name'),
-			'last_name' => Input::get('last_name'),
-			'preferred_name' => Input::get('preferred_name'),
-			'username' => Input::get('username'),
-			'password' => Input::get('password'),
-			'email' => Input::get('email'),
-			'affiliation' => Input::get('affiliation')
+			'user_uid' => $userUid,
+			'first_name' => $firstName,
+			'last_name' => $lastName,
+			'preferred_name' => $preferredName,
+			'username' => $username,
+			'password' => $password,
+			'email' => $email,
+			'affiliation' => $affiliation
 		]);
 		$errors = [];
 
@@ -148,7 +188,7 @@ class UsersController extends BaseController {
 	//
 	public function getUserByUsername() {
 
-		// get parameters
+		// parse parameters
 		//
 		$username = Input::get('username');
 
@@ -169,7 +209,7 @@ class UsersController extends BaseController {
 	//
 	public function getUserByEmail() {
 
-		// get parameters
+		// parse parameters
 		//
 		$email = Input::get('email');
 
@@ -190,7 +230,7 @@ class UsersController extends BaseController {
 	//
 	public function requestUsername() {
 
-		// get parameters
+		// parse parameters
 		//
 		$email = Input::get('email');
 
@@ -228,6 +268,13 @@ class UsersController extends BaseController {
 	// get all
 	//
 	public function getAll($userUid) {
+
+		// parse parameters
+		//
+		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+
+		// get users
+		//
 		$user = User::getIndex($userUid);
 		if ($user) {
 			if ($user->isAdmin()) {
@@ -252,8 +299,7 @@ class UsersController extends BaseController {
 
 					// add limit filter
 					//
-					$limit = Input::get('limit');
-					if ($limit != '') {
+					if ($limit != null) {
 						$users = $users->slice(0, $limit);
 					}
 				} else {
@@ -285,6 +331,15 @@ class UsersController extends BaseController {
 	//
 	public function updateIndex($userUid) {
 
+		// parse parameters
+		//
+		$firstName = Input::get('first_name');
+		$lastName = Input::get('last_name');
+		$preferredName = Input::get('preferred_name');
+		$username = Input::get('username');
+		$email = filter_var(trim(Input::get('email')), FILTER_VALIDATE_EMAIL);
+		$affiliation = Input::get('affiliation');
+
 		// get model
 		//
 		$user = User::getIndex($userUid);
@@ -294,28 +349,28 @@ class UsersController extends BaseController {
 
 		// send verification email if email address has changed
 		//
-		$user_email = trim($user->email);
-		$input_email = trim(Input::get('email'));
-		if (config('mail.enabled')) {
-			if ((filter_var($input_email, FILTER_VALIDATE_EMAIL)) &&
-				($user_email != $input_email)) {
-				$emailVerification = new EmailVerification([
-					'user_uid' => $user->user_uid,
-					'verification_key' => Guid::create(),
-					'email' => $input_email
-				]);
-				$emailVerification->save();
-				$emailVerification->send('#verify-email', true); 
+		$userEmail = trim($user->email);
+		if ($email) {
+			if (config('mail.enabled')) {
+				if ($email != $userEmail) {
+					$emailVerification = new EmailVerification([
+						'user_uid' => $user->user_uid,
+						'verification_key' => Guid::create(),
+						'email' => $email
+					]);
+					$emailVerification->save();
+					$emailVerification->send('#verify-email', true); 
+				}
 			}
 		}
 
 		// update attributes
 		//
-		$user->first_name = Input::get('first_name');
-		$user->last_name = Input::get('last_name');
-		$user->preferred_name = Input::get('preferred_name');
-		$user->username = Input::get('username');
-		$user->affiliation = Input::get('affiliation');
+		$user->first_name = $firstName;
+		$user->last_name = $lastName;
+		$user->preferred_name = $preferredName;
+		$user->username = $username;
+		$user->affiliation = $affiliation;
 
 		// save changes
 		//
@@ -327,14 +382,14 @@ class UsersController extends BaseController {
 		$currentUser = User::getIndex(session('user_uid'));
 		if ($currentUser && $currentUser->isAdmin()) {
 
-			// get meta attributes
+			// parse meta attributes
 			//
 			$attributes = [
-				'enabled_flag' => Input::get('enabled_flag'),
-				'admin_flag' => Input::get('admin_flag'),
-				'email_verified_flag' => Input::get('email_verified_flag'),
-				'forcepwreset_flag' => Input::get('forcepwreset_flag'),
-				'hibernate_flag' => Input::get('hibernate_flag'),
+				'enabled_flag' => filter_var(Input::get('enabled_flag'), FILTER_VALIDATE_BOOLEAN),
+				'admin_flag' => filter_var(Input::get('admin_flag'), FILTER_VALIDATE_BOOLEAN),
+				'email_verified_flag' => filter_var(Input::get('email_verified_flag'), FILTER_VALIDATE_BOOLEAN),
+				'forcepwreset_flag' => filter_var(Input::get('forcepwreset_flag'), FILTER_VALIDATE_BOOLEAN),
+				'hibernate_flag' => filter_var(Input::get('hibernate_flag'), FILTER_VALIDATE_BOOLEAN),
 				'user_type' => Input::get('user_type')
 			];
 
@@ -348,9 +403,9 @@ class UsersController extends BaseController {
 
 		// append original email to changes (email change is still pending)
 		//
-		if (strlen($input_email) > 0) {
+		if (strlen($email) > 0) {
 			$changes = array_merge($changes, [
-				'email' => $user_email
+				'email' => $userEmail
 			]);
 		}
 
@@ -375,16 +430,22 @@ class UsersController extends BaseController {
 	// change password
 	//
 	public function changePassword($userUid) {
+
+		// parse parameters
+		//
+		$oldPassword = Input::get('old_password');
+		$newPassword = Input::get('new_password');
+
+		// get user
+		//
 		$currentUser = User::getIndex(session('user_uid'));
 		$user = User::getIndex($userUid);
 
 		// The target password being changed is the current user's password
 		//
 		if ($userUid == $currentUser->user_uid) {
-			$oldPassword = Input::get('old_password');
 			if ($currentUser->isAuthenticated($oldPassword)) {
-				$newPassword = Input::get('new_password');
-
+				
 				// For LDAP extended error messages, check the exception message for the
 				// ldap_* method and check for pattern match. If so, then rather than
 				// returning the user object, return a new JSON object with the 
@@ -437,7 +498,6 @@ class UsersController extends BaseController {
 		// current user is an admin - can change any password
 		//
 		} elseif ($currentUser->isAdmin()) {
-			$newPassword = Input::get('new_password');
 
 			// For LDAP extended error messages, check the exception message for the
 			// ldap_* method and check for pattern match. If so, then rather than
@@ -493,11 +553,18 @@ class UsersController extends BaseController {
 	// update multiple
 	//
 	public function updateAll() {
+
+		// parse parameters
+		//
 		$input = Input::all();
+
+		// update users
+		//
 		$collection = new Collection;
 		for ($i = 0; $i < sizeOf($input); $i++) {
-			UsersController::updateIndex( $item[$i]['user_uid'] );	
+			UsersController::updateIndex($item[$i]['user_uid']);	
 		}
+
 		return $collection;
 	}
 
@@ -564,7 +631,13 @@ class UsersController extends BaseController {
 	//
 
 	private static function filterByUserType($items) {
+
+		// parse parameters
+		//
 		$userType = Input::get('type');
+
+		// filter users
+		//
 		if ($userType != NULL && $userType != '') {
 			$filteredItems = new Collection();
 			foreach ($items as $item) {
@@ -575,6 +648,7 @@ class UsersController extends BaseController {
 			}
 			$items = $filteredItems;
 		}
+
 		return $items;
 	}
 
@@ -620,7 +694,7 @@ class UsersController extends BaseController {
 
 	private static function filterByDate($items) {
 
-		// get input parameters
+		// parse parameters
 		//
 		$after = Input::get('after');
 		$before = Input::get('before');
@@ -634,7 +708,7 @@ class UsersController extends BaseController {
 
 	private static function filterByLastLoginDate($items) {
 
-		// get input parameters
+		// parse parameters
 		//
 		$after = Input::get('login-after');
 		$before = Input::get('login-before');
