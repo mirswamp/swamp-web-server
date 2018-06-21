@@ -214,6 +214,28 @@ return [
 
     'app_password_max' => env('APP_PASSWORD_MAX', 10),
     
+   /*
+    |--------------------------------------------------------------------------
+    | Sign Up
+    |--------------------------------------------------------------------------
+    |
+    | This setting determines whether the application allows user registration. 
+    |
+    */
+
+    'sign_up_enabled' => env('APP_SIGN_UP', true),
+
+   /*
+    |--------------------------------------------------------------------------
+    | Contact Form
+    |--------------------------------------------------------------------------
+    |
+    | This setting determines whether or not to show the contact forms. 
+    |
+    */
+
+    'contact_form_enabled' => env('APP_CONTACT_FORM', false),
+    
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

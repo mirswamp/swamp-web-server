@@ -32,14 +32,17 @@ class Configuration extends BaseModel {
 		'email_enabled',
 		'use_promo_code',
 		'classes_enabled',
+		'sign_up_enabled',
 		'linked_accounts_enabled',
 		'github_authentication_enabled',
 		'google_authentication_enabled',
 		'ci_logon_authentication_enabled',
 		'stats_enabled',
+		'contact_form_enabled',
 		'client_ip',
 		'ldap_readonly',
-		'app_password_max'
+		'app_password_max',
+		'max_upload_size'
 	];
 
 	//
@@ -56,6 +59,10 @@ class Configuration extends BaseModel {
 
 	public function getClassesEnabledAttribute() {
 		return UserClass::exists();
+	}
+
+	public function getSignUpEnabledAttribute() {
+		return config('app.sign_up_enabled');
 	}
 
 	public function getLinkedAccountsEnabledAttribute() {
@@ -78,6 +85,10 @@ class Configuration extends BaseModel {
 
 	public function getStatsEnabledAttribute() {
 		return config('app.stats_enabled');
+	}
+
+	public function getContactFormEnabledAttribute() {
+		return config('app.contact_form_enabled');
 	}
 
 	public function getClientIpAttribute() {
@@ -103,5 +114,10 @@ class Configuration extends BaseModel {
 			$app_password_max = 100; 	// Global maximum of 100 app passwords per user
 		}
 		return intval($app_password_max);
+	}
+
+	public function getMaxUploadSizeAttribute() {
+		//return ini_get('upload_max_filesize');
+		return ini_get('post_max_size');
 	}
 }
