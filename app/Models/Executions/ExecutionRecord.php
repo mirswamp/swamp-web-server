@@ -198,14 +198,17 @@ class ExecutionRecord extends TimeStamped {
 	}
 
 	public function getAssessmentResultAttribute() {
-		return AssessmentResult::where('execution_record_uuid', '=', $this->execution_record_uuid)->first();
+
+		// get most recent assessment result
+		//
+		return $this->getAssessmentResult();
 	}
 
 	public function getAssessmentResultUuidAttribute() {
 
 		// get assessment result uiid from associated result
 		//
-		$assessmentResult = AssessmentResult::where('execution_record_uuid', '=', $this->execution_record_uuid)->first();
+		$assessmentResult = $this->getAssessmentResult();
 		if ($assessmentResult) {
 			return $assessmentResult->assessment_result_uuid;
 		}
@@ -215,19 +218,14 @@ class ExecutionRecord extends TimeStamped {
 
 		// get weakness count from associated result
 		//
-		$assessmentResult = AssessmentResult::where('execution_record_uuid', '=', $this->execution_record_uuid)->first();
+		$assessmentResult = $this->getAssessmentResult();
 		if ($assessmentResult) {
 			return $assessmentResult->weakness_cnt;
 		}
 	}
 	
 	public function getVmReadyFlagAttribute() {
-		return 
-			($this->vm_hostname != '') && 
-			($this->vm_username != '') && 
-			($this->vm_password != '') &&
-			($this->vm_ip_address != '')
-			? 1 : 0;
+		return $this->getVmReadyFlag();
 	}
 
 	//
@@ -263,6 +261,19 @@ class ExecutionRecord extends TimeStamped {
 
 	public function getUser() {
 		return User::getIndex($this->user_uuid);
+	}
+
+	public function getAssessmentResult() {
+		return AssessmentResult::where('execution_record_uuid', '=', $this->execution_record_uuid)->orderBy('create_date', 'DESC')->first();
+	}
+
+	public function getVmReadyFlag() {
+		return 
+			($this->vm_hostname != '') && 
+			($this->vm_username != '') && 
+			($this->vm_password != '') &&
+			($this->vm_ip_address != '')
+			? 1 : 0;
 	}
 
 	//

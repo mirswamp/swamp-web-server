@@ -31,6 +31,10 @@ use App\Models\Assessments\SystemSetting;
 
 class Package extends UserStamped {
 
+	// attributes
+	//
+	private $maxVersions = 5;	// max size of version_strings
+
 	// database attributes
 	//
 	protected $connection = 'package_store';
@@ -63,6 +67,7 @@ class Package extends UserStamped {
 		'package_sharing_status',
 		'is_owned',
 		'package_type',
+		'num_versions',
 		'version_strings',
 		'platform_user_selectable'
 	];
@@ -73,6 +78,7 @@ class Package extends UserStamped {
 		'is_owned',
 		'external_url',
 		'package_type',
+		'num_versions',
 		'version_strings',
 		'platform_user_selectable'
 	];
@@ -111,9 +117,13 @@ class Package extends UserStamped {
 		}
 	}
 
+	public function getNumVersionsAttribute() {
+		return PackageVersion::where('package_uuid', '=', $this->package_uuid)->count();
+	}
+
 	public function getVersionStringsAttribute() {
 		$versionStrings = [];
-		$packageVersions = PackageVersion::where('package_uuid', '=', $this->package_uuid)->get();
+		$packageVersions = PackageVersion::where('package_uuid', '=', $this->package_uuid)->limit($this->maxVersions)->get();
 		for ($i = 0; $i < sizeOf($packageVersions); $i++) {
 			$versionString = $packageVersions[$i]->version_string;
 			if (!in_array($versionString, $versionStrings)) {

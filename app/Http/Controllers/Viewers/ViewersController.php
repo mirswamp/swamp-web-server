@@ -62,6 +62,13 @@ class ViewersController extends BaseController {
 	// get all
 	//
 	public function getAll() {
-		return Viewer::all();
+		$defaultViewer = config('app.default_viewer');
+		if ($defaultViewer && Viewer::where('name', '=', $defaultViewer)->exists()) {
+			$first = Viewer::where('name', '=', $defaultViewer)->first();
+			$list = Viewer::where('name', '!=', $defaultViewer)->get();
+			return $list->prepend($first);
+		} else {
+			return Viewer::all();
+		}
 	}
 }
