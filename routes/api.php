@@ -19,7 +19,7 @@ use Illuminate\Http\Request;
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 Route::get('environment', function() {
@@ -112,6 +112,11 @@ Route::group(['middleware' => 'verify.config'], function () {
 	// public execution record notification route
 	//
 	Route::post('execution_records/{execution_record_uuid}/notify', 'Executions\ExecutionRecordsController@notifyIndex');
+
+    // github integration with the package
+    Route::post('packages/github', 'Packages\PackageVersionsController@getGitHubResponse');
+    //Route::get('packages/github', 'Packages\PackageVersionsController@getGitHubResponse');
+
 
 	// authenticated routes
 	//
@@ -322,6 +327,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 			Route::get('packages/users/{user_uuid}/num', 'Packages\PackagesController@getNumByUser');
 			Route::get('packages/owners/{user_uuid}', 'Packages\PackagesController@getByOwner');
 			Route::get('packages/projects/{project_uuid}', 'Packages\PackagesController@getByProject');
+			Route::get('packages/{package_uuid}/projects', 'Projects\ProjectsController@getByPackage');
 
 			// package compatibility routes
 			//
@@ -402,9 +408,12 @@ Route::group(['middleware' => 'verify.config'], function () {
 			//
 			Route::post('packages/versions/build-system/check', 'Packages\PackageVersionsController@postBuildSystemCheck');
 			Route::get('packages/versions/{package_version_uuid}', 'Packages\PackageVersionsController@getIndex');
+			Route::get('packages/versions/{package_vesion_uuid}/projects', 'Packages\PackageVersionsController@getProjects');
 			Route::put('packages/versions/{package_version_uuid}', 'Packages\PackageVersionsController@updateIndex');
 			Route::get('packages/versions/{package_version_uuid}/download', 'Packages\PackageVersionsController@getDownload');
 			Route::delete('packages/versions/{package_version_uuid}', 'Packages\PackageVersionsController@deleteIndex');
+
+            Route::get('packages/{package_uuid}/gitupdate', 'Packages\PackageVersionsController@updateGitPackage');
 		});
 
 		// tool routes

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Assessments;
@@ -66,6 +66,7 @@ class AssessmentRun extends UserStamped {
 		'tool_version_uuid',
 		'platform_uuid',
 		'platform_version_uuid',
+		'project_name',
 		'package_name',
 		'package_version_string',
 		'tool_name',
@@ -78,6 +79,7 @@ class AssessmentRun extends UserStamped {
 	// array / json appended model attributes
 	//
 	protected $appends = [
+		'project_name',
 		'package_name',
 		'package_version_string',
 		'tool_name',
@@ -96,6 +98,19 @@ class AssessmentRun extends UserStamped {
 	//
 	// accessor methods
 	//
+
+	public function getProjectNameAttribute() {
+		if ($this->project_uuid != null) {
+			$project = Project::where('project_uid', '=', $this->project_uuid)->first();
+			if ($project) {
+				return $project->full_name;
+			} else {
+				return '?';
+			}
+		} else {
+			return '';
+		}
+	}
 
 	public function getPackageNameAttribute() {
 		if ($this->package_uuid != null) {
@@ -232,13 +247,21 @@ class AssessmentRun extends UserStamped {
 	*/
 
 	public function getRunRequests() {
-		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')->first();
-		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)->get();
+		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')
+			->where('project_uuid', '=', null)
+			->first();
+		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)
+			->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)
+			->get();
 	}
 
 	public function getNumRunRequests() {
-		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')->first();
-		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)->count();
+		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')
+			->where('project_uuid', '=', null)
+			->first();
+		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)
+			->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)
+			->count();
 	}
 
 	public function checkPermissions($user) {

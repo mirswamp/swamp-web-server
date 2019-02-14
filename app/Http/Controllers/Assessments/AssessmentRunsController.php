@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Assessments;
@@ -491,7 +491,9 @@ class AssessmentRunsController extends BaseController {
 
 		// get one time run request
 		//
-		$oneTimeRunRequest = RunRequest::where('name', '=', 'One-time')->first();
+		$oneTimeRunRequest = RunRequest::where('name', '=', 'One-time')
+			->where('project_uuid', '=', null)
+			->first();
 
 		// compile list of non-one time assessment run requests
 		//

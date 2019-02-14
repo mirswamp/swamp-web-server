@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -49,6 +49,7 @@ class Package extends UserStamped {
 		'name',
 		'description',
 		'external_url',
+		'secret_token',
 		'package_type_id',
 		'package_language',
 		'package_owner_uuid',
@@ -62,6 +63,7 @@ class Package extends UserStamped {
 		'name',
 		'description',
 		'external_url',
+		'secret_token',
 		'package_type_id',
 		'package_language',
 		'package_sharing_status',
@@ -77,6 +79,7 @@ class Package extends UserStamped {
 	public $appends = [
 		'is_owned',
 		'external_url',
+		'secret_token',
 		'package_type',
 		'num_versions',
 		'version_strings',
@@ -105,7 +108,32 @@ class Package extends UserStamped {
 		return $this->getOriginal('external_url') != ''? $this->getOriginal('external_url') : null;
 	}
 
+	public function getSecretTokenAttribute() {
+		$currentUser = User::getIndex(session('user_uid'));
+		return $this->isOwnedBy($currentUser)? $this->getOriginal('secret_token') : null;
+	}
+
 	public function getPackageTypeAttribute() {
+		return $this->getPackageType();
+	}
+
+	public function getNumVersionsAttribute() {
+		return PackageVersion::where('package_uuid', '=', $this->package_uuid)->count();
+	}
+
+	public function getVersionStringsAttribute() {
+		return $this->getVersionStrings($this->maxVersions);
+	}
+
+	public function getPlatformUserSelectableAttribute() {
+		return $this->getPlatformUserSelectable();
+	}
+
+	//
+	// querying methods
+	//
+
+	public function getPackageType() {
 
 		// get package type name
 		//
@@ -117,13 +145,9 @@ class Package extends UserStamped {
 		}
 	}
 
-	public function getNumVersionsAttribute() {
-		return PackageVersion::where('package_uuid', '=', $this->package_uuid)->count();
-	}
-
-	public function getVersionStringsAttribute() {
+	public function getVersionStrings($limit = 5) {
 		$versionStrings = [];
-		$packageVersions = PackageVersion::where('package_uuid', '=', $this->package_uuid)->limit($this->maxVersions)->get();
+		$packageVersions = PackageVersion::where('package_uuid', '=', $this->package_uuid)->limit($limit)->get();
 		for ($i = 0; $i < sizeOf($packageVersions); $i++) {
 			$versionString = $packageVersions[$i]->version_string;
 			if (!in_array($versionString, $versionStrings)) {
@@ -133,22 +157,6 @@ class Package extends UserStamped {
 		rsort($versionStrings);
 		return $versionStrings;
 	}
-
-	public function getPlatformUserSelectableAttribute() {
-
-		// get platform user selectable from package type
-		//
-		if ($this->package_type_id != null) {
-			$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();
-			if ($packageType) {
-				return $packageType->platform_user_selectable;
-			}
-		}
-	}
-
-	//
-	// querying methods
-	//
 
 	public function getVersions() {
 		return PackageVersion::where('package_uuid', '=', $this->package_uuid)->get();
@@ -217,6 +225,18 @@ class Package extends UserStamped {
 		// perform query
 		//
 		return $packageVersionQuery->orderBy('version_no', 'DESC')->first();
+	}
+
+	public function getPlatformUserSelectable() {
+		
+		// get platform user selectable from package type
+		//
+		if ($this->package_type_id != null) {
+			$packageType = PackageType::where('package_type_id', '=', $this->package_type_id)->first();
+			if ($packageType) {
+				return $packageType->platform_user_selectable;
+			}
+		}
 	}
 
 	public function getDefaultPlatform(&$platformVersion) {
@@ -348,6 +368,73 @@ class Package extends UserStamped {
 			}
 		}
 		return false;
+	}
+
+	public function getProjectNames($user = null) {
+
+		// assume current user if not specified
+		//
+		if (!$user) {
+			$user = User::getIndex(session('user_uid'));
+		}
+
+		$versions = $this->getVersions();
+		$names = [];
+		foreach ($versions as $version) {
+			$projects = $version->getProjects($user);
+			foreach ($projects as $project) {
+				$name = $project->full_name;
+				if (!in_array($name, $names)) {
+					array_push($names, $name);
+				}
+			}
+		}
+		return $names;
+	}
+
+	public function getProjectUuids($user = null) {
+
+		// assume current user if not specified
+		//
+		if (!$user) {
+			$user = User::getIndex(session('user_uid'));
+		}
+
+		$versions = $this->getVersions($user);
+		$uuids = [];
+		foreach ($versions as $version) {
+			$projects = $version->getProjects($user);
+			foreach ($projects as $project) {
+				$uuid = $project->project_uid;
+				if (!in_array($uuid, $uuids)) {
+					array_push($uuids, $uuid);
+				}
+			}
+		}
+		return $uuids;
+	}
+
+	public function getProjects($user = null) {
+
+		// assume current user if not specified
+		//
+		if (!$user) {
+			$user = User::getIndex(session('user_uid'));
+		}
+
+		$versions = $this->getVersions();
+		$uuids = [];
+		$projects = [];
+		foreach ($versions as $version) {
+			$versionProjects = $version->getProjects($user);
+			foreach ($versionProjects as $project) {
+				if (!in_array($project->project_uid, $uuids)) {
+					array_push($projects, $project);
+					array_push($uuids, $project->project_uid);
+				}
+			}
+		}
+		return $projects;
 	}
 
 	//

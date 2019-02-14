@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -92,6 +92,7 @@ class User extends TimeStamped {
 		'hibernate_flag',
 		'ssh_access_flag',
 		'has_linked_account',
+		'has_projects',
 
 		// user account attributes
 		//
@@ -115,6 +116,7 @@ class User extends TimeStamped {
 		'hibernate_flag',
 		'ssh_access_flag',
 		'has_linked_account',
+		'has_projects',
 		'user_type',
 		'ultimate_login_date', 
 		'penultimate_login_date',
@@ -212,6 +214,10 @@ class User extends TimeStamped {
 		return LinkedAccount::where('user_uid', '=', $this->user_uid)->exists();
 	}
 
+	public function getHasProjectsAttribute() {
+		return sizeof($this->getProjects($this->user_uuid)) > 1;
+	}
+
 	public function getCreateDateAttribute() {
 		$userAccount = $this->getUserAccount();
 		if ($userAccount) {
@@ -285,13 +291,6 @@ class User extends TimeStamped {
 			$projectMemberships = ProjectMembership::where('user_uid', '=', $this->user_uid)->
 				whereNull('delete_date')->get();
 			$projects = new Collection;
-
-			// add trial project
-			//
-			$trialProject = $this->getTrialProject();
-			if ($trialProject) {
-				$projects->push($trialProject);
-			}
 			
 			// add projects of which user is a member
 			//
@@ -299,9 +298,16 @@ class User extends TimeStamped {
 				$projectMembership = $projectMemberships[$i];
 				$projectUid = $projectMembership['project_uid'];
 				$project = Project::where('project_uid', '=', $projectUid)->first();
-				if ($project != null && !$project->isSameAs($trialProject) && $project->isActive()) {
+				if ($project != null && !$project->isTrialProject() && $project->isActive()) {
 					$projects->push($project);
 				}
+			}
+
+			// add trial project
+			//
+			$trialProject = $this->getTrialProject();
+			if ($trialProject) {
+				$projects->push($trialProject);
 			}
 			
 			$projects = $projects->reverse();
@@ -721,6 +727,14 @@ class User extends TimeStamped {
 			}
 
 			return ($this->password == $encryptedPassword);
+		}
+	}
+
+	public static function isAuthenticatable() {
+		if (config('ldap.enabled') && config('ldap.password_validation')) {
+			return Ldap::checkLdapConnection();
+		} else {
+			return true;
 		}
 	}
 

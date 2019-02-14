@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -27,6 +27,13 @@ use App\Utilities\Strings\StringUtils;
 class WebScriptingPackageVersion extends PackageVersion {
 
 	//
+	// attributes
+	//
+
+	const BUILD_FILES = ['package.json', 'composer.json'];
+	const SOURCE_FILES = '/\.(htm|html|tpl|js|css|php|xml)$/';
+
+	//
 	// querying methods
 	//
 
@@ -34,13 +41,16 @@ class WebScriptingPackageVersion extends PackageVersion {
 
 		// search archive for build files
 		//
-		$archive = new Archive($this->getPackagePath());
-		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
-		$path = $archive->search($searchPath, ['package.json', 'composer.json']);
+		$archive = Archive::create($this->getPackagePath());
+
+		// find build file paths
+		//
+		$buildFilePath = $archive->search($this->source_path, self::BUILD_FILES, false);
+		$buildFile = basename($buildFilePath);
 
 		// deduce build system from build file
 		//
-		switch (basename($path)) {
+		switch ($buildFile) {
 
 			case 'package.json':
 				return 'npm';
@@ -65,23 +75,18 @@ class WebScriptingPackageVersion extends PackageVersion {
 
 		// search archive for build files
 		//
-		$archive = new Archive($this->getPackagePath());
-		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
-		$path = $archive->search($searchPath, ['package.json', 'composer.json']);
-
-		// strip off leading source path
-		//
-		if (StringUtils::startsWith($path, $this->source_path)) {
-			$path = substr($path, strlen($this->source_path));
-		}
+		$archive = Archive::create($this->getPackagePath());
+		$buildFilePath = $archive->search($this->source_path, self::BUILD_FILES, false);
+		$buildPath = dirname($buildFilePath);
+		$buildFile = basename($buildFilePath);
 
 		// deduce build system from build file
 		//
-		switch (basename($path)) {
+		switch ($buildFile) {
 
 			case 'package.json':
 				$buildSystem = 'npm';
-				$buildDir = dirname($path);
+				$buildDir = $buildPath;
 				if ($buildDir == '.') {
 					$buildDir = null;
 				}
@@ -89,7 +94,7 @@ class WebScriptingPackageVersion extends PackageVersion {
 
 			case 'composer.json':
 				$buildSystem = 'composer';
-				$buildDir = dirname($path);
+				$buildDir = $buildPath;
 				if ($buildDir == '.') {
 					$buildDir = null;
 				}
@@ -100,12 +105,18 @@ class WebScriptingPackageVersion extends PackageVersion {
 				break;
 		}
 
+		// find and sort source files
+		//
+		$searchPath =  $archive->concatPaths($this->source_path, $this->build_dir);
+		$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, true);
+		sort($sourceFiles);
+
 		return [
 			'build_system' => $buildSystem,
 			'config_dir' => $configDir,
 			'config_cmd' => $configCmd,
 			'build_dir' => $buildDir,
-			'build_file' => $buildFile
+			'source_files' => $sourceFiles
 		];
 	}
 
@@ -116,13 +127,12 @@ class WebScriptingPackageVersion extends PackageVersion {
 
 				// search archive for package.json
 				//
-				$archive = new Archive($this->getPackagePath());
-				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$archive = Archive::create($this->getPackagePath());
 
-				if ($archive->contains($searchPath, 'package.json')) {
-					return response("C/C++ package build system ok for npm.", 200);
+				if ($archive->contains($this->source_path, 'package.json')) {
+					return response("Web scripting package build system ok for npm.", 200);
 				} else {
-					return response("Could not find a build file called 'package.json' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+					return response("Could not find a build file called 'package.json' within '" . $this->source_path . "' directory. You may need to set your package path.", 404);
 				}
 				break;
 
@@ -130,17 +140,15 @@ class WebScriptingPackageVersion extends PackageVersion {
 
 				// search archive for composer.json
 				//
-				$archive = new Archive($this->getPackagePath());
-				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$archive = Archive::create($this->getPackagePath());
 
-				if ($archive->contains($searchPath, 'composer.json')) {
-					return response("C/C++ package build system ok for composer.", 200);
+				if ($archive->contains($this->source_path, 'composer.json')) {
+					return response("Web scripting package build system ok for composer.", 200);
 				} else {
-					return response("Could not find a build file called 'composer.json' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+					return response("Could not find a build file called 'composer.json' within '" . $this->source_path . "' directory. You may need to set your package path.", 404);
 				}
 				break;
 
-			case 'no-build':
 			default:
 				return response("Web scripting package build system ok.", 200);
 				break;

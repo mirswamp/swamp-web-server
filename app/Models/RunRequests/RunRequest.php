@@ -13,12 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\RunRequests;
 
 use App\Models\TimeStamps\UserStamped;
+use App\Models\Projects\Project;
 
 class RunRequest extends UserStamped {
 
@@ -41,8 +42,26 @@ class RunRequest extends UserStamped {
 	//
 	protected $visible = [
 		'run_request_uuid',
+		'project_name',
 		'project_uuid',
 		'name',
 		'description'
 	];
+
+	// array / json appended model attributes
+	//
+	protected $appends = [
+		'project_name'
+	];
+
+	//
+	// accessor methods
+	//
+
+	public function getProjectNameAttribute() {
+		$project = Project::where('project_uid', '=', $this->project_uuid)->first();
+		if ($project) {
+			return $project->full_name;
+		}
+	}
 }

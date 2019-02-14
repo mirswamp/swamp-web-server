@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Utilities;
@@ -42,7 +42,8 @@ class Configuration extends BaseModel {
 		'client_ip',
 		'ldap_readonly',
 		'app_password_max',
-		'max_upload_size'
+		'max_upload_size',
+		'notification'
 	];
 
 	//
@@ -119,5 +120,9 @@ class Configuration extends BaseModel {
 	public function getMaxUploadSizeAttribute() {
 		//return ini_get('upload_max_filesize');
 		return ini_get('post_max_size');
+	}
+
+	public function getNotificationAttribute() {
+		return null;
 	}
 }

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -25,6 +25,13 @@ use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
 
 class RubyPackageVersion extends PackageVersion {
+
+	//
+	// attributes
+	//
+
+	const BUILD_FILES = ['Gemfile', 'Rakefile'];
+	const SOURCE_FILES = '/\.(rb)$/';
 
 	//
 	// querying methods
@@ -73,8 +80,8 @@ class RubyPackageVersion extends PackageVersion {
 
 			// search archive for build files
 			//
-			$archive = new Archive($this->getPackagePath());
-			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+			$archive = Archive::create($this->getPackagePath());
+			$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 			$foundGemfile = $archive->found($searchPath, 'Gemfile');
 			$foundRakefile = $archive->found($searchPath, 'Rakefile');
 
@@ -83,7 +90,7 @@ class RubyPackageVersion extends PackageVersion {
 			if ($foundGemfile && $foundRakefile) {
 				return 'bundler+rake'; 
 			} else if ($foundGemfile) {
-				return 'bundler+other';
+				return 'bundler';
 			} else if ($foundRakefile) {
 				return 'rake';
 			} else {
@@ -99,8 +106,11 @@ class RubyPackageVersion extends PackageVersion {
 		$buildSystem = null;
 		$configDir = null;
 		$configCmd = null;
-		$buildDir = null;
 		$buildFile = null;
+		$buildDir = null;
+		$buildCmd = null;
+		$noBuildCmd = null;
+		$sourceFiles = [];
 
 		$extension = pathinfo($this->getPackagePath(), PATHINFO_EXTENSION);
 		if ($extension == 'gem') {
@@ -109,10 +119,21 @@ class RubyPackageVersion extends PackageVersion {
 
 			// search archive for build files
 			//
-			$archive = new Archive($this->getPackagePath());
-			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+			$archive = Archive::create($this->getPackagePath());
+			$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
+
+			// find build file paths
+			//
 			$gemPath = $archive->search($searchPath, ['Gemfile', 'gemfile']);
 			$rakePath = $archive->search($searchPath, ['Rakefile', 'rakefile']);
+
+			// find path to source files for no build
+			//
+			$sourcePath = $searchPath;
+			/*
+			$sourceFilePath = $archive->find($searchPath, self::SOURCE_FILES, true);
+			$sourcePath = dirname($sourceFilePath) . '/';
+			*/
 
 			// strip off leading source path
 			//
@@ -132,7 +153,7 @@ class RubyPackageVersion extends PackageVersion {
 					$buildDir = null;
 				}
 			} else if ($gemPath) {
-				$buildSystem = 'bundler+other';
+				$buildSystem = 'bundler';
 				$buildDir = dirname($gemPath);
 				if ($buildDir == '.') {
 					$buildDir = null;
@@ -146,6 +167,22 @@ class RubyPackageVersion extends PackageVersion {
 			} else {
 				$buildSystem = null;
 			}
+
+			// find and sort source files
+			//
+			$sourceFiles = $archive->getListing($sourcePath, self::SOURCE_FILES, true);
+			sort($sourceFiles);
+
+			// compose no build command
+			//
+			if ($sourceFiles && count($sourceFiles > 0)) {
+
+				// add cd to build directory
+				//
+				if ($buildDir && $buildDir != '.' && $buildDir != './') {
+					$noBuildCmd = 'cd ' .  $archive->toPathName($buildDir) . ';';
+				}
+			}
 		}
 
 		return [
@@ -153,7 +190,9 @@ class RubyPackageVersion extends PackageVersion {
 			'config_dir' => $configDir,
 			'config_cmd' => $configCmd,
 			'build_dir' => $buildDir,
-			'build_file' => $buildFile
+			'build_cmd' => $buildCmd,
+			'no_build_cmd' => $noBuildCmd,
+			'source_files' => $sourceFiles
 		];
 	}
 
@@ -164,8 +203,8 @@ class RubyPackageVersion extends PackageVersion {
 
 				// search archive for Gemfile
 				//
-				$archive = new Archive($this->getPackagePath());
-				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
 				if (!$archive->contains($searchPath, 'Gemfile')) {
 					return response("Could not find a Gemfile within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
@@ -200,8 +239,8 @@ class RubyPackageVersion extends PackageVersion {
 
 				// search archive for Gemfile
 				//
-				$archive = new Archive($this->getPackagePath());
-				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
 				if ($archive->contains($searchPath, 'Gemfile')) {
 					return response("Ruby package build system ok for bundler+other.", 200);
@@ -214,8 +253,8 @@ class RubyPackageVersion extends PackageVersion {
 
 				// search archive for specified build file
 				//
-				$archive = new Archive($this->getPackagePath());
-				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
 				if ($this->build_file != NULL) {
 
@@ -248,8 +287,21 @@ class RubyPackageVersion extends PackageVersion {
 				}
 				break;
 
-			case 'other':
 			case 'no-build':
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
+
+				// check for source files
+				//
+				$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, true);
+				if (count($sourceFiles) > 0) {
+					return response("Ruby package build system ok for no-build.", 200);
+				} else {
+					return response("No assessable Ruby code files were found in the selected build path ($searchPath).", 404);
+				}
+				break;
+
+			default:
 				return response("Ruby package build system ok for " . $this->build_system . ".", 200);
 		}
 	}

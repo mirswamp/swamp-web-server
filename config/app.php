@@ -111,6 +111,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Contact Form
+    |--------------------------------------------------------------------------
+    |
+    | This is whether or not to display the contact forms.
+    |
+    */
+
+    'contact_form_enabled' => env('APP_CONTACT_FORM', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Floodlight Host URL
     |--------------------------------------------------------------------------
     |
@@ -213,7 +224,7 @@ return [
     */
 
     'app_password_max' => env('APP_PASSWORD_MAX', 10),
-    
+
    /*
     |--------------------------------------------------------------------------
     | Sign Up
@@ -238,15 +249,26 @@ return [
     
     /*
     |--------------------------------------------------------------------------
-    | Contact Form
+    | Default Viewer
     |--------------------------------------------------------------------------
     |
-    | This setting determines whether or not to show the contact forms. 
+    | This setting determines the default viewer. 
     |
     */
 
     'default_viewer' => env('APP_DEFAULT_VIEWER', 'CodeDX'),
-    
+
+    /*
+    |--------------------------------------------------------------------------
+    | Python
+    |--------------------------------------------------------------------------
+    |
+    | This setting determines where to find the python interpreter. 
+    |
+    */
+
+    'python' => env('APP_PYTHON', 'python3'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

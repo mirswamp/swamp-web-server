@@ -18,7 +18,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Ldap;
@@ -510,6 +510,34 @@ class Ldap {
 			$retarr[$ldapConnConf['org_attr']] = $user->affiliation ?: ' ';
 		}
 		return $retarr;
+	}
+
+	// This function determines whether or not an LDAP connection can be made.
+	//
+	public static function checkLdapConnection() {
+		try {
+
+			// Try to set up the LDAP connection for the $user
+			//
+			$ldapConnectionConfig = config('ldap.connection');
+			$ldapHost = $ldapConnectionConfig['host'];
+			$ldapPort = $ldapConnectionConfig['port'];
+			$ldapConnection = ldap_connect($ldapHost, $ldapPort);
+			if ($ldapConnection) {
+				ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
+				$ldapUser = $ldapConnectionConfig['users']['web_user'];
+				$ldapbind = @ldap_bind($ldapConnection, $ldapUser['user'], $ldapUser['password']);
+				if ($ldapbind) {
+					return true;
+				} else {
+					return "Can not bind with LDAP user.";
+				}
+			} else {
+				return "Can not create LDAP connection.";
+			}
+		} catch (\ErrorException $e) {
+			return "Can not create LDAP connection.";
+		}
 	}
 
 	// This function gets/sets the static class $ldapConnection array

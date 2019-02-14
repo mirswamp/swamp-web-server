@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\RunRequests;
@@ -73,13 +73,17 @@ class RunRequestsController extends BaseController {
 		// create new run requests
 		//
 		$assessmentRunRequests = new Collection;
-		$runRequest = RunRequest::where('name', '=', 'One-time')->first();
+		$runRequest = RunRequest::where('name', '=', 'One-time')
+			->where('project_uuid', '=', null)
+			->first();
+			
 		if ($runRequest != NULL) {
 			
 			// check permissions on each assessment run
 			//
 			foreach( $assessmentRunUuids as $assessmentRunUuid ) {
-				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
+				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)
+					->first();
 				if ($assessmentRun != NULL) {
 					$user = User::getIndex(session('user_uid'));
 					$result = $assessmentRun->checkPermissions($user);
@@ -95,7 +99,8 @@ class RunRequestsController extends BaseController {
 			// create assessment run requests
 			//
 			for ($i = 0; $i < sizeOf($assessmentRunUuids); $i++) {
-				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])->first();
+				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])
+					->first();
 				if ($assessmentRun != NULL) {
 					$assessmentRunRequest = new AssessmentRunRequest([
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
@@ -128,7 +133,8 @@ class RunRequestsController extends BaseController {
 			// check permissions on each assessment run
 			//
 			foreach( $assessmentRunUuids as $aru ) {
-				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $aru)->first();
+				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $aru)
+					->first();
 				if ($assessmentRun != NULL) {
 					$user = User::getIndex(session('user_uid'));
 					$result = $assessmentRun->checkPermissions($user);
@@ -144,7 +150,8 @@ class RunRequestsController extends BaseController {
 			// create assessment run requests
 			//
 			for ($i = 0; $i < sizeOf($assessmentRunUuids); $i++) {
-				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])->first();
+				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])
+					->first();
 				if ($assessmentRun != NULL) {
 					$assessmentRunRequest = new AssessmentRunRequest([
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
@@ -163,7 +170,8 @@ class RunRequestsController extends BaseController {
 	// get by index
 	//
 	public function getIndex($runRequestUuid) {
-		$runRequest = RunRequest::where('run_request_uuid', '=', $runRequestUuid)->first();
+		$runRequest = RunRequest::where('run_request_uuid', '=', $runRequestUuid)
+			->first();
 		return $runRequest;
 	}
 
@@ -174,7 +182,8 @@ class RunRequestsController extends BaseController {
 
 			// check for inactive or non-existant project
 			//
-			$project = Project::where('project_uid', '=', $projectUuid)->first();
+			$project = Project::where('project_uid', '=', $projectUuid)
+				->first();
 			if (!$project || !$project->isActive()) {
 				return [];
 			}
@@ -191,7 +200,8 @@ class RunRequestsController extends BaseController {
 
 				// check for inactive or non-existant project
 				//
-				$project = Project::where('project_uid', '=', $projectUuid)->first();
+				$project = Project::where('project_uid', '=', $projectUuid)
+					->first();
 				if (!$project || !$project->isActive()) {
 					continue;
 				}
@@ -203,6 +213,11 @@ class RunRequestsController extends BaseController {
 				}
 			}
 		}
+
+		$runRequestsQuery = $runRequestsQuery->orWhere(function($query) {
+			return $query->where('project_uuid', '=', null)
+				->where('hidden_flag', '!=', 1);
+		});
 
 		// add limit filter
 		//
@@ -270,7 +285,8 @@ class RunRequestsController extends BaseController {
 	// delete by index
 	//
 	public function deleteIndex($runRequestUuid) {
-		$runRequest = RunRequest::where('run_request_uuid', '=', $runRequestUuid)->first();
+		$runRequest = RunRequest::where('run_request_uuid', '=', $runRequestUuid)
+			->first();
 		$runRequest->delete();
 		return $runRequest;
 	}
@@ -280,8 +296,9 @@ class RunRequestsController extends BaseController {
 	public function deleteAssessmentRunRequest($runRequestUuid, $assessmentRunUuid) {
 		$runRequest = $this->getIndex($runRequestUuid);
 		$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
-		$assessmentRunRequest = AssessmentRunRequest::where('run_request_id', '=', $runRequest->run_request_id)->
-			where('assessment_run_id', '=', $assessmentRun->assessment_run_id)->first();
+		$assessmentRunRequest = AssessmentRunRequest::where('run_request_id', '=', $runRequest->run_request_id)
+			->where('assessment_run_id', '=', $assessmentRun->assessment_run_id)
+			->first();
 		$assessmentRunRequest->delete();
 		return $assessmentRunRequest;
 	}

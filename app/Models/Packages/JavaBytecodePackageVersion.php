@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -29,7 +29,7 @@ class JavaBytecodePackageVersion extends PackageVersion {
 	//
 
 	function getBuildSystem() {
-		return "none";
+		return 'java-bytecode';
 	}
 
 	function getBuildInfo() {

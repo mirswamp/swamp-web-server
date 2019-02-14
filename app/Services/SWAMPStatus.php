@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Services;
@@ -34,31 +34,39 @@ class SWAMPStatus {
 	private static $global_trace_logging = false;
 	private static $global_is_condor_available = true;
 	private static $global_is_localhost = true;
+	private static $global_condor_env_prefix = '';
+	private static $global_usr_sbin_condor_master_pid = '';
+	private static $global_opt_swamp_htcondor_sbin_condor_master_pid = '';
 
 	private static function get_condor_collector_host() {
 		$collector_host = Config::get('app.htcondorcollectorhost');
 		return $collector_host;
 	}
 
-	private static function get_condor_submit_node($condor_manager) {
-		$command = HTCondor::get_condor_env_command() . "condor_status ";
+	private static function get_condor_submit_nodes($condor_manager) {
+		$command = self::$global_condor_env_prefix . "condor_status ";
 		if (! self::$global_is_localhost) {
 			$command .= "-pool $condor_manager ";
 		}
-		$command .= "-schedd -af Name";
+		$command .= "-schedd -constraint \"CollectorHost==\\\"$condor_manager\\\"\" -af Name";
 		if (self::$global_trace_logging) {
-			Log::info("get_condor_submit_node command: $command");
+			Log::info("get_condor_submit_nodes command: $command");
 		}
-		exec($command, $output, $returnVar);
-		$submit_node = "";
+		exec("$command 2>&1", $output, $returnVar);
+		$submit_nodes = [];
 		if (($returnVar == 0) && (! empty($output))) {
-			$submit_node = str_replace('"', '', $output[0]);
+			for ($i = 0; $i < sizeof($output); $i++) {
+				$submit_nodes[$i] = str_replace('"', '', $output[$i]);
+			}
 		}
-		return $submit_node;
+		elseif ($returnVar == 1) {
+			Log::error("Error - command: $command output: " . print_r($output, 1));
+		}
+		return $submit_nodes;
 	}
 
 	private static function get_condor_exec_nodes($condor_manager) {
-		$command = HTCondor::get_condor_env_command() . "condor_status ";
+		$command = self::$global_condor_env_prefix . "condor_status ";
 		if (! self::$global_is_localhost) {
 			$command .= "-pool $condor_manager ";
 		}
@@ -66,12 +74,15 @@ class SWAMPStatus {
 		if (self::$global_trace_logging) {
 			Log::info("get_condor_exec_nodes command: $command");
 		}
-		exec($command, $output, $returnVar);
+		exec("$command 2>&1", $output, $returnVar);
 		$exec_nodes = [];
 		if (($returnVar == 0) && (! empty($output))) {
 			for ($i = 0; $i < sizeof($output); $i++) {
 				$exec_nodes[$i] = str_replace('"', '', $output[$i]);
 			}
+		}
+		elseif ($returnVar == 1) {
+			Log::error("Error - command: $command output: " . print_r($output, 1));
 		}
 		return $exec_nodes;
 	}
@@ -124,7 +135,7 @@ class SWAMPStatus {
 		$fields = $global_fields[$title];
 		$constraint = $global_constraint[$title];
 		$sortfield = "SWAMP_vmu_" . $title . "_vmhostname";
-		$command = HTCondor::get_condor_env_command() . "condor_status ";
+		$command = self::$global_condor_env_prefix . "condor_status ";
 		if (! self::$global_is_localhost) {
 			$command .= "-pool $collector_host ";
 		}
@@ -140,7 +151,7 @@ class SWAMPStatus {
 		}
 		$returnVar = 1;
 		if (self::$global_is_condor_available) {
-			exec($command, $output, $returnVar);
+			exec("$command 2>&1", $output, $returnVar);
 		}
 		if (($returnVar == 0) && (! empty($output))) {
 			$prefix = "SWAMP_vmu_" . $title . "_";
@@ -194,6 +205,9 @@ class SWAMPStatus {
 			if (empty($crecords)) $fieldnames = [];
 		}
 		else if ($returnVar == 1) {
+			if (self::$global_is_condor_available) {
+				Log::error("Error - command: $command output: " . print_r($output, 1));
+			}
 			self::$global_is_condor_available = false;
 		}
 		$ra =  ['fieldnames' => $fieldnames, 'data' => $crecords];
@@ -201,7 +215,8 @@ class SWAMPStatus {
 	}
 
 	public static function get_database_queue($interval) {
-		$fieldnames = ['execution_record_uuid', 'create_date', 'run_date', 'status', 'launch_flag', 'launch_counter', 'submitted_to_condor_flag', 'complete_flag'];
+		$dbfieldnames = ['execution_record_uuid', 'create_date', 'run_date', 'status', 'launch_flag', 'launch_counter', 'submitted_to_condor_flag', 'complete_flag'];
+		$fieldnames = ['execrunuid', 'create', 'run', 'status', 'launch', 'count', 'submitted', 'complete'];
 		$executionRecords = ExecutionRecord::where('complete_flag', '=', '0')->orWhere('launch_flag', '=', '1')->orWhereRaw("create_date >= subdate(now(), interval $interval minute)")->get();
 
 		// pluck out requested fields from execution records
@@ -209,12 +224,14 @@ class SWAMPStatus {
 		$records = [];
 		for ($i = 0; $i < sizeof($executionRecords); $i++) {
 			$values = [];
-			foreach ($fieldnames as $fieldname) {
-				$values[$fieldname] = $executionRecords[$i][$fieldname];
-				if ($fieldname == 'execution_record_uuid') {
+			for ($fni = 0; $fni < sizeof($fieldnames); $fni++) {
+				$fieldname = $fieldnames[$fni];
+				$dbfieldname = $dbfieldnames[$fni];
+				$values[$fieldname] = $executionRecords[$i][$dbfieldname];
+				if ($dbfieldname == 'execution_record_uuid') {
 					$values[$fieldname] = '{execrunuid}' . $values[$fieldname];
 				}
-				else if (preg_match('/date$/', $fieldname)) {
+				else if (preg_match('/date$/', $dbfieldname)) {
 
 					// database timestamp is already in UTC
 					//
@@ -226,9 +243,6 @@ class SWAMPStatus {
 		if (empty($records)) {
 			$fieldnames = [];
 		}
-		else {
-			$fieldnames = ['execrunuid', 'create', 'run', 'status', 'launch', 'count', 'submitted', 'complete'];
-		}
 		$ra =  ['fieldnames' => $fieldnames, 'data' => $records];
 		return $ra;
 	}
@@ -236,7 +250,7 @@ class SWAMPStatus {
 	public static function get_condor_status($condor_manager) {
 		$fieldnames = [];
 		$slots = [];
-		$command = HTCondor::get_condor_env_command() . "condor_status -vm";
+		$command = self::$global_condor_env_prefix . "condor_status -vm";
 		if (! self::$global_is_localhost) {
 			// modify command to use pool
 			$command .= " -pool $condor_manager";
@@ -246,7 +260,7 @@ class SWAMPStatus {
 		}
 		$returnVar = 1;
 		if (self::$global_is_condor_available) {
-			exec($command, $output, $returnVar);
+			exec("$command 2>&1", $output, $returnVar);
 		}
 		if (($returnVar == 0) && (! empty($output))) {
 			$have_slots = false;
@@ -264,9 +278,23 @@ class SWAMPStatus {
 				else {
 					$slot = [];
 					$temp = preg_split("/[\s]+/", $output[$i], -1, PREG_SPLIT_NO_EMPTY);
-					for ($n = 0; $n < sizeof($fieldnames); $n++) {
+					// condor_status does not separate VMMem and ActivityTime string values
+					// if ActivityTime > 99 days so split string based on length
+					// VMMem is the 6th field and has length <= 7
+					// ActivityTime has length 12 on overflow of > 99 days
+					for ($n = 0; $n < sizeof($temp); $n++) {
 						$fieldname = $fieldnames[$n];
-						$slot[$fieldname] = $temp[$n];
+						$len = strlen($temp[$n]);
+						// test VMMem and ActivityTime blended into single string
+						if (($n == 6) && ($len > 7)) {
+							// ActivityTime has 12 characters instead of 11
+							$slot[$fieldname] = substr($temp[$n], 0, $len - 12);
+							// push ActivityTime remainder of string onto temp
+							$temp[] = substr($temp[$n], $len - 12);
+						}
+						else {
+							$slot[$fieldname] = $temp[$n];
+						}
 					}
 					$slots[] = $slot;
 					$have_slots = true;
@@ -278,6 +306,9 @@ class SWAMPStatus {
 			}
 		}
 		else if ($returnVar == 1) {
+			if (self::$global_is_condor_available) {
+				Log::error("Error - command: $command output: " . print_r($output, 1));
+			}
 			self::$global_is_condor_available = false;
 		}
 		$ra = ['fieldnames' => $fieldnames, 'data' => $slots];
@@ -295,12 +326,15 @@ class SWAMPStatus {
 			7	=> 'Suspended'
 		];
 		$fieldnames = [];
-		$jobs = [];
+		$jobs['all'] = [];
+		$jobs['aruns'] = [];
+		$jobs['mruns'] = [];
+		$jobs['vruns'] = [];
 		$summary['aruns'] = [];
 		$summary['mruns'] = [];
 		$summary['vruns'] = [];
 		$summary['total'] = [];
-		$command = HTCondor::get_condor_env_command() . "condor_q -allusers";
+		$command = self::$global_condor_env_prefix . "condor_q -allusers";
 		if (! self::$global_is_localhost) {
 			// modify command to use pool and name
 			$command .= " -pool $condor_manager -name $submit_node";
@@ -310,13 +344,13 @@ class SWAMPStatus {
 		if (! self::$global_is_localhost) {
 			$command .= ",RemoteHost";
 		}
-		$command .= ",QDate,JobStartDate,JobStatus,JobPrio,ImageSize,DiskUsage,SWAMP_arun_execrunuid,SWAMP_mrun_execrunuid,SWAMP_vrun_execrunuid";
+		$command .= ",QDate,JobStartDate,RemoteWallClockTime,JobStatus,JobPrio,ImageSize,DiskUsage,SWAMP_arun_execrunuid,SWAMP_mrun_execrunuid,SWAMP_vrun_execrunuid";
 		if (self::$global_trace_logging) {
 			Log::info("get_condor_queue command: $command");
 		}
 		$returnVar = 1;
 		if (self::$global_is_condor_available) {
-			exec($command, $output, $returnVar);
+			exec("$command 2>&1", $output, $returnVar);
 		}
 		if (($returnVar == 0) && (! empty($output))) {
 			$fieldnames = ['EXECRUNUID', 'CMD', 'SUBMITTED', 'RUN TIME', 'ST', 'PRI', 'IMAGE', 'DISK'];
@@ -360,7 +394,10 @@ class SWAMPStatus {
 				'held'		=> 0,
 				'suspended'	=> 0,
 			];
-			$jobs = [];
+			$jobs['all'] = [];
+			$jobs['aruns'] = [];
+			$jobs['mruns'] = [];
+			$jobs['vruns'] = [];
 			$job = [];
 			$clusterid = "";
 			$procid = "";
@@ -384,8 +421,9 @@ class SWAMPStatus {
 						$orderedjob[$fieldnames[$n]] = isset($job[$fieldnames[$n]]) ? $job[$fieldnames[$n]] : '';
 					}
 					// add hidden fields here
-					$orderedjob['type'] = $job['type'];
-					$jobs[] = $orderedjob; 
+					$orderedjob['type'] = isset($job['type']) ? $job['type'] : '';
+					$jobs['all'][] = $orderedjob;
+					$jobs[$runtype][] = $orderedjob; 
 					$job = [];
 					$clusterid = "";
 					$procid = "";
@@ -439,7 +477,7 @@ class SWAMPStatus {
 							$runtype = 'unknown';
 						}
 					}
-					// submitted, run_time
+					// submitted
 					elseif ($name == 'QDate') {
 						$date = new DateTime("@$value");
 
@@ -447,6 +485,8 @@ class SWAMPStatus {
 						//
 						$job['SUBMITTED'] = '{timestamp}' . $date->format('Y-m-d H:i:s');
 					}
+					// run time - assumes JobStartDate always preceeds RemoteWallClockTime in output
+					// compute run time from time_now - JobStartDate
 					elseif ($name == 'JobStartDate') {
 						$run_time = $time_now - $value;
 						$days = intval($run_time / 86400);
@@ -456,6 +496,19 @@ class SWAMPStatus {
 						$minutes = intval($run_time / 60);
 						$seconds = $run_time % 60;
 						$job['RUN TIME'] = sprintf("%d+%02d:%02d:%02d", $days, $hours, $minutes, $seconds);
+					}
+					// replace run time with RemoteWallClockTime if it is > 0
+					elseif ($name == 'RemoteWallClockTime') {
+						$run_time = $value;
+						if ($value > 0) {
+							$days = intval($run_time / 86400);
+							$run_time = $run_time % 86400;
+							$hours = intval($run_time / 3600);
+							$run_time = $run_time % 3600;
+							$minutes = intval($run_time / 60);
+							$seconds = $run_time % 60;
+							$job['RUN TIME'] = sprintf("%d+%02d:%02d:%02d", $days, $hours, $minutes, $seconds);
+						}
 					}
 					// st
 					elseif ($name == 'JobStatus') {
@@ -492,8 +545,9 @@ class SWAMPStatus {
 					$job['RUN TIME'] = '0+00:00:00';
 				}
 			}
-			// if there are no jobs in final list then clear fieldnames and summary for consistency
-			if (empty($jobs)) {
+			// if there are no jobs in any of the final lists 
+			// then clear fieldnames and summary for consistency
+			if (empty($jobs['all'])) {
 				$fieldnames = [];
 				$summary['aruns'] = [];
 				$summary['mruns'] = [];
@@ -502,13 +556,16 @@ class SWAMPStatus {
 			}
 		}
 		else if ($returnVar == 1) {
+			if (self::$global_is_condor_available) {
+				Log::error("Error - command: $command output: " . print_r($output, 1));
+			}
 			self::$global_is_condor_available = false;
 		}
 		$ra = ['fieldnames' => $fieldnames, 'data' => $jobs, 'summary' => $summary];
 		return $ra;
 	}
 
-	public static function get_command_type($command) {
+	public static function get_command_type($ppid, $pid, $command) {
 		if (preg_match("/vmu_.*Assessment/", $command)) {
     		return 'swamp arun';
 		} elseif (preg_match("/vmu_.*Viewer/", $command)) {
@@ -518,7 +575,33 @@ class SWAMPStatus {
 		} elseif (preg_match("/mysql/", $command)) {
 			return 'mysql';
 		} elseif (preg_match("/condor/", $command)) {
-			return 'condor';
+			// if there is no condor_env_prefix then this is rpm condor
+			if (empty(self::$global_condor_env_prefix)) {
+				return 'condor';
+			}
+			// if /opt/swamp/htcondor is in command then this is swamp-condor
+			// if we have found condor_master then record pid
+			if (preg_match("/opt\/swamp\/htcondor/", $command)) {
+				if (preg_match("/condor_master/", $command)) {
+                    self::$global_opt_swamp_htcondor_sbin_condor_master_pid = $pid; 
+				}
+				return 'swamp condor';
+			}
+			// if /opt/swamp/htcondor is not in command
+			// if we have found condor_master then record pid
+            if (preg_match("/condor_master/", $command)) {
+				self::$global_usr_sbin_condor_master_pid = $pid; 
+				return 'condor';
+            }       
+			// if match on /usr/sbin/condor_master for ppid then rpm condor
+            if ($ppid == self::$global_usr_sbin_condor_master_pid) {
+				return 'condor';
+			}
+			// if match on /opt/swamp/htcondor/sbin/condor_master for ppid then swamp-condor
+			if ($ppid == self::$global_opt_swamp_htcondor_sbin_condor_master_pid) {
+				return 'swamp condor';
+            }
+            return 'unknown condor';
 		} else {
 			return 'other';
 		}
@@ -546,8 +629,7 @@ class SWAMPStatus {
 		if (self::$global_trace_logging) {
 			Log::info("get_swamp_processes command: $command");
 		}
-		exec($command, $output, $returnVar);
-
+		exec("$command 2>&1", $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
 			$commandfield = "";
 			for ($i = 0; $i < sizeof($output); $i++) {
@@ -567,7 +649,7 @@ class SWAMPStatus {
 					// collect all of the COMMAND field in the last element of the split
 					//
 					$temp = preg_split("/[\s]+/", $output[$i], sizeof($fieldnames), PREG_SPLIT_NO_EMPTY);
-					$process['TYPE'] = self::get_command_type($temp[sizeof($fieldnames) - 1]);
+					$process['TYPE'] = self::get_command_type($temp[1], $temp[2], $temp[sizeof($fieldnames) - 1]);
 					for ($n = 0; $n < sizeof($fieldnames); $n++) {
 						$fieldname = $fieldnames[$n];
 
@@ -625,7 +707,9 @@ class SWAMPStatus {
 			//
 			if (empty($processes)) $fieldnames = [];
 		}
-
+		elseif ($returnVar == 1) {
+			Log::error("Error - command: $command output: " . print_r($output, 1));
+		}
 		$ra = ['fieldnames' => $fieldnames, 'data' => $processes];
 		return $ra;
 	}
@@ -643,7 +727,7 @@ class SWAMPStatus {
 		if (self::$global_trace_logging) {
 			Log::info("get_virtual_machines command: $command");
 		}
-		exec($command, $output, $returnVar);
+		exec("$command 2>&1", $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
 			for ($i = 0; $i < sizeof($output); $i++) {
 				// skipt empty lines
@@ -668,6 +752,9 @@ class SWAMPStatus {
 			// if there are no machines in final list then clear fieldnames for consistency
 			if (empty($machines)) $fieldnames = [];
 		}
+		elseif ($returnVar == 1) {
+			Log::error("Error - command: $command output: " . print_r($output, 1));
+		}
 		$ra =  ['fieldnames' => $fieldnames, 'data' => $machines];
 		return $ra;
 	}
@@ -685,7 +772,7 @@ class SWAMPStatus {
 		if (self::$global_trace_logging) {
 			Log::info("get_submit_job_dirs command: $command");
 		}
-		exec($command, $output, $returnVar);
+		exec("$command 2>&1", $output, $returnVar);
 		if (($returnVar == 0) && (! empty($output))) {
 			// this is a hack because unix/linux ls command does not display field names
 			// ls -lrt is presumably guaranteed to produce exactly the following columns
@@ -744,6 +831,9 @@ class SWAMPStatus {
 			// if there are no jobs in final list then clear fieldnames for consistency
 			if (empty($jobdirs)) $fieldnames = [];
 		}
+		elseif ($returnVar == 1) {
+			Log::error("Error - command: $command output: " . print_r($output, 1));
+		}
 		$ra = ['fieldnames' => $fieldnames, 'data' => $jobdirs];
 		return $ra;
 	}
@@ -752,6 +842,7 @@ class SWAMPStatus {
 		if (self::$global_trace_logging) {
 			Log::info("getCurrent options: " . print_r($options, 1));
 		}
+		self::$global_condor_env_prefix = HTCondor::get_condor_env_command();
 		$hostname = gethostname();
 		$collector_host = self::get_condor_collector_host();
 		// Log::info(".env collector_host: <$collector_host>");
@@ -767,12 +858,12 @@ class SWAMPStatus {
 		$condor_manager = implode('.', $parts);
 
 		if (self::$global_is_localhost) {
-			$submit_node = $hostname;
+			$submit_nodes[] = $hostname;
 			$exec_nodes[] = $hostname;
 			$data_nodes[] = $hostname;
 		}
 		else {
-			$submit_node = self::get_condor_submit_node($condor_manager);
+			$submit_nodes = self::get_condor_submit_nodes($condor_manager);
 			$exec_nodes = self::get_condor_exec_nodes($condor_manager);
 			$data_nodes = self::get_swamp_data_nodes($hostname);
 		}
@@ -780,7 +871,7 @@ class SWAMPStatus {
 		if (self::$global_trace_logging) {
         	Log::info("collector_host: <$collector_host>");
 			Log::info("condor_manager: <$condor_manager>");
-			Log::info("submit_node: <$submit_node>");
+			Log::info("submit_nodes: <" . implode(" ", $submit_nodes) . ">");
 			Log::info("exec_nodes: <" . implode(" ", $exec_nodes) . ">"); 
 			Log::info("data_nodes: <" . implode(" ", $data_nodes) . ">"); 
 		}
@@ -795,15 +886,26 @@ class SWAMPStatus {
 		}
 		// Log::info("getCurrent interval: $interval");
 		$dbq = self::get_database_queue($interval);
-		$all_dbq[$submit_node] = $dbq;
+		$all_dbq["database"] = $dbq;
 
 		// condor status
 		$cs = self::get_condor_status($condor_manager);
-		$all_cs[$submit_node] = $cs;
+		$all_cs[$condor_manager] = $cs;
 
 		// condor queue
-		$cq = self::get_condor_queue($submit_node, $condor_manager);
-		$all_cq[$submit_node] = $cq;
+		foreach ($submit_nodes as $submit_node) {
+			$cq = self::get_condor_queue($submit_node, $condor_manager);
+			$fieldnames = $cq['fieldnames'];
+			$summary = $cq['summary'];
+			$all_data = $cq['data']['all'];
+			$arun_data = $cq['data']['aruns'];
+			$mrun_data = $cq['data']['mruns'];
+			$vrun_data = $cq['data']['vruns'];
+			$all_cq[$submit_node] = ['fieldnames' => $fieldnames, 'data' => $all_data, 'summary' => $summary];
+			$all_caq[$submit_node] = ['fieldnames' => $fieldnames, 'data' => $arun_data];
+			$all_cmq[$submit_node] = ['fieldnames' => $fieldnames, 'data' => $mrun_data];
+			$all_cvq[$submit_node] = ['fieldnames' => $fieldnames, 'data' => $vrun_data];
+		}
 
 		// assessment collector	
 		$acr = self::get_collector_records($collector_host, 'assessment');
@@ -814,29 +916,33 @@ class SWAMPStatus {
 		$all_vcr[$collector_host] = $vcr;
 
 		// submit job dirs
-		$sjd = self::get_submit_job_dirs($hostname, $submit_node);
-		if (! empty($sjd['fieldnames'])) {
-			$all_sjd[$submit_node] = $sjd;
+		foreach ($submit_nodes as $submit_node) {
+			$sjd = self::get_submit_job_dirs($hostname, $submit_node);
+			if (! empty($sjd['fieldnames'])) {
+				$all_sjd[$submit_node] = $sjd;
+			}
 		}
 
 		// swamp processes
 		// first get submit_node
-		$sp = self::get_swamp_processes($hostname, $submit_node);
-		if (! empty($sp['fieldnames'])) {
-			$all_sp[$submit_node] = $sp;
+		foreach ($submit_nodes as $submit_node) {
+			$sp = self::get_swamp_processes($hostname, $submit_node);
+			if (! empty($sp['fieldnames'])) {
+				$all_sp[$submit_node] = $sp;
+			}
 		}
-		// then iterate over data_nodes if they are different from the submit_node
+		// then iterate over data_nodes if they are different from the submit_nodes
 		foreach ($data_nodes as $data_node) {
-			if ($data_node != $submit_node) {
+			if (! in_array($data_node, $submit_nodes)) {
 				$sp = self::get_swamp_processes($hostname, $data_node);
 				if (! empty($sp['fieldnames'])) {
 					$all_sp[$data_node] = $sp;
 				}
 			}
 		}
-		// then iterate over exec_nodes if they are different from the submit_node
+		// then iterate over exec_nodes if they are different from the submit_nodes
 		foreach ($exec_nodes as $exec_node) {
-			if ($exec_node != $submit_node) {
+			if (! in_array($exec_node, $submit_nodes)) {
 				$sp = self::get_swamp_processes($hostname, $exec_node);
 				if (! empty($sp['fieldnames'])) {
 					$all_sp[$exec_node] = $sp;
@@ -855,6 +961,9 @@ class SWAMPStatus {
 		// the order in which tables appear in the output is specified by array order
 		$ra = [
 				'Condor Queue' => $all_cq, 
+				'Assessment Queue' => $all_caq, 
+				'Metric Queue' => $all_cmq, 
+				'Viewer Queue' => $all_cvq, 
 				'Assessment Records' => $all_acr,
 				'Viewer Records' => $all_vcr,
 				'Database Queue' => $all_dbq, 

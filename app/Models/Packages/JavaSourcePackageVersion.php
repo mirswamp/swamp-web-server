@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -26,6 +26,13 @@ use App\Utilities\Strings\StringUtils;
 class JavaSourcePackageVersion extends PackageVersion {
 
 	//
+	// attributes
+	//
+
+	const BUILD_FILES = ['build.xml', 'pom.xml', 'build.gradle'];
+	const SOURCE_FILES = '/\.(j|java)$/';
+
+	//
 	// querying methods
 	//
 
@@ -33,13 +40,14 @@ class JavaSourcePackageVersion extends PackageVersion {
 	
 		// search archive for build files
 		//
-		$archive = new Archive($this->getPackagePath());
-		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
-		$path = $archive->search($searchPath, ['build.xml', 'pom.xml', 'build.gradle']);
+		$archive = Archive::create($this->getPackagePath());
+		$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
+		$buildFilePath = $archive->search($searchPath, self::BUILD_FILES);
+		$buildFile = basename($buildFilePath);
 
 		// deduce build system from build file
 		//
-		switch (basename($path)) {
+		switch ($buildFile) {
 
 			case 'build.xml':
 				return 'ant';
@@ -71,38 +79,52 @@ class JavaSourcePackageVersion extends PackageVersion {
 		$configCmd = null;
 		$buildDir = null;
 		$buildFile = null;
+		$buildCmd = null;
+		$noBuildCmd = null;
 
 		// search archive for build files
 		//
-		$archive = new Archive($this->getPackagePath());
-		$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
-		$path = $archive->search($searchPath, ['build.xml', 'pom.xml', 'build.gradle']);
-
-		// strip off leading source path
+		$archive = Archive::create($this->getPackagePath());
+		$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
+	
+		// find build file path
 		//
-		if (StringUtils::startsWith($path, $this->source_path)) {
-			$path = substr($path, strlen($this->source_path));
-		}
+		$buildFilePath = $archive->search($searchPath, self::BUILD_FILES);
+		$buildFile = basename($buildFilePath);
+		$buildPath = dirname($buildFilePath) . '/';
 
+		// find path to source files for no build
+		//
+		$sourceFilePath = $archive->find($searchPath, self::SOURCE_FILES, $this->build_dir == null);
+		$sourcePath = dirname($sourceFilePath) . '/';
+
+		// find build dir if not specified
+		//
+		$buildDir = $this->build_dir;
+		if (!$buildDir) {
+
+			// find build dir relative to source path
+			//
+			$buildDir = $buildFile? $buildPath : $sourcePath;
+			if (StringUtils::startsWith($buildDir . '/', $this->source_path)) {
+				$buildDir = substr($buildDir, strlen($this->source_path));
+			}
+		} else {
+			if ($buildDir == '.') {
+				$buildDir = null;
+			}
+		}
 
 		// deduce build system from build file
 		//
-		switch (basename($path)) {
+		switch ($buildFile) {
 
 			case 'build.xml':
 				$buildSystem = 'ant';
-				$buildDir = dirname($path);
-				if ($buildDir == '.') {
-					$buildDir = null;
-				}
 				break;
 
 			case 'pom.xml':
 				$buildSystem = 'maven';
-				$buildDir = dirname($path);
-				if ($buildDir == '.') {
-					$buildDir = null;
-				}
 				break;
 
 			case 'build.gradle':
@@ -114,11 +136,6 @@ class JavaSourcePackageVersion extends PackageVersion {
 				} else {
 					$buildSystem = 'gradle';
 				}
-
-				$buildDir = dirname($path);
-				if ($buildDir == '.') {
-					$buildDir = null;
-				}
 				break;
 
 			default:
@@ -126,12 +143,53 @@ class JavaSourcePackageVersion extends PackageVersion {
 				break;
 		}
 
+		// find and sort source files
+		//
+		$sourceFiles = $archive->getListing($sourcePath, self::SOURCE_FILES, false);
+		sort($sourceFiles);
+		
+		// compose no build command
+		//
+		if ($sourceFiles && count($sourceFiles > 0)) {
+
+			// add cd to build directory
+			//
+			if ($buildDir && $buildDir != '.' && $buildDir != './') {
+				$noBuildCmd = 'cd ' .  $archive->toPathName($buildDir) . ';';
+			}
+
+			foreach ($sourceFiles as $sourceFile) {
+
+				// strip off leading source path
+				//
+				if (StringUtils::startsWith($sourceFile, $this->source_path)) {
+					$sourceFile = substr($sourceFile, strlen($this->source_path));
+				}
+
+				// strip off leading build dir
+				//
+				if (StringUtils::startsWith($sourceFile, $buildDir)) {
+					$sourceFile = substr($sourceFile, strlen($buildDir));
+				}
+
+				// add quotation marks if necessary
+				//
+				if (StringUtils::contains($sourceFile, ' ')) {
+					$sourceFile = '"' . $sourceFile . '"';
+				}
+				
+				$noBuildCmd .= 'javac '.$sourceFile.';';
+			}
+		}
+
 		return [
 			'build_system' => $buildSystem,
 			'config_dir' => $configDir,
 			'config_cmd' => $configCmd,
 			'build_dir' => $buildDir,
-			'build_file' => $buildFile
+			'build_cmd' => $buildCmd,
+			'no_build_cmd' => $noBuildCmd,
+			'source_files' => $sourceFiles
 		];
 	}
 
@@ -161,18 +219,42 @@ class JavaSourcePackageVersion extends PackageVersion {
 			}
 		}
 
-		if ($this->build_system) {
+		switch ($this->build_system) {
+			case 'ant':
+			case 'ant+ivy':
+			case 'maven':
+			case 'gradle':
 
-			// search archive for build file
-			//
-			$archive = new Archive($this->getPackagePath());
-			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				// search archive for build file
+				//
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath =  $archive->concatPaths($this->source_path, $this->build_dir);
+				if ($this->build_file) {
+					$buildFile = $this->build_file;
+				}
 
-			if ($archive->contains($searchPath, $buildFile)) {
-				return response("Java source package version is ok for ".$this->build_system.".", 200);
-			} else {
-				return response("Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
-			}
+				if ($archive->contains($searchPath, $buildFile)) {
+					return response("Java source package version is ok for ".$this->build_system.".", 200);
+				} else {
+					return response("Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+				}
+				break;
+
+			case 'no-build':
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath =  $archive->concatPaths($this->source_path, $this->build_dir);
+
+				// check for source files
+				//
+				$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, false);
+				if (count($sourceFiles) > 0) {
+					return response("Java source package build system ok for no-build.", 200);
+				} else {
+					return response("No assessable Java source code files were found directly in the selected build path ($searchPath).", 404);
+				}
+
+			default:
+				return response("Java package build system ok for " . $this->build_system . ".", 200);
 		}
 	}
 }

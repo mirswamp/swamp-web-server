@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -25,6 +25,12 @@ use App\Utilities\Strings\StringUtils;
 
 class PythonPackageVersion extends PackageVersion {
 	
+	//
+	// attributes
+	//
+
+	const BUILD_FILES = ['setup.py'];
+	const SOURCE_FILES = '/\.(py)$/';
 	//
 	// querying methods
 	//
@@ -40,8 +46,8 @@ class PythonPackageVersion extends PackageVersion {
 
 			// search archive for build files
 			//
-			$archive = new Archive($packagePath);
-			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+			$archive = Archive::create($packagePath);
+			$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
 			// deduce build system from build file
 			//
@@ -63,38 +69,62 @@ class PythonPackageVersion extends PackageVersion {
 		$buildSystem = null;
 		$configDir = null;
 		$configCmd = null;
-		$buildDir = null;
 		$buildFile = null;
+		$buildDir = null;
+		$buildCmd = null;
+		$noBuildCmd = null;
+		$sourceFiles = [];
 
 		// check for wheels
 		//
 		$packagePath = $this->getPackagePath();
 		if (StringUtils::endsWith($packagePath, '.whl')) {
 			$buildSystem = 'wheels';
+			$archive = null;
 		} else {
 
 			// search archive for build files
 			//
-			$archive = new Archive($packagePath);
-			$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
-			$path = $archive->search($searchPath, ['setup.py']);
+			$archive = Archive::create($packagePath);
+			$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
-			// strip off leading source path
+			// find build file path
 			//
-			if (StringUtils::startsWith($path, $this->source_path)) {
-				$path = substr($path, strlen($this->source_path));
+			$buildFilePath = $archive->search($searchPath, self::BUILD_FILES);
+			$buildFile = basename($buildFilePath);
+			$buildPath = dirname($buildFilePath) . '/';
+
+			// find path to source files for no build
+			//
+			$sourcePath = $searchPath;
+			/*
+			$sourceFilePath = $archive->find($searchPath, self::SOURCE_FILES, true);
+			$sourcePath = dirname($sourceFilePath) . '/';
+			*/
+
+			// find build dir if not specified
+			//
+			$buildDir = $this->build_dir;
+			if (!$buildDir) {
+
+				// find build dir relative to source path
+				//
+				$buildDir = $buildFile? $buildPath : $sourcePath;
+				if (StringUtils::startsWith($buildDir . '/', $this->source_path)) {
+					$buildDir = substr($buildDir, strlen($this->source_path));
+				}
+			} else {
+				if ($buildDir == '.') {
+					$buildDir = null;
+				}
 			}
 
 			// deduce build system from build file
 			//
-			switch (basename($path)) {
+			switch ($buildFile) {
 
 				case 'setup.py':
 					$buildSystem = 'python-setuptools';
-					$buildDir = dirname($path);
-					if ($buildDir == '.') {
-						$buildDir = null;
-					}
 					break;
 
 				default:
@@ -103,12 +133,33 @@ class PythonPackageVersion extends PackageVersion {
 			}
 		}
 
+		// find and sort source files
+		//
+		if ($archive) {
+			$sourceFiles = $archive->getListing($sourcePath, self::SOURCE_FILES, true);
+			sort($sourceFiles);
+		}
+		
+		// compose no build command
+		//
+		if ($sourceFiles && count($sourceFiles > 0)) {
+
+			// add cd to build directory
+			//
+			if ($buildDir && $buildDir != '.' && $buildDir != './') {
+				$noBuildCmd = 'cd ' .  $archive->toPathName($buildDir) . ';';
+			}
+		}
+
 		return [
 			'build_system' => $buildSystem,
 			'config_dir' => $configDir,
 			'config_cmd' => $configCmd,
+			'build_file' => $buildFile,
 			'build_dir' => $buildDir,
-			'build_file' => $buildFile
+			'build_cmd' => null,
+			'no_build_cmd' => $noBuildCmd,
+			'source_files' => $sourceFiles
 		];
 	}
 
@@ -124,8 +175,8 @@ class PythonPackageVersion extends PackageVersion {
 
 				// search archive for build file
 				//
-				$archive = new Archive($this->getPackagePath());
-				$searchPath = Archive::concatPaths($this->source_path, $this->build_dir);
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 				$buildFile = $this->build_file;
 
 				if ($buildFile != NULL) {
@@ -136,9 +187,22 @@ class PythonPackageVersion extends PackageVersion {
 					}
 				}
 
-			default:
-				return response("Python package ok for no build.", 200);
+			case 'none':
+				$archive = Archive::create($this->getPackagePath());
+				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
+
+				// check for source files
+				//
+				$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, true);
+				if (count($sourceFiles) > 0) {
+					return response("Python package build system ok for no-build.", 200);
+				} else {
+					return response("No assessable Python code files were found in the selected build path ($searchPath).", 404);
+				}
 				break;
+
+			default:
+				return response("Python package build system ok for " . $this->build_system . ".", 200);
 		}
 	}
 
@@ -162,7 +226,7 @@ class PythonPackageVersion extends PackageVersion {
 
 	function getWheelInfo($dirname) {
 		//$wheelDirname = $this->getWheelDirname();
-		//$dirname = Archive::concatPaths($dirname, $wheelDirname);
+		//$dirname = $archive->concatPaths($dirname, $wheelDirname);
 
 		$dirname = str_replace('./', '', $dirname);
 		$contents = self::getFileContents('WHEEL', $dirname);

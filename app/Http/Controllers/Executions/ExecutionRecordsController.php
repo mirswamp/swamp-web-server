@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Executions;
@@ -281,6 +281,7 @@ class ExecutionRecordsController extends BaseController {
 		// parse parameters
 		//
 		$type = Input::get('type'); 
+		$hard = Input::get('hard'); 
 
 		// check permissions
 		//
@@ -319,7 +320,7 @@ class ExecutionRecordsController extends BaseController {
 
 			// kill execution record
 			//
-			$returnString = $executionRecord->kill();
+			$returnString = $executionRecord->kill($hard);
 			$executionRecord->status = $returnString;
 			return $executionRecord;
 		} else {

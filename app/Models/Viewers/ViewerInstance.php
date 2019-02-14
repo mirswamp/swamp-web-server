@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Viewers;
@@ -110,7 +110,7 @@ class ViewerInstance extends BaseModel {
 
 	// current viewer vm has been launched and is on its way up - not yet ready
 	//
-	public function isLoading() {
+	public function isLaunching() {
 		$state = intval($this->state);
 		return ($state == self::VIEWER_STATE_LAUNCHING);
 	}
@@ -119,25 +119,51 @@ class ViewerInstance extends BaseModel {
 	//
 	public function isReady() {
 		$state = intval($this->state);
-		return ($state == self::VIEWER_STATE_READY 
-			|| $state == self::VIEWER_STATE_TERMINATE_FAILED) 
-			&& $this->proxy_url; 
+		return (
+			(
+				$state == self::VIEWER_STATE_READY || 
+				$state == self::VIEWER_STATE_TERMINATE_FAILED
+			) && 
+			$this->proxy_url
+		);
 	}
 
 	// previous viewer vm is in shutdown or termination and blocks current viewer vm
 	//
 	public function isBlocked() {
 		$state = intval($this->state);
-		return $state == self::VIEWER_STATE_STOPPING ||
+		return (
+			$state == self::VIEWER_STATE_STOPPING ||
 			$state == self::VIEWER_STATE_ERROR ||
-			$state == self::VIEWER_STATE_TERMINATING;
+			$state == self::VIEWER_STATE_TERMINATING
+		);
+	}
+
+	// previous viewer vm is being terminated
+	//
+	public function isBeingTerminated() {
+		$state = intval($this->state);
+		return (
+			$state == self::VIEWER_STATE_TERMINATING ||
+			$state == self::VIEWER_STATE_TERMINATED
+		);
 	}
 
 	// there is no current or previous viewer vm extant
+	//
 	public function isOKToLaunch() {
 		$state = intval($this->state);
-		return $state == self::VIEWER_STATE_NO_RECORD ||
+		return (
+			$state == self::VIEWER_STATE_NO_RECORD ||
 			$state == self::VIEWER_STATE_SHUTDOWN ||
-			$state == self::VIEWER_STATE_TERMINATED;
+			$state == self::VIEWER_STATE_TERMINATED
+		);
+	}
+
+	// current viewer launch has timed out
+	//
+	public function hasTimedOut() {
+		$state = intval($this->state);
+		return ($state == self::VIEWER_STATE_NO_RECORD);
 	}
 }

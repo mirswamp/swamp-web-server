@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Assessments;
@@ -166,12 +166,15 @@ class AssessmentResultsController extends BaseController {
 		// check for sample test results
 		//
 		if (self::SAMPLERESULTS) {
+			$results = json_decode(file_get_contents(__DIR__.'/'.self::SAMPLERESULTS), true);
+			$results = $this->limitResults($results);
+			$results = $this->annotateResults($results, $assessmentResultsUuid);
 
 			// return results
 			//
 			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results" => json_decode(file_get_contents(__DIR__.'/'.self::SAMPLERESULTS), true),
+				"results" => $results,
 				"results_status" => 'SUCCESS'
 			];
 		}
@@ -196,9 +199,9 @@ class AssessmentResultsController extends BaseController {
 		// check for cached results in storage directory
 		//
 		if (strtolower($viewer->name) == 'native') {
-			$resultsDir = config('app.outgoing').'/'.$assessmentResultsUuid.'/'.'nativereport.json';
-			if (file_exists($resultsDir)) {
-				$results = file_get_contents($resultsDir, $assessmentResultsUuid);
+			$resultsPath = config('app.outgoing').'/'.$assessmentResultsUuid.'/'.'nativereport.json';
+			if (file_exists($resultsPath)) {
+				$results = file_get_contents($resultsPath, $assessmentResultsUuid);
 
 				// return results
 				//
@@ -230,8 +233,8 @@ class AssessmentResultsController extends BaseController {
                 		"results" => null,
                 		"results_status" => 'TRYAGAIN'
 					];
-				} else if ($instance->isLoading()) {
-					Log::info("getResults - state: " . $instance->stateToName() . " isLoading");
+				} else if ($instance->isLaunching()) {
+					Log::info("getResults - state: " . $instance->stateToName() . " isLaunching");
 					return [
 						"results_viewer_status" => 'Loading',
 						"results_status" => 'LOADING',
@@ -246,6 +249,8 @@ class AssessmentResultsController extends BaseController {
             		];
   
 				}
+				Log::info("getResults - state: " . $instance->stateToName() . " not isBlocked and not isLaunching and not (not isOKToLaunch and not isReady) - calling launchViewer");
+
 			}	
 		}
 
@@ -337,6 +342,7 @@ class AssessmentResultsController extends BaseController {
 		}
 
 		// parse the success json report
+		//
 		if (StringUtils::endsWith($returnPath, 'nativereport.json')) {
 			$results = $this->getJSONResults($results, $assessmentResultsUuid);
 		}
@@ -373,8 +379,8 @@ class AssessmentResultsController extends BaseController {
 
 			// TODO what is return value of status when returns immediately
 
-			if ($instance->isLoading() || !$instance->isReady()) {
-				Log::info("getViewerResults - state: " . $instance->stateToName() . " isLoading or not isReady");
+			if ($instance->isLaunching() || !$instance->isReady()) {
+				Log::info("getViewerResults - state: " . $instance->stateToName() . " isLaunching or not isReady");
 				return [
 					"results_viewer_status" => $instance->status,
 					"results_status" => 'LOADING',
@@ -446,17 +452,16 @@ class AssessmentResultsController extends BaseController {
 
 	// parse JSON results
 	//
-	public function getJSONResults($results, $assessmentResultUuid) {
+	public function limitResults($results) {
 
 		// parse parameters
 		//
 		$from = filter_var(Input::get('from'), FILTER_VALIDATE_INT);
 		$to = filter_var(Input::get('to'), FILTER_VALIDATE_INT);
 
-		// parse results
-		//
-		$results = json_decode($results, true);
-		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
+		if (!$from) {
+			$from = 0;
+		}
 
 		// find bug count
 		//
@@ -482,6 +487,12 @@ class AssessmentResultsController extends BaseController {
 		//
 		$results['AnalyzerReport']['BugCount'] = $bugCount;
 
+		return $results;
+	}
+
+	public function annotateResults($results, $assessmentResultUuid) {
+		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
+
 		// append triplet info to results
 		//
 		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
@@ -493,6 +504,17 @@ class AssessmentResultsController extends BaseController {
 		// append create date
 		//
 		$results['AnalyzerReport']['create_date'] = $assessmentResult->create_date->format('Y/m/d H:i:s');
+
+		return $results;	
+	}
+
+	public function getJSONResults($results, $assessmentResultUuid) {
+
+		// parse results
+		//
+		$results = json_decode($results, true);
+		$results = $this->limitResults($results);
+		$results = $this->annotateResults($results, $assessmentResultUuid);
 
 		return $results;
 	}
@@ -686,7 +708,6 @@ class AssessmentResultsController extends BaseController {
 	// get status of launching viewer, and then return results
 	//
 	public function getInstanceStatus($viewerInstanceUuid) {
-
 		$connection = DB::connection('assessment');
 		$pdo = $connection->getPdo();
 
@@ -718,18 +739,35 @@ class AssessmentResultsController extends BaseController {
 
 		// otherwise return viewer status
 		//
-		else if ($instance->isLoading()) {
-			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " isLoading");
+		else if ($instance->isLaunching()) {
+			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " isLaunching");
 			return [
 				"results_viewer_status" => $instance->status,
 				"results_status" => "LOADING",
 				"viewer_instance" => $viewerInstanceUuid
 			];
 		}
-		else {
+		else if ($instance->isBeingTerminated()) {
+			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " isBeingTerminated");
 			return [
 				"results_viewer_status" => 'Terminated',
 				"results_status" => "CLOSED",
+				"viewer_instance" => $viewerInstanceUuid
+			];
+		}
+		else if ($instance->hasTimedOut()) {
+			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " hasTimedOut");
+			return [
+				"results_viewer_status" => 'Timed Out',
+				"results_status" => "TIMEOUT",
+				"viewer_instance" => $viewerInstanceUuid
+			];
+		}
+		else {
+			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " default");
+			return [
+				"results_viewer_status" => $instance->stateToName(),
+				"results_status" => "DEFAULT",
 				"viewer_instance" => $viewerInstanceUuid
 			];
 		}

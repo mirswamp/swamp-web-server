@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Projects;
@@ -42,7 +42,6 @@ class Project extends CreateStamped {
 		'project_uid', 
 		'project_owner_uid', 
 		'full_name', 
-		'short_name', 
 		'description', 
 		'affiliation', 
 		'trial_project_flag',
@@ -56,7 +55,6 @@ class Project extends CreateStamped {
 	protected $visible = [
 		'project_uid', 
 		'full_name', 
-		'short_name', 
 		'description', 
 		'affiliation', 
 		'trial_project_flag',

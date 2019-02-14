@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -61,6 +61,13 @@ class SessionController extends BaseController {
 		//
 		$username = Input::get('username');
 		$password = Input::get('password');
+
+		// check if we can authenticate
+		//
+		$authenticatable = User::isAuthenticatable();
+		if  ($authenticatable !== true) {
+			return response("Authentication error. " . $authenticatable, 401);
+		}
 
 		// authenticate / validate user
 		//

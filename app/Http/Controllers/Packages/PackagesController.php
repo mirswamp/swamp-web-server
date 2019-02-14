@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
@@ -52,6 +52,7 @@ class PackagesController extends BaseController {
 		$name = Input::get('name');
 		$description = Input::get('description');
 		$externalUrl = Input::get('external_url');
+		$secretToken = Input::get('secret_token');
 		$packageTypeId = Input::get('package_type_id');
 		$packageLanguage = Input::get('package_language');
 		$packageSharingStatus = Input::get('package_sharing_status');
@@ -78,6 +79,7 @@ class PackagesController extends BaseController {
 			'name' => $name,
 			'description' => $description,
 			'external_url' => $externalUrl,
+			'secret_token' => $secretToken,
 			'package_type_id' => $packageTypeId,
 			'package_language' => $packageLanguage,
 			'package_owner_uuid' => session('user_uid'),
@@ -616,6 +618,7 @@ class PackagesController extends BaseController {
 		$name = Input::get('name');
 		$description = Input::get('description');
 		$externalUrl = Input::get('external_url');
+		$secretToken = Input::get('secret_token');
 		$packageTypeId = Input::get('package_type_id');
 		$packageOwnerUuid = Input::get('package_owner_uuid', null);
 		$packageSharingStatus = Input::get('package_sharing_status');
@@ -643,6 +646,7 @@ class PackagesController extends BaseController {
 		$package->name = $name;
 		$package->description = $description;
 		$package->external_url = $externalUrl;
+		$package->secret_token = $secretToken;
 		$package->package_type_id = $packageTypeId;
 		$package->package_owner_uuid = $packageOwnerUuid ? $packageOwnerUuid : $package->package_owner_uuid;
 		$package->package_sharing_status = $packageSharingStatus;

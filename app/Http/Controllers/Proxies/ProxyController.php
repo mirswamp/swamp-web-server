@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Proxies;
@@ -109,7 +109,8 @@ class ProxyController extends BaseController {
 		$command .= " -H 'AUTHORIZATION: SWAMP ".strtolower($user->username)."' ";
 		$command .= " -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.120 Safari/537.36' ";
 		$command .= " --data-binary @$uri ";
-		$command .= " --compressed --insecure -i";
+		$command .= " --compressed --insecure -i ";
+		$command .= " -H Expect: ";
 
 		return $command;
 	}
@@ -148,10 +149,6 @@ class ProxyController extends BaseController {
 				//
 				case 'location':
 					if (in_array($status, ['301', '302'])) {
-
-						// strip https://vmip from proxy location for ThreadFix
-						// CodeDX Location does not contain the vmip
-						//
 						$pos = strpos($value[0], '/proxy-');
 						$newloc = substr($value[0], $pos);
 						$modified[$key] = [$newloc];
@@ -164,8 +161,65 @@ class ProxyController extends BaseController {
 
 	private static function setResponseHeaders($response, $headers) {
 		foreach ($headers as $key => $value) {
-			for ($i = 0; $i < sizeof($value); $i++) {
-				$response->header($key, $value[$i]);
+			if (strtolower($key) == 'set-cookie') {
+
+				// set cookie headers
+				//
+				for ($i = 0; $i < sizeof($value); $i++) {
+
+					// collect all of the attributes for each cookie
+					//
+					$cookieAttributes = array();
+					$cookieName = null;
+					$attrs = explode(';', trim($value[$i]));
+					for ($j = 0; $j < sizeof($attrs); $j++) {
+						$attrParts = explode('=', $attrs[$j]);
+						$name = trim($attrParts[0]);
+
+						// lower-case the attribute name if it's not the name of the cookie itself, so the attributes
+						// can easily be referenced later
+						//
+						if ($cookieName != null) $name = strtolower($name);
+
+						if (sizeof($attrParts) == 1) {
+
+							// attributes without '=' are just boolean flags
+							//
+							$cookieAttributes[$name] = true;
+						} else {
+							$attrValue = trim($attrParts[1]);
+							if ($cookieName == null) $cookieName = $name;
+							$cookieAttributes[$name] = $attrValue;
+						}
+					}
+				   
+					if (sizeof($cookieAttributes) > 0) {
+
+						// set default attribute values as null if unassigned from the source
+						//
+						$cookieAttributes = array_merge(array(
+							"max-age" => null,
+							"path" => null,
+							"domain" => null,
+							"secure" => null,
+							"httponly" => null
+						), $cookieAttributes);
+ 
+						$response->cookie(
+							$cookieName,
+							$cookieAttributes[$cookieName],
+							$cookieAttributes["max-age"],
+							$cookieAttributes["path"],
+							$cookieAttributes["domain"],
+							$cookieAttributes["secure"] != null,
+							$cookieAttributes["httponly"] != null
+						);
+					}
+				}
+			} else {
+				for ($i = 0; $i < sizeof($value); $i++) {
+					$response->header($key, $value[$i]);
+				}
 			}
 		}
 	}

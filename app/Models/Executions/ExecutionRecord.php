@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Executions;
@@ -89,6 +89,7 @@ class ExecutionRecord extends TimeStamped {
 
 		// appended attributes
 		//
+		'project',
 		'package',
 		'tool',
 		'platform',
@@ -100,6 +101,7 @@ class ExecutionRecord extends TimeStamped {
 	// array / json appended model attributes
 	//
 	protected $appends = [
+		'project',
 		'package',
 		'tool',
 		'platform',
@@ -125,6 +127,14 @@ class ExecutionRecord extends TimeStamped {
 	//
 	// accessor methods
 	//
+
+	public function getProjectAttribute() {
+		$project = $this->getProject();
+		return [
+			'project_uuid' => $this->project_uuid,
+			'name' => $project? $project->full_name : ''
+		];
+	}
 
 	public function getPackageAttribute() {
 		$packageVersion = $this->getPackageVersion();
@@ -280,19 +290,20 @@ class ExecutionRecord extends TimeStamped {
 	// methods
 	//
 
-	public function kill() {
+	public function kill($hard) {
 
 		// create stored procedure call
 		//
 		$connection = DB::connection('assessment');
 		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL kill_assessment_run(:execution_record_uuid, @return_string);");
+		$stmt = $pdo->prepare("CALL kill_assessment_run(:execution_record_uuid, :hard, @return_string);");
 
 		// bind params
 		//
 		$execution_record_uuid = $this->execution_record_uuid;
 		$returnString = null;
 		$stmt->bindParam(":execution_record_uuid", $execution_record_uuid, PDO::PARAM_STR, 45);
+		$stmt->bindParam(":hard", $hard, PDO::PARAM_BOOL);
 
 		// call stored procedure
 		//

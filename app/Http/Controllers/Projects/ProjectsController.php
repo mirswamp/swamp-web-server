@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Projects;
@@ -30,6 +30,7 @@ use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Projects\ProjectInvitation;
+use App\Models\Packages\Package;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
@@ -44,7 +45,6 @@ class ProjectsController extends BaseController {
 		// parse parameters
 		//
 		$fullName = Input::get('full_name');
-		$shortName = Input::get('short_name');
 		$description = Input::get('description');
 		$affiliation = Input::get('affiliation');
 		$trialProjectFlag = filter_var(Input::get('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
@@ -58,7 +58,6 @@ class ProjectsController extends BaseController {
 			'project_uid' => Guid::create(),
 			'project_owner_uid' => session('user_uid'),
 			'full_name' => $fullName,
-			'short_name' => $shortName,
 			'description' => $description,
 			'affiliation' => $affiliation,
 			'trial_project_flag' => $trialProjectFlag,
@@ -116,6 +115,15 @@ class ProjectsController extends BaseController {
 		}
 	}
 
+	public function getByPackage($packageUuid) {
+		$package = Package::where('package_uuid', '=', $packageUuid)->first();
+		if ($package) {
+			return $package->getProjects();
+		} else {
+			return response('Package not found.', 404);
+		}
+	}
+
 	public function getUserTrialProject($userUid) {
 		return Project::where('project_owner_uid', '=', $userUid)->where('trial_project_flag', '=', 1)->first();
 	}
@@ -127,7 +135,6 @@ class ProjectsController extends BaseController {
 		// get parameters
 		//
 		$fullName = Input::get('full_name');
-		$shortName = Input::get('short_name');
 		$description = Input::get('description');
 		$affiliation = Input::get('affiliation');
 		$trialProjectFlag = filter_var(Input::get('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
@@ -184,19 +191,15 @@ class ProjectsController extends BaseController {
 
 		// update attributes
 		//
-		$project->full_name = $fullName;
-		$project->short_name = $shortName;
-		$project->description = $description;
-		$project->affiliation = $affiliation;
-		$project->trial_project_flag = $trialProjectFlag;
-		$project->exclude_public_tools_flag = $excludePublicToolsFlag;
-		$project->denial_date = $denialDate? $denialDate->format('Y-m-d H:i:s') : null;
-		$project->deactivation_date = $deactivationDate? $deactivationDate->format('Y-m-d H:i:s') : null;
-
-		// save and return changes
-		//
-		$changes = $project->getDirty();
-		$project->save();
+		$changes = $project->change([
+			'full_name' => $fullName,
+			'description' => $description,
+			'affiliation' => $affiliation,
+			'trial_project_flag' => $trialProjectFlag,
+			'exclude_public_tools_flag' => $excludePublicToolsFlag,
+			'denial_date' => $denialDate? $denialDate->format('Y-m-d H:i:s') : null,
+			'deactivation_date' => $deactivationDate? $deactivationDate->format('Y-m-d H:i:s') : null
+		]);
 
 		// log the project event
 		//
@@ -225,7 +228,6 @@ class ProjectsController extends BaseController {
 			//
 			$project->project_owner_uid = $item['project_owner_uid'];
 			$project->full_name = $item['full_name'];
-			$project->short_name = $item['short_name'];
 			$project->description = $item['description'];
 			$project->affiliation = $item['affiliation'];
 			$project->trial_project_flag = filter_var($item['trial_project_flag'], FILTER_VALIDATE_BOOLEAN);

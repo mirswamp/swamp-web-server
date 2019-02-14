@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2018 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
@@ -54,7 +54,7 @@ class UsersController extends BaseController {
 		if (!config('app.sign_up_enabled')) {
 			return response('User account registration has not been enabled.', 400);
 		}
-		
+
 		// parse parameters
 		//
 		$firstName = Input::get('first_name');
