@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Users\Policy;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyPolicy {
-
+class VerifyPolicy
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -54,5 +54,4 @@ class VerifyPolicy {
 
 		return $next($request);
 	}
-
 }

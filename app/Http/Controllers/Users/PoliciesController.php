@@ -21,8 +21,8 @@ namespace App\Http\Controllers\Users;
 use App\Models\Users\Policy;
 use App\Http\Controllers\BaseController;
 
-class PoliciesController extends BaseController {
-
+class PoliciesController extends BaseController
+{
 	//
 	// get methods
 	//

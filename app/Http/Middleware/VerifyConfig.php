@@ -22,10 +22,9 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Config;
 
-class VerifyConfig {
-
+class VerifyConfig
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -41,5 +40,4 @@ class VerifyConfig {
 
 		return $next($request);
 	}
-
 }

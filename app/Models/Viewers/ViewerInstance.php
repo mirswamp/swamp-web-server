@@ -24,8 +24,8 @@ namespace App\Models\Viewers;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\BaseModel;
 
-class ViewerInstance extends BaseModel {
-
+class ViewerInstance extends BaseModel
+{
     // viewer status codes
     // reconcile with VIEWER_STATE* values in vmu_ViewerSupport.pm
 	//
@@ -134,7 +134,6 @@ class ViewerInstance extends BaseModel {
 		$state = intval($this->state);
 		return (
 			$state == self::VIEWER_STATE_STOPPING ||
-			$state == self::VIEWER_STATE_ERROR ||
 			$state == self::VIEWER_STATE_TERMINATING
 		);
 	}
@@ -155,11 +154,18 @@ class ViewerInstance extends BaseModel {
 		$state = intval($this->state);
 		return (
 			$state == self::VIEWER_STATE_NO_RECORD ||
+			$state == self::VIEWER_STATE_ERROR ||
 			$state == self::VIEWER_STATE_SHUTDOWN ||
 			$state == self::VIEWER_STATE_TERMINATED
 		);
 	}
 
+	// current viewer launch has explicit error
+	//
+	public function hasError() {
+		$state = intval($this->state);
+		return ($state == self::VIEWER_STATE_ERROR);
+	}
 	// current viewer launch has timed out
 	//
 	public function hasTimedOut() {

@@ -20,8 +20,8 @@ namespace App\Models\Policies;
 
 use App\Models\BaseModel;
 
-class Policy extends BaseModel {
-
+class Policy extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'project';

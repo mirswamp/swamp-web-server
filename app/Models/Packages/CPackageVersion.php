@@ -23,8 +23,8 @@ use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
 
-class CPackageVersion extends PackageVersion {
-
+class CPackageVersion extends PackageVersion
+{
 	//
 	// attributes
 	//
@@ -211,7 +211,7 @@ class CPackageVersion extends PackageVersion {
 				$searchPath =  $archive->concatPaths($this->source_path, $this->build_dir);
 				$buildFile = $this->build_file;
 
-				if ($buildFile != NULL) {
+				if ($buildFile != null) {
 					if ($archive->contains($searchPath, $buildFile)) {
 						return response("C/C++ package build system ok for make.", 200);
 					} else {
@@ -222,7 +222,8 @@ class CPackageVersion extends PackageVersion {
 				// search archive for default build file
 				//
 				if ($archive->contains($searchPath, 'makefile') || 
-					$archive->contains($searchPath, 'Makefile')) {
+					$archive->contains($searchPath, 'Makefile')
+				) {
 					return response("C/C++ package build system ok for make.", 200);
 				} else {
 					return response("Could not find a build file called 'makefile' or 'Makefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);

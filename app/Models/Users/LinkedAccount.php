@@ -19,13 +19,12 @@
 
 namespace App\Models\Users;
 
-use Illuminate\Support\Facades\Config;
 use App\Models\TimeStamps\CreateStamped;
 use App\Models\Users\User;
 use App\Models\Users\LinkedAccountProvider;
 
-class LinkedAccount extends CreateStamped {
-
+class LinkedAccount extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'linked_account';

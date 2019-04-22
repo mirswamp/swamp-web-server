@@ -19,13 +19,12 @@
 namespace App\Models\Users;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use App\Models\BaseModel;
 use App\Models\Users\User;
 
-class PasswordReset extends BaseModel {
-
+class PasswordReset extends BaseModel
+{
 	// database attributes
 	//
 	protected $table = 'password_reset';

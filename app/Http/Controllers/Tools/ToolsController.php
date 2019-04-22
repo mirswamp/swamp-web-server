@@ -39,8 +39,8 @@ use App\Models\Tools\ToolLanguage;
 use App\Models\Tools\ToolSharing;
 use App\Http\Controllers\BaseController;
 
-class ToolsController extends BaseController {
-
+class ToolsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {
@@ -302,7 +302,7 @@ class ToolsController extends BaseController {
 
 	// get permission status
 	//
-	public function getToolPermissionStatus( $toolUuid ) {
+	public function getToolPermissionStatus($toolUuid) {
 
 		// parse parameters
 		//
@@ -335,7 +335,7 @@ class ToolsController extends BaseController {
 		// restricted tools
 		//
 		if ($tool->isRestricted()) {
-			return $tool->getPermissionStatus($package, $project, $user);
+			return $tool->getPermissionStatus($project, $user);
 		}
 
 		return response()->json([

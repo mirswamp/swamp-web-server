@@ -20,8 +20,8 @@ namespace App\Models\Admin;
 
 use App\Models\TimeStamps\TimeStamped;
 
-class RestrictedDomain extends TimeStamped {
-
+class RestrictedDomain extends TimeStamped
+{
 	// database attributes
 	//
 	protected $table = 'restricted_domains';
@@ -46,7 +46,7 @@ class RestrictedDomain extends TimeStamped {
 	// querying methods
 	//
 
-	static public function getRestrictedDomainNames() {
+	public static function getRestrictedDomainNames() {
 		$restrictedDomains = RestrictedDomain::All();
 		$restrictedDomainNames = [];
 		for ($i = 0; $i < sizeof($restrictedDomains); $i++) {

@@ -35,7 +35,8 @@ use App\Models\Tools\ToolViewerIncompatibility;
 use App\Models\Policies\Policy;
 use App\Models\Viewers\Viewer;
 
-class Tool extends UserStamped {
+class Tool extends UserStamped
+{
 	const ALLOW_PROJECT_OWNER_PERMISSION = false;
 
 	// database attributes
@@ -314,7 +315,7 @@ class Tool extends UserStamped {
 		}
 	}
 
-	public function getProjectOwnerPermission($package, $project, $user) {
+	public function getProjectOwnerPermission($project, $user) {
 		$permissionCode = $this->getPermissionCode();
 		$userPermission = $user->getPermission($permissionCode);
 
@@ -337,7 +338,7 @@ class Tool extends UserStamped {
 		return $user->getPolicyPermission($permissionCode, $userPermission);
 	}
 
-	public function getProjectMemberPermission($package, $project, $user) {
+	public function getProjectMemberPermission($project, $user) {
 		$permissionCode = $this->getPermissionCode();
 		$ownerPermission = $project->getOwnerPermission($permissionCode);
 
@@ -368,7 +369,7 @@ class Tool extends UserStamped {
 		return $user->getPolicyPermission($permissionCode, $ownerPermission);
 	}
 
-	public function getPermission($package, $project, $user) {
+	public function getPermission($project, $user) {
 		if (self::ALLOW_PROJECT_OWNER_PERMISSION) {
 
 			// no project provided
@@ -381,12 +382,12 @@ class Tool extends UserStamped {
 
 				// user is the project owner
 				//
-				return $this->getProjectOwnerPermission($package, $project, $user);
+				return $this->getProjectOwnerPermission($project, $user);
 			} else {
 
 				// user is not the project owner
 				//
-				return $this->getProjectMemberPermission($package, $project, $user);
+				return $this->getProjectMemberPermission($project, $user);
 			}
 		} else {
 			return $this->getPolicyPermission($user);
@@ -406,7 +407,7 @@ class Tool extends UserStamped {
 		return $user->getPolicyPermission($permissionCode, $ownerPermission);
 	}
 
-	public function getProjectOwnerPermissionStatus($package, $project, $user) {
+	public function getProjectOwnerPermissionStatus($project, $user) {
 		$permissionCode = $this->getPermissionCode();
 		if (!$permissionCode) {
 			return response('Error - no permission code.', 500);
@@ -440,7 +441,7 @@ class Tool extends UserStamped {
 		return $user->getPolicyPermissionStatus($permissionCode, $userPermission);
 	}
 
-	public function getProjectMemberPermissionStatus($package, $project, $user) {
+	public function getProjectMemberPermissionStatus($project, $user) {
 		$permissionCode = $this->getPermissionCode();
 		$ownerPermission = $project->getOwnerPermission($permissionCode);
 
@@ -478,7 +479,7 @@ class Tool extends UserStamped {
 		return $user->getPolicyPermissionStatus($permissionCode, $ownerPermission);
 	}
 
-	public function getPermissionStatus($package, $project, $user) {
+	public function getPermissionStatus($project, $user) {
 		if (self::ALLOW_PROJECT_OWNER_PERMISSION) {
 
 			// no project provided
@@ -493,12 +494,12 @@ class Tool extends UserStamped {
 
 				// user is the project owner
 				//
-				return $this->getProjectOwnerPermissionStatus($package, $project, $user);
+				return $this->getProjectOwnerPermissionStatus($project, $user);
 			} else {
 
 				// user is not the project owner
 				//
-				return $this->getProjectMemberPermissionStatus($package, $project, $user);
+				return $this->getProjectMemberPermissionStatus($project, $user);
 			}
 		} else {
 			

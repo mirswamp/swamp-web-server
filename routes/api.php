@@ -411,6 +411,8 @@ Route::group(['middleware' => 'verify.config'], function () {
 			Route::get('packages/versions/{package_vesion_uuid}/projects', 'Packages\PackageVersionsController@getProjects');
 			Route::put('packages/versions/{package_version_uuid}', 'Packages\PackageVersionsController@updateIndex');
 			Route::get('packages/versions/{package_version_uuid}/download', 'Packages\PackageVersionsController@getDownload');
+			Route::get('packages/versions/{package_version_uuid}/download/file', 'Packages\PackageVersionsController@getDownloadFile');
+			Route::get('packages/versions/{package_version_uuid}/file', 'Packages\PackageVersionsController@getFileContents');
 			Route::delete('packages/versions/{package_version_uuid}', 'Packages\PackageVersionsController@deleteIndex');
 
             Route::get('packages/{package_uuid}/gitupdate', 'Packages\PackageVersionsController@updateGitPackage');
@@ -524,6 +526,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 		//
 		Route::group(['middleware' => 'verify.assessment_result'], function () {
 			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}', 'Assessments\AssessmentResultsController@getResults');
+			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}/catalog', 'Assessments\AssessmentResultsController@getCatalog');
 			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}/permission', 'Assessments\AssessmentResultsController@getResultsPermission');
 			Route::get('assessment_results/viewer/{viewer_uuid}/project/{project_uuid}/permission', 'Assessments\AssessmentResultsController@getNoResultsPermission');
 			Route::get('assessment_results/viewer_instance/{viewer_instance_uuid}', 'Assessments\AssessmentResultsController@getInstanceStatus');

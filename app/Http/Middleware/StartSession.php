@@ -6,12 +6,10 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession as BaseStartSession;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use App\Models\Users\User;
-
 
 /** 
 	* Code taken from http://stackoverflow.com/a/29251516 .
@@ -37,7 +35,7 @@ class StartSession extends BaseStartSession
 		// not create a session cookie.
 		//
 		$nosession = false;
-		if (Config::has('app.nosession')) {
+		if (config('app.nosession')) {
 			foreach (config('app.nosession') as $pattern) {
 				if (is_array($pattern)) {
 					if ($request->is(key($pattern))) {
@@ -106,6 +104,4 @@ class StartSession extends BaseStartSession
 
 		return $session;
 	}
-
 }
-

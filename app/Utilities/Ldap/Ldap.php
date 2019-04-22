@@ -24,7 +24,6 @@
 namespace App\Utilities\Ldap;
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use App\Models\Users\User;
@@ -36,8 +35,8 @@ if (!defined('LDAP_OPT_DIAGNOSTIC_MESSAGE')) {
 	define('LDAP_OPT_DIAGNOSTIC_MESSAGE',0x0032);
 }
 
-class Ldap {
-
+class Ldap
+{
 	// This array holds the LDAP connections for the web_user and the
 	// password_set_user. This allows the connections to be reused
 	// without multiple ldap_bind() calls. The keys of the array are the
@@ -416,12 +415,16 @@ class Ldap {
 			// value in the entry (plus the base_dn) as the full dn to return.
 			//
 			if ($entries['count'] > 0) {
+				/*
 				$rdnkey = $ldapConnectionConfig['user_rdn_attr'];
 				$rdnval = @$entries[0][strtolower($rdnkey)][0];
 				if (strlen($rdnval) > 0) {
 					$retval = "$rdnkey=$rdnval,$basedn";
 				}
+				*/
+				$retval = $entries[0]['dn'];
 			}
+
 		}	
 		return $retval;
 	}
@@ -554,7 +557,8 @@ class Ldap {
 		// passed-in $user. If so, simply return it.
 		//
 		if ((array_key_exists($user,static::$ldapConnection)) &&
-			(!is_null(static::$ldapConnection[$user]))) {
+			(!is_null(static::$ldapConnection[$user]))
+		) {
 			$retval = static::$ldapConnection[$user];
 		} else { 
 
@@ -580,5 +584,4 @@ class Ldap {
 
 		return $retval;
 	}
-
 }

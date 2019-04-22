@@ -20,15 +20,14 @@ namespace App\Http\Controllers\Utilities;
 
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\User;
 use App\Models\Utilities\Contact;
 use App\Http\Controllers\BaseController;
 
-class ContactsController extends BaseController {
-
+class ContactsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

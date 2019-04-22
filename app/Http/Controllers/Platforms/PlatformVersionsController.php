@@ -21,8 +21,8 @@ namespace App\Http\Controllers\Platforms;
 use App\Models\Platforms\PlatformVersion;
 use App\Http\Controllers\BaseController;
 
-class PlatformVersionsController extends BaseController {
-
+class PlatformVersionsController extends BaseController
+{
 	// upload
 	//
 	public function postUpload() {

@@ -23,8 +23,8 @@ use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
 
-class DotNetPackageVersion extends PackageVersion {
-
+class DotNetPackageVersion extends PackageVersion
+{
 	// return sample JSON results data
 	//
 	const SAMPLEOUTPUT = null;

@@ -24,8 +24,8 @@ use App\Models\Users\User;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Projects\ProjectMembership;
 
-class VerifyProjectMembership {
-
+class VerifyProjectMembership
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -134,5 +134,4 @@ class VerifyProjectMembership {
 
 		return $next($request);
 	}
-
 }

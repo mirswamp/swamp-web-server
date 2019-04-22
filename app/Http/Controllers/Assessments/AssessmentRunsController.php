@@ -43,8 +43,8 @@ use App\Models\RunRequests\RunRequest;
 use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Executions\ExecutionRecordsController;
 
-class AssessmentRunsController extends BaseController {
-
+class AssessmentRunsController extends BaseController
+{
 	// checkCompatibility
 	//
 	public function checkCompatibility() {
@@ -59,11 +59,11 @@ class AssessmentRunsController extends BaseController {
 
 		// get specified models
 		//
-		$project = $projectUuid? Project::where('project_uid', '=', $projectUuid)->first() : NULL;
-		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : NULL;
-		$packageVersion = $packageVersionUuid? PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first() : NULL;
-		$platform = $platformUuid? Platform::where('platform_uuid', '=', $platformUuid)->first() : NULL;
-		$platformVersion = $platformVersionUuid? PlatformVersion::where('platform_version_uuid', '=', $platformVersionUuid)->first() : NULL;
+		$project = $projectUuid? Project::where('project_uid', '=', $projectUuid)->first() : null;
+		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : null;
+		$packageVersion = $packageVersionUuid? PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first() : null;
+		$platform = $platformUuid? Platform::where('platform_uuid', '=', $platformUuid)->first() : null;
+		$platformVersion = $platformVersionUuid? PlatformVersion::where('platform_version_uuid', '=', $platformVersionUuid)->first() : null;
 
 		// get latest package version
 		//
@@ -147,13 +147,13 @@ class AssessmentRunsController extends BaseController {
 
 		// get specified models
 		//
-		$project = $projectUuid? Project::where('project_uid', '=', $projectUuid)->first() : NULL;
-		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : NULL;
-		$packageVersion = $packageVersionUuid? PackageVersion::where('package_version_uuid', '=', $packageVersionUuid) : NULL;
-		$tool = $toolUuid && $toolUuid != '*'? Tool::where('tool_uuid', '=', $toolUuid)->first() : NULL;
-		$toolVersion = $toolVersionUuid? ToolVersion::where('tool_version_uuid', '=', $toolVersionUuid) : NULL;
-		$platform = $platformUuid? Platform::where('platform_uuid', '=', $platformUuid)->first() : NULL;
-		$platformVersion = $platformVersionUuid? PlatformVersion::where('platform_version_uuid', '=', $platformVersionUuid)->first() : NULL;
+		$project = $projectUuid? Project::where('project_uid', '=', $projectUuid)->first() : null;
+		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : null;
+		$packageVersion = $packageVersionUuid? PackageVersion::where('package_version_uuid', '=', $packageVersionUuid) : null;
+		$tool = $toolUuid && $toolUuid != '*'? Tool::where('tool_uuid', '=', $toolUuid)->first() : null;
+		$toolVersion = $toolVersionUuid? ToolVersion::where('tool_version_uuid', '=', $toolVersionUuid) : null;
+		$platform = $platformUuid? Platform::where('platform_uuid', '=', $platformUuid)->first() : null;
+		$platformVersion = $platformVersionUuid? PlatformVersion::where('platform_version_uuid', '=', $platformVersionUuid)->first() : null;
 
 		// error checking
 		//
@@ -210,7 +210,7 @@ class AssessmentRunsController extends BaseController {
 			//
 			if ($tool->isRestricted()) {
 				$user = User::getIndex(session('user_uid'));
-				$permission = $tool->getPermission($package, $project, $user);
+				$permission = $tool->getPermission($project, $user);
 				if ($permission != 'granted') {
 					return response($permission, 401);
 				}
@@ -268,7 +268,7 @@ class AssessmentRunsController extends BaseController {
 				//
 				if ($tool->isRestricted()) {
 					$user = User::getIndex(session('user_uid'));
-					$permission = $tool->getPermission($package, $project, $user);
+					$permission = $tool->getPermission($project, $user);
 					if ($permission != 'granted') {
 						continue;
 					}
@@ -368,7 +368,7 @@ class AssessmentRunsController extends BaseController {
 				'package_uuid' => $packageUuid,
 				'package_version_uuid' => $packageVersionUuid,
 				'tool_uuid' => $toolUuids,
-				'tool_version_uuid' => NULL,
+				'tool_version_uuid' => null,
 				'platform_uuid' => $platformUuid,
 				'platform_version_uuid' => $platformVersionUuid
 			]);

@@ -24,7 +24,6 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use App\Models\Viewers\ViewerInstance;
 use App\Models\Users\User;
@@ -32,14 +31,14 @@ use App\Models\Projects\Project;
 use App\Http\Controllers\BaseController;
 use App\Services\HTCondorCollector;
 
-class ProxyController extends BaseController {
-
+class ProxyController extends BaseController
+{
 	//
 	// curl related methods
 	//
 
 	private static function getCurlHeader($key, $value) {
-		$header = NULL;
+		$header = null;
 		switch (strtolower($key)) {
 			case 'origin':
 				$header = escapeshellarg("Origin: $value"); 
@@ -179,7 +178,9 @@ class ProxyController extends BaseController {
 						// lower-case the attribute name if it's not the name of the cookie itself, so the attributes
 						// can easily be referenced later
 						//
-						if ($cookieName != null) $name = strtolower($name);
+						if ($cookieName != null) {
+							$name = strtolower($name);
+						}
 
 						if (sizeof($attrParts) == 1) {
 
@@ -188,7 +189,9 @@ class ProxyController extends BaseController {
 							$cookieAttributes[$name] = true;
 						} else {
 							$attrValue = trim($attrParts[1]);
-							if ($cookieName == null) $cookieName = $name;
+							if ($cookieName == null) {
+								$cookieName = $name;
+							}
 							$cookieAttributes[$name] = $attrValue;
 						}
 					}

@@ -25,8 +25,8 @@ use App\Models\Packages\PackageVersion;
 use App\Models\Packages\PackageVersionDependency;
 use App\Http\Controllers\BaseController;
 
-class PackageVersionDependenciesController extends BaseController {
-
+class PackageVersionDependenciesController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

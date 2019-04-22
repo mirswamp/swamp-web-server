@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Admin\RestrictedDomain;
 use App\Http\Controllers\BaseController;
 
-class RestrictedDomainsController extends BaseController {
-
+class RestrictedDomainsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

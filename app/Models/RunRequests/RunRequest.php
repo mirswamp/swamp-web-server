@@ -21,8 +21,8 @@ namespace App\Models\RunRequests;
 use App\Models\TimeStamps\UserStamped;
 use App\Models\Projects\Project;
 
-class RunRequest extends UserStamped {
-
+class RunRequest extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'assessment';

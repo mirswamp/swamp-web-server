@@ -25,8 +25,8 @@ use App\Models\Users\User;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-class VerifyAppPasswords {
-
+class VerifyAppPasswords
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -76,5 +76,4 @@ class VerifyAppPasswords {
 
 		return $next($request);
 	}
-
 }

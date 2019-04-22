@@ -24,9 +24,8 @@ use App\Models\Users\User;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyAdminInvitation {
-
+class VerifyAdminInvitation
+{
 	/**
 	 * Handle an incoming request.
 	 *

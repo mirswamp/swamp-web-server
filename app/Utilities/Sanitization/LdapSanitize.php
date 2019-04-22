@@ -32,7 +32,8 @@ namespace App\Utilities\Sanitization;
  * @author Squirrelmail Team
  */
 
-class LdapSanitize  {
+class LdapSanitize
+{
 	static function escapeQueryValue($string) {
 		$sanitized = [
 			'\\'   => '\5c',

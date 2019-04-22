@@ -23,8 +23,8 @@ use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
 
-class PythonPackageVersion extends PackageVersion {
-	
+class PythonPackageVersion extends PackageVersion
+{
 	//
 	// attributes
 	//
@@ -179,7 +179,7 @@ class PythonPackageVersion extends PackageVersion {
 				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 				$buildFile = $this->build_file;
 
-				if ($buildFile != NULL) {
+				if ($buildFile != null) {
 					if ($archive->contains($searchPath, $buildFile)) {
 						return response("Python package build system ok for build with ". $this->build_system . ".", 200);
 					} else {

@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Executions\ExecutionRecord;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyExecutionRecord {
-
+class VerifyExecutionRecord
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -62,5 +62,4 @@ class VerifyExecutionRecord {
 
 		return $next($request);
 	}
-
 }

@@ -24,7 +24,6 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Session;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
@@ -36,8 +35,8 @@ use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\LimitFilter;
 
-class ProjectsController extends BaseController {
-
+class ProjectsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

@@ -21,8 +21,8 @@
 
 namespace App\Utilities\Strings;
 
-class AppPasswordString {
-
+class AppPasswordString
+{
 	/** 
 	 * Return a new app password, which is a string consisting of 20 
 	 * upper/lower case letters and/or digits, except for ambiguous

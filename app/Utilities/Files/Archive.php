@@ -27,8 +27,8 @@ use App\Utilities\Files\ZipArchive;
 use App\Utilities\Files\JarArchive;
 use App\Utilities\Files\TarArchive;
 
-class Archive {
-
+class Archive
+{
 	//
 	// constructor
 	//

@@ -25,9 +25,8 @@ use App\Models\Projects\Project;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyProjectInvitation {
-
+class VerifyProjectInvitation
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -71,5 +70,4 @@ class VerifyProjectInvitation {
 
 		return $next($request);
 	}
-
 }

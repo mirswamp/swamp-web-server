@@ -24,8 +24,8 @@ use App\Utilities\Uuids\Guid;
 use App\Models\RunRequests\RunRequestSchedule;
 use App\Http\Controllers\BaseController;
 
-class RunRequestSchedulesController extends BaseController {
-
+class RunRequestSchedulesController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

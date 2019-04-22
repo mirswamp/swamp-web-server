@@ -18,7 +18,7 @@
 
 		<br />
 		<br />
-		If you believe this is in error or have other questions, please contact the SWAMP staff at: {{ Config::get('mail.contact.address') }} .
+		If you believe this is in error or have other questions, please contact the SWAMP staff at: {{ config('mail.contact.address') }} .
 
 		<br />
 		<br />

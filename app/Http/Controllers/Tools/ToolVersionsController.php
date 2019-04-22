@@ -27,8 +27,8 @@ use App\Utilities\Files\Filename;
 use App\Models\Tools\ToolVersion;
 use App\Http\Controllers\BaseController;
 
-class ToolVersionsController extends BaseController {
-
+class ToolVersionsController extends BaseController
+{
 	// upload
 	//
 	public function postUpload() {	

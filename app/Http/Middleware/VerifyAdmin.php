@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Users\User;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyAdmin {
-
+class VerifyAdmin
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -51,5 +51,4 @@ class VerifyAdmin {
 
 		return $next($request);
 	}
-
 }

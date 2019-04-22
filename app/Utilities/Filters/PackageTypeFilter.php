@@ -24,7 +24,8 @@ namespace App\Utilities\Filters;
 use Illuminate\Support\Facades\Input;
 use App\Models\Packages\PackageType;
 
-class PackageTypeFilter {
+class PackageTypeFilter
+{
 	static function apply($query) {
 
 		// parse parameters

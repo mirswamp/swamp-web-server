@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\RunRequests\RunRequest;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyRunRequest {
-
+class VerifyRunRequest
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -56,5 +56,4 @@ class VerifyRunRequest {
 
 		return $next($request);
 	}
-
 }

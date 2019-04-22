@@ -21,8 +21,8 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 
-class AfterMiddleware {
-
+class AfterMiddleware
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -32,22 +32,20 @@ class AfterMiddleware {
 	 */
 	public function handle($request, Closure $next)
 	{
-		/*
-		return $next($request)->withHeaders([
-			'Access-Control-Allow-Origin' => $request->header('Origin'),
-			'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
-			'Access-Control-Allow-Headers' => 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token',
-			'Access-Control-Allow-Credentials' => 'true'
-		]);
-		*/
+		// set CORS headers if neccessary
+		//
+		if (config('app.cors_url') && config('app.cors_url') != config('app.url') && config('app.cors_url') != 'http://localhost/www-front-end') {
 
- 		$response = $next($request);
-		$response->headers->set('Access-Control-Allow-Origin', $request->header('Origin'));
-		$response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-		$response->headers->set('Access-Control-Allow-Headers', 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token');
-		$response->headers->set('Access-Control-Allow-Credentials', 'true');
-
-		return $response;
+			// allow requests from origin, equivalent to origin of '*'
+			//
+			return $next($request)->withHeaders([
+				'Access-Control-Allow-Origin' => $request->header('Origin'),
+				'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
+				'Access-Control-Allow-Headers' => 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token',
+				'Access-Control-Allow-Credentials' => 'true'
+			]);
+		} else {
+			return $next($request);
+		}
 	}
-
 }

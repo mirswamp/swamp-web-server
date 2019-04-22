@@ -201,6 +201,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Sample Results and Errors
+    |--------------------------------------------------------------------------
+    |
+    | These paths are used for testing viewing of assessment results and errors.
+    |
+    */
+
+    'sample_results' => env('APP_SAMPLE_RESULTS', null),
+    
+    'sample_errors' => env('APP_SAMPLE_ERRORS', null),
+
+    /*
+    |--------------------------------------------------------------------------
     | Password Encryption
     |--------------------------------------------------------------------------
     |

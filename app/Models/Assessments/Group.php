@@ -20,8 +20,8 @@ namespace App\Models\Assessments;
 
 use App\Models\TimeStamps\CreateStamped;
 
-class Group extends CreateStamped {
-
+class Group extends CreateStamped
+{
 	// database attributes
 	//
 	protected $connection = 'assessment';

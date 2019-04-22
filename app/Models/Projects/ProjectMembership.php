@@ -18,11 +18,10 @@
 
 namespace App\Models\Projects;
 
-use Illuminate\Support\Facades\Config;
 use App\Models\TimeStamps\CreateStamped;
 
-class ProjectMembership extends CreateStamped {
-
+class ProjectMembership extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'project_user';

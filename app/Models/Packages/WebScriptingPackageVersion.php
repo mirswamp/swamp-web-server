@@ -24,8 +24,8 @@ use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
 
-class WebScriptingPackageVersion extends PackageVersion {
-
+class WebScriptingPackageVersion extends PackageVersion
+{
 	//
 	// attributes
 	//

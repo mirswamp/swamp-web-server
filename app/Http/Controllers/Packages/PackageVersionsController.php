@@ -24,7 +24,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Http\Request;
 use App\Models\Users\User;
@@ -42,6 +41,7 @@ use App\Models\Packages\WebScriptingPackageVersion;
 use App\Models\Packages\DotNetPackageVersion;
 use App\Models\Packages\PackageDownloadLogEntry;
 use App\Models\Assessments\AssessmentRun;
+use App\Models\Assessments\AssessmentResult;
 use App\Models\RunRequests\RunRequest;
 use App\Models\Assessments\AssessmentRunRequest;
 use App\Models\Projects\Project;
@@ -51,8 +51,8 @@ use App\Utilities\Files\Filename;
 use App\Utilities\Strings\StringUtils;
 use App\Utilities\Uuids\Guid;
 
-class PackageVersionsController extends BaseController {
-
+class PackageVersionsController extends BaseController
+{
 	// post upload
 	//
 	public function postUpload() {
@@ -437,6 +437,59 @@ class PackageVersionsController extends BaseController {
 		return $packageVersion->getFileTypes($dirname);
 	}
 
+	// get bug count for file or directory
+	//
+	public function getBugCount($filename, $bugInstances, $include, $exclude) {
+		$count = 0;	
+
+		if ($include) {
+
+			// count bug instances in include filter
+			//
+			foreach ($bugInstances as $bugInstance) {
+				if (in_array($bugInstance->BugCode, $include)) {
+					foreach ($bugInstance->BugLocations as $bugLocation) {
+						if ($bugLocation->primary) {
+							if (StringUtils::startsWith($bugLocation->SourceFile, 'pkg1/' . $filename)) {
+								$count++;
+							}
+						}
+					}
+				}
+			}
+		} else if ($exclude) {
+
+			// count bug instances not in exclude filter
+			//
+			foreach ($bugInstances as $bugInstance) {
+				if (!in_array($bugInstance->BugCode, $exclude)) {
+					foreach ($bugInstance->BugLocations as $bugLocation) {
+						if ($bugLocation->primary) {
+							if (StringUtils::startsWith($bugLocation->SourceFile, 'pkg1/' . $filename)) {
+								$count++;
+							}
+						}
+					}
+				}
+			}
+		} else {
+
+			// count bug instances
+			//
+			foreach ($bugInstances as $bugInstance) {
+				foreach ($bugInstance->BugLocations as $bugLocation) {
+					if ($bugLocation->primary) {
+						if (StringUtils::startsWith($bugLocation->SourceFile, 'pkg1/' . $filename)) {
+							$count++;
+						}
+					}
+				}
+			}
+		}
+
+		return $count;
+	}
+
 	// get file list
 	//
 	public function getFileInfoList($packageVersionUuid) {
@@ -445,12 +498,37 @@ class PackageVersionsController extends BaseController {
 		//
 		$dirname = Input::get('dirname');
 		$filter = Input::get('filter');
+		$include = Input::get('include');
+		$exclude = Input::get('exclude');
+		$assessmentResultUuid = Input::get('assessment_result_uuid');
+
+		// cast filters to arrays, if necessary
+		//
+		if ($include && !is_array($include)) {
+			$include = [$include];
+		}
+		if ($exclude && !is_array($exclude)) {
+			$exclude = [$excude];
+		}
 
 		// find package version
 		//
 		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$fileInfoList = $packageVersion->getFileInfoList($dirname, $filter);
 
-		return $packageVersion->getFileInfoList($dirname, $filter);
+		// annotate list with counts
+		//
+		if ($assessmentResultUuid) {
+			$result = AssessmentResult::where('assessment_result_uuid', '=', $assessmentResultUuid)->first();
+			$data = json_decode($result->getNativeResultsData()); 
+			for ($i = 0; $i < count($fileInfoList); $i++) {
+				$filename = $fileInfoList[$i]['name'];
+				$bugInstances = $data->AnalyzerReport->BugInstances;
+				$fileInfoList[$i]['bug_count'] = $this->getBugCount($filename, $bugInstances, $include, $exclude);
+			}
+		}
+
+		return $fileInfoList;
 	}
 
 	// get file tree
@@ -736,11 +814,14 @@ class PackageVersionsController extends BaseController {
 	// download package
 	//
 	public function getDownload($packageVersionUuid) {
+
+		// find package version
+		//
 		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
-		$packagePath = $packageVersion->package_path;
 
 		// set download parameters
 		//
+		$packagePath = $packageVersion->package_path;
 		$filename = basename($packagePath);
 		$headers = [
 			  'content-type: application/octet-stream'
@@ -760,6 +841,57 @@ class PackageVersionsController extends BaseController {
 		// download and return file
 		//
 		return Response::download($packagePath, $filename, $headers);
+	}
+
+	// download file
+	//
+	public function getDownloadFile($packageVersionUuid) {
+
+		// find package version
+		//
+		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+
+		// find file paths
+		//
+		$filePath = Input::get('path');
+		$packagePath = $packageVersion->package_path;
+		$packageDir = dirname($packagePath);
+
+		// extract file from achive
+		//
+		$archive = Archive::create($packageVersion->getPackagePath());
+		$archive->extractTo($packageDir, [$filePath]);
+
+		// set download parameters
+		//
+		$filename = basename($filePath);
+		$headers = [
+			  'content-type: application/octet-stream'
+		];
+
+		// download and return file
+		//
+		return Response::download($packageDir . '/' . $filePath, $filename, $headers);
+	}
+
+	// download file
+	//
+	public function getFileContents($packageVersionUuid) {
+
+		// find package version
+		//
+		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+
+		// find paths
+		//
+		$filePath = Input::get('path');
+		$packagePath = $packageVersion->package_path;
+		$packageDir = dirname($packagePath);
+
+		// extract specified contents from archive file
+		//
+		$archive = Archive::create($packageVersion->package_path);
+		return $archive->extractContents($filePath);
 	}
 
 	// delete by index
@@ -1019,9 +1151,9 @@ class PackageVersionsController extends BaseController {
 	private function authorizeToken($secretToken, $payloadContent, $githubSignature) {
 		$hashResult = 'sha1='.hash_hmac('sha1', $payloadContent, $secretToken);#'gitkey'
 		if ($hashResult == $githubSignature) {
-			return True;
+			return true;
 		}
-		return False;
+		return false;
 	}
 
 	// This function handles HTTP request sent from Github webhook when a push event is triggered.
@@ -1089,7 +1221,7 @@ class PackageVersionsController extends BaseController {
 	// New assessment run request will be created and executed.
 	//
 	private function updateGitPackage($packageUuid, $commitHash, $timeStamp, $branchName, $authorName){
-		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : NULL;
+		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : null;
 	
 		// find the lasted version regardless of the project
 		//
@@ -1097,7 +1229,7 @@ class PackageVersionsController extends BaseController {
 
 			// get the latest package version regardless of project
 			//
-			$packageVersion = $package->getLatestVersion(NULL);
+			$packageVersion = $package->getLatestVersion(null);
 		} else {
 			return response('Cannot find the package.', 400);
 		}

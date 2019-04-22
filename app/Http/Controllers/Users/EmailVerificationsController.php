@@ -21,7 +21,6 @@ namespace App\Http\Controllers\Users;
 use DateTime;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\User;
@@ -29,8 +28,8 @@ use App\Models\Users\EmailVerification;
 use App\Models\Users\UserAccount;
 use App\Http\Controllers\BaseController;
 
-class EmailVerificationsController extends BaseController {
-
+class EmailVerificationsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {
@@ -119,7 +118,7 @@ class EmailVerificationsController extends BaseController {
 
 		$errors = [];
 
-		if (!$user->hasBeenVerified() || $user->isValid($errors)){
+		if (!$user->hasBeenVerified() || $user->isValid($errors)) {
 			$user->username = $username;
 			$user->modify();
 

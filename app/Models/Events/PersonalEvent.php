@@ -21,8 +21,8 @@ namespace App\Models\Events;
 use App\Models\Events\Event;
 use App\Models\Users\User;
 
-class PersonalEvent extends Event {
-
+class PersonalEvent extends Event
+{
 	// database attributes
 	//
 	protected $table = 'personal_events';

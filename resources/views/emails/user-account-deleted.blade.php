@@ -14,11 +14,11 @@
 		Dear {{ $user->getFullName() }},
 		<br />
 		<br />
-		You have requested your SWAMP account to be deleted. Note that SWAMP user accounts are never actually deleted. Instead your account has been disabled. You can re-enable your account by contacting {{ Config::get('mail.contact.address') }} .
+		You have requested your SWAMP account to be deleted. Note that SWAMP user accounts are never actually deleted. Instead your account has been disabled. You can re-enable your account by contacting {{ config('mail.contact.address') }} .
 
 		<br />
 		<br />
-		If you have any questions please contact the SWAMP staff at: {{ Config::get('mail.contact.address') }} .
+		If you have any questions please contact the SWAMP staff at: {{ config('mail.contact.address') }} .
 
 		<br />
 		<br />

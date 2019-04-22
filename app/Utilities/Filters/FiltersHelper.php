@@ -23,13 +23,12 @@
 namespace App\Utilities\Filters;
 
 use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Request;
 use App\Models\Users\User;
 
-class FiltersHelper {
-
+class FiltersHelper
+{
 	static function method() {
 		return strtolower( $_SERVER['REQUEST_METHOD'] );
 	}
@@ -56,7 +55,7 @@ class FiltersHelper {
 
 		// detect whitelisted routes
 		//
-		if (Config::has('app.whitelist')) {
+		if (config('app.whitelist')) {
 			foreach (config('app.whitelist') as $pattern) {
 				if (is_array($pattern)) {
 					if (Request::is(key($pattern))) {

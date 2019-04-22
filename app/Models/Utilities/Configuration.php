@@ -21,11 +21,10 @@ namespace App\Models\Utilities;
 
 use App\Models\BaseModel;
 use App\Models\Users\UserClass;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Request;
 
-class Configuration extends BaseModel {
-
+class Configuration extends BaseModel
+{
 	// array / json appended model attributes
 	//
 	protected $appends = [

@@ -20,8 +20,8 @@ namespace App\Models\Assessments;
 
 use App\Models\TimeStamps\UserStamped;
 
-class AssessmentRunRequest extends UserStamped {
-
+class AssessmentRunRequest extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'assessment';

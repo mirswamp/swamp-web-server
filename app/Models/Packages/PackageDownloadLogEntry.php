@@ -20,8 +20,8 @@ namespace App\Models\Packages;
 
 use App\Models\TimeStamps\UserStamped;
 
-class PackageDownloadLogEntry extends UserStamped {
-
+class PackageDownloadLogEntry extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'package_store';

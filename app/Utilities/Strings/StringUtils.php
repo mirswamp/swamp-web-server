@@ -21,8 +21,8 @@
 
 namespace App\Utilities\Strings;
 
-class StringUtils {
-
+class StringUtils
+{
 	//
 	// string utility methods
 	//
@@ -50,5 +50,25 @@ class StringUtils {
 
 	public static function contains($haystack, $needle) {
 		return strpos($haystack, $needle) !== false;
+	}
+
+	//
+	// url encode / decode methods
+	//
+
+	public static function urldecodeAll($strings) {
+		$decoded = [];
+		for ($i = 0; $i < count($strings); $i++) {
+			array_push($decoded, urldecode($strings[$i]));
+		}
+		return $decoded;
+	}
+
+	public static function urlencodeAll($strings) {
+		$encoded = [];
+		for ($i = 0; $i < count($strings); $i++) {
+			array_push($encoded, urlencode($strings[$i]));
+		}
+		return $encoded;
 	}
 }

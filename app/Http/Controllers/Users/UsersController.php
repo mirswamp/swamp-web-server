@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use App\Utilities\Uuids\Guid;
@@ -43,8 +42,8 @@ use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\LimitFilter;
 use App\Models\Utilities\Configuration;
 
-class UsersController extends BaseController {
-
+class UsersController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {
@@ -614,7 +613,7 @@ class UsersController extends BaseController {
 		if ($user != null) {
 			$projects = $user->getProjects();
 			foreach ($projects as $project) {
-				if ($project != NULL && !$project->deactivation_date) {
+				if ($project != null && !$project->deactivation_date) {
 					$results->push($project);
 				}
 			}
@@ -644,7 +643,7 @@ class UsersController extends BaseController {
 
 		// filter users
 		//
-		if ($userType != NULL && $userType != '') {
+		if ($userType != null && $userType != '') {
 			$filteredItems = new Collection();
 			foreach ($items as $item) {
 				$userAccount = UserAccount::where('user_uid', '=', $item->user_uid)->first();
@@ -663,12 +662,12 @@ class UsersController extends BaseController {
 	//
 
 	private static function filterByAfterDate($items, $after, $attributeName) {
-		if ($after != NULL && $after != '') {
+		if ($after != null && $after != '') {
 			$afterDate = new \DateTime($after);
 			$afterDate->setTime(0, 0);
 			$filteredItems = new Collection();
 			foreach ($items as $item) {
-				if ($item[$attributeName] != NULL) {
+				if ($item[$attributeName] != null) {
 					$date = new \DateTime($item[$attributeName]);
 					if ($date->getTimestamp() >= $afterDate->getTimestamp()) {
 						$filteredItems->push($item);
@@ -681,12 +680,12 @@ class UsersController extends BaseController {
 	}
 
 	private static function filterByBeforeDate($items, $before, $attributeName) {
-		if ($before != NULL && $before != '') {
+		if ($before != null && $before != '') {
 			$beforeDate = new \DateTime($before);
 			$beforeDate->setTime(0, 0);
 			$filteredItems = new Collection();
 			foreach ($items as $item) {
-				if ($item[$attributeName] != NULL) {
+				if ($item[$attributeName] != null) {
 					$date = new \DateTime($item[$attributeName]);
 					if ($date->getTimestamp() <= $beforeDate->getTimestamp()) {
 						$filteredItems->push($item);

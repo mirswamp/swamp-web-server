@@ -29,8 +29,8 @@ use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 use App\Models\Assessments\SystemSetting;
 
-class Package extends UserStamped {
-
+class Package extends UserStamped
+{
 	// attributes
 	//
 	private $maxVersions = 5;	// max size of version_strings
@@ -240,8 +240,8 @@ class Package extends UserStamped {
 	}
 
 	public function getDefaultPlatform(&$platformVersion) {
-		$platform = NULL;
-		$platformVersion = NULL;
+		$platform = null;
+		$platformVersion = null;
 
 		// select platform based upon package type
 		//
@@ -267,8 +267,8 @@ class Package extends UserStamped {
 	}
 
 	public function getDefaultPlatformBySystemSetting(&$platformVersion) {
-		$platform = NULL;
-		$platformVersion = NULL;
+		$platform = null;
+		$platformVersion = null;
 
 		// select platform based upon package type
 		//
@@ -289,9 +289,9 @@ class Package extends UserStamped {
 	}
 
 	public function getDefaultPlatformByName(&$platformVersion) {
-		$platform = NULL;
-		$platformName = NULL;
-		$platformVersion = NULL;
+		$platform = null;
+		$platformName = null;
+		$platformVersion = null;
 
 		// select platform version based upon package type
 		//
@@ -301,25 +301,25 @@ class Package extends UserStamped {
 			//
 			if (strpos($this->package_type, 'Android') !== false) {
 				$platformName = 'Android';
-				$versionString = NULL;
+				$versionString = null;
 
 			// Java packages
 			//
 			} else if (strpos($this->package_type, 'Java') !== false) {
 				$platformName = 'Red Hat Enterprise Linux 64-bit';
-				$versionString = NULL;
+				$versionString = null;
 
 			// Python packages
 			//
 			} else if (strpos($this->package_type, 'Python') !== false) {
 				$platformName = 'Scientific Linux 64-bit';
-				$versionString = NULL;
+				$versionString = null;
 
 			// Ruby packages
 			//
 			} else if (strpos($this->package_type, 'Ruby') !== false) {
 				$platformName = 'Scientific Linux 64-bit';
-				$versionString = NULL;
+				$versionString = null;
 			}
 		}
 
@@ -465,7 +465,7 @@ class Package extends UserStamped {
 	//
 
 	public function isOwnedBy($user) {
-		return ($this->package_owner_uuid == $user->user_uid);
+		return $user && ($this->package_owner_uuid == $user->user_uid);
 	}
 
 	public function isReadableBy($user) {

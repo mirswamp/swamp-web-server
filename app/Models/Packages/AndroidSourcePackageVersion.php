@@ -23,8 +23,8 @@ use App\Utilities\Files\Archive;
 use App\Models\Packages\JavaSourcePackageVersion;
 use App\Utilities\Strings\StringUtils;
 
-class AndroidSourcePackageVersion extends JavaSourcePackageVersion {
-
+class AndroidSourcePackageVersion extends JavaSourcePackageVersion
+{
 	//
 	// attributes
 	//

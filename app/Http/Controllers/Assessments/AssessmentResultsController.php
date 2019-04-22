@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Config;
 use App\Models\Users\User;
 use App\Models\Users\UserPolicy;
 use App\Models\Users\Permission;
@@ -47,16 +46,8 @@ use App\Utilities\Strings\StringUtils;
 use ErrorException;
 use App\Services\HTCondorCollector;
 
-
-class AssessmentResultsController extends BaseController {
-
-	// return sample JSON results data
-	//
-	const SAMPLERESULTS = null;
-	const SAMPLERRORS = null;
-	// const SAMPLERESULTS = 'nativereport.json';
-	// const SAMPLERRORS = 'errorreport.json';
-
+class AssessmentResultsController extends BaseController
+{
 	// get by index
 	//
 	public function getIndex($assessmentResultsUuid) {
@@ -94,7 +85,7 @@ class AssessmentResultsController extends BaseController {
 		return $assessmentResultsQuery->get();
 	}
 
-	static public function launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+	public static function launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid) {
 
 		// get latest version of viewer
 		//
@@ -165,8 +156,10 @@ class AssessmentResultsController extends BaseController {
 
 		// check for sample test results
 		//
-		if (self::SAMPLERESULTS) {
-			$results = json_decode(file_get_contents(__DIR__.'/'.self::SAMPLERESULTS), true);
+		if (config('app.sample_results')) {
+			$results = json_decode(file_get_contents(config('app.sample_results')), true);
+			$results = $this->selectResults($results);
+			$results = $this->filterResults($results);
 			$results = $this->limitResults($results);
 			$results = $this->annotateResults($results, $assessmentResultsUuid);
 
@@ -181,13 +174,13 @@ class AssessmentResultsController extends BaseController {
 
 		// check for sample error results
 		//
-		if (self::SAMPLERRORS) {
+		if (config('app.sample_errors')) {
 
 			// return results
 			//
 			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results" => $this->getJSONErrors(file_get_contents(__DIR__.'/'.self::SAMPLERRORS), $assessmentResultsUuid),
+				"results" => $this->getJSONErrors(file_get_contents(config('app.sample_errors')), $assessmentResultsUuid),
 				"results_status" => 'FAILED'
 			];
 		}
@@ -199,7 +192,7 @@ class AssessmentResultsController extends BaseController {
 		// check for cached results in storage directory
 		//
 		if (strtolower($viewer->name) == 'native') {
-			$resultsPath = config('app.outgoing').'/'.$assessmentResultsUuid.'/'.'nativereport.json';
+			$resultsPath = config('app.outgoing') . '/' . $assessmentResultsUuid . '/nativereport.json';
 			if (file_exists($resultsPath)) {
 				$results = file_get_contents($resultsPath, $assessmentResultsUuid);
 
@@ -297,6 +290,35 @@ class AssessmentResultsController extends BaseController {
 		}
 	}
 
+
+	public function getCatalog($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+		$results = $this->getResults($assessmentResultsUuid, $viewerUuid, $projectUuid);
+		$bugInstances = $results['results']['AnalyzerReport']['BugInstances'];
+		$catalog = [];
+
+		for ($i = 0; $i < count($bugInstances); $i++) {
+			$bugInstance = $bugInstances[$i];
+			$bugCode = $bugInstance['BugCode'];
+
+			//if (!in_array($bugCode, $catalog)) {
+			if (!array_key_exists($bugCode, $catalog)) {
+				// array_push($catalog, $bugCode);
+				$catalog[$bugCode] = array(
+					'code' => $bugCode,
+					'count' => 1
+				);
+			} else {
+				$catalog[$bugCode]['count']++;
+			}
+		}
+
+		// alphabetically sort list of weakness types
+		//
+		sort($catalog);
+
+		return $catalog;
+	}
+
 	//
 	// utility results methods
 	//
@@ -305,13 +327,12 @@ class AssessmentResultsController extends BaseController {
 
 		// return native results data
 		//
-		$options = [
+		$results = @file_get_contents($returnPath, false, stream_context_create([
 			"ssl" => [
 				"verify_peer" => false,
 				"verify_peer_name" => false
 			]
-		];
-		$results = @file_get_contents($returnPath, false, stream_context_create($options));
+		]));
 
 		// remove results file
 		//
@@ -394,21 +415,22 @@ class AssessmentResultsController extends BaseController {
 				$pdo = $connection->getPdo();
 				$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 				$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
-				if ($base_url) {
-					$returnUrl = $base_url.$instance->proxy_url;
+				$returnUrl = $base_url.$instance->proxy_url;
 
-					// log success
-					//
-					Log::info("Successfully launched viewer.", [
-						'viewer_instance_uuid' => $viewerInstanceUuid
-					]);
+				// log success
+				//
+				Log::info("Successfully launched viewer.", [
+					'viewer_instance_uuid' => $viewerInstanceUuid,
+					'assessment_results_uuid' => $assessmentResultsUuid,
+					'results_url' => $returnUrl,
+					'results_status' => $returnString
+				]);
 
-					return [
-						"assessment_results_uuid" => $assessmentResultsUuid,
-						"results_url" => $returnUrl,
-						"results_status" => $returnString
-					];
-				}
+				return [
+					"assessment_results_uuid" => $assessmentResultsUuid,
+					"results_url" => $returnUrl,
+					"results_status" => $returnString
+				];
 			}
 		}
 
@@ -446,6 +468,34 @@ class AssessmentResultsController extends BaseController {
 		//
 		$resultsDir = '/swamp/SCAProjects/'.$assessmentResult->project_uuid.'/A-Results/';
         $results['url'] = config('app.url').str_replace($resultsDir, '/results/', $assessmentResult->file_path);
+
+		return $results;
+	}
+
+	// select results by file
+	//
+	public function selectResults($results) {
+
+		// parse parameters
+		//
+		$filename = Input::get('file');	
+		
+		if ($filename) {
+			$filtered = [];
+			$bugInstances = $results['AnalyzerReport']['BugInstances'];
+			for ($i = 0; $i < count($bugInstances); $i++) {
+				$bugInstance = $bugInstances[$i];
+				foreach ($bugInstance['BugLocations'] as $bugLocation) {
+					if ($bugLocation['primary']) {
+						if (StringUtils::startsWith($bugLocation['SourceFile'], 'pkg1/' . $filename)) {
+							array_push($filtered, $bugInstance);
+						}
+					}
+				}
+			}
+
+			$results['AnalyzerReport']['BugInstances'] = $filtered;
+		}
 
 		return $results;
 	}
@@ -490,6 +540,58 @@ class AssessmentResultsController extends BaseController {
 		return $results;
 	}
 
+	public function includeBugInstances($bugInstances, $filter) {
+		$filtered = [];
+		for ($i = 0; $i < count($bugInstances); $i++) {
+			$bugInstance = $bugInstances[$i];
+			if (in_array($bugInstance['BugCode'], $filter)) {
+				array_push($filtered, $bugInstance);
+			}
+		}
+		return $filtered;
+	}
+
+	public function excludeBugInstances($bugInstances, $filter) {
+		$filtered = [];
+		for ($i = 0; $i < count($bugInstances); $i++) {
+			$bugInstance = $bugInstances[$i];
+			if (!in_array($bugInstance['BugCode'], $filter)) {
+				array_push($filtered, $bugInstance);
+			}
+		}
+		return $filtered;
+	}
+
+	public function filterResults($results) {
+		$bugInstances = $results['AnalyzerReport']['BugInstances'];
+
+		// get parameters
+		//
+		$include = Input::get('include');
+		$exclude = Input::get('exclude');	
+
+		// cast filters to arrays, if necessary
+		//
+		if ($include && !is_array($include)) {
+			$include = [$include];
+		}
+		if ($exclude && !is_array($exclude)) {
+			$exclude = [$exclude];
+		}
+
+		// filter bug instances
+		//
+		if ($exclude) {
+			$bugInstances = $this->excludeBugInstances($bugInstances, $exclude);
+		}	
+		if ($include) {
+			$bugInstances = $this->includeBugInstances($bugInstances, $include);
+		}
+
+		$results['AnalyzerReport']['BugInstances'] = $bugInstances;
+		return $results;
+	}
+
 	public function annotateResults($results, $assessmentResultUuid) {
 		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
 
@@ -513,6 +615,7 @@ class AssessmentResultsController extends BaseController {
 		// parse results
 		//
 		$results = json_decode($results, true);
+		$results = $this->filterResults($results);
 		$results = $this->limitResults($results);
 		$results = $this->annotateResults($results, $assessmentResultUuid);
 
@@ -721,20 +824,20 @@ class AssessmentResultsController extends BaseController {
 			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " isReady");
 			$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 			$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
-			if ($base_url) {
-				$returnUrl = $base_url.$instance->proxy_url;
+			$returnUrl = $base_url.$instance->proxy_url;
 
-				// log success
-				//
-				Log::info("Successfully launched viewer.", [
-					'viewer_instance_uuid' => $viewerInstanceUuid
-				]);
+			// log success
+			//
+			Log::info("Successfully launched viewer.", [
+				'viewer_instance_uuid' => $viewerInstanceUuid,
+				'results_url' => $returnUrl,
+				'results_status' => "SUCCESS"
+			]);
 
-				return [
-					"results_url" => $returnUrl,
-					"results_status" => "SUCCESS"
-				];
-			}
+			return [
+				"results_url" => $returnUrl,
+				"results_status" => "SUCCESS"
+			];
 		}
 
 		// otherwise return viewer status
@@ -760,6 +863,14 @@ class AssessmentResultsController extends BaseController {
 			return [
 				"results_viewer_status" => 'Timed Out',
 				"results_status" => "TIMEOUT",
+				"viewer_instance" => $viewerInstanceUuid
+			];
+		}
+		else if ($instance->hasError()) {
+			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " hasError");
+			return [
+				"results_viewer_status" => $instance->status,
+				"results_status" => "DEFAULT",
 				"viewer_instance" => $viewerInstanceUuid
 			];
 		}

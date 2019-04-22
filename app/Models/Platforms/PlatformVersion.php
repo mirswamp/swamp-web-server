@@ -21,9 +21,8 @@ namespace App\Models\Platforms;
 use App\Models\TimeStamps\UserStamped;
 use App\Models\Platforms\Platform;
 
-
-class PlatformVersion extends UserStamped {
-
+class PlatformVersion extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'platform_store';

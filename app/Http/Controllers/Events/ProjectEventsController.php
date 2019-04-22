@@ -26,8 +26,8 @@ use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\EventDateFilter;
 use App\Utilities\Filters\LimitFilter;
 
-class ProjectEventsController extends BaseController {
-
+class ProjectEventsController extends BaseController
+{
 	// get by user id
 	//
 	public static function getByUser($userUid) {

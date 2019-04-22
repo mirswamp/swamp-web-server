@@ -19,13 +19,11 @@
 
 namespace App\Models\Users;
 
-
 use App\Models\BaseModel;
 use App\Models\Users\User;
 
-
-class Owner extends BaseModel {
-
+class Owner extends BaseModel
+{
 	// database attributes
 	//
 	protected $table = 'user';

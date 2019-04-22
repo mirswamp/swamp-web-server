@@ -23,8 +23,8 @@ namespace App\Utilities\Files;
 
 use App\Utilities\Strings\StringUtils;
 
-class BaseArchive {
-
+class BaseArchive
+{
 	//
 	// private attributes
 	//
@@ -761,5 +761,21 @@ class BaseArchive {
 		}
 
 		return $tree;
+	}
+
+	protected function rmdir($dir) { 
+		if (is_dir($dir)) { 
+			$objects = scandir($dir); 
+			foreach ($objects as $object) { 
+				if ($object != "." && $object != "..") { 
+					if (is_dir($dir."/".$object)) {
+						$this->rmdir($dir."/".$object);
+					} else {
+						unlink($dir."/".$object); 
+					}
+				} 
+			}
+			rmdir($dir); 
+		} 
 	}
 }

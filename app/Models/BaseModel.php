@@ -22,11 +22,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 
-abstract class BaseModel extends Model {
-
+abstract class BaseModel extends Model
+{
 	// attributes
 	//
 	public $timestamps = false;
@@ -36,7 +35,7 @@ abstract class BaseModel extends Model {
 	//
 
 	public function isNew() {
-		return $this[$this->primaryKey] == NULL;
+		return $this[$this->primaryKey] == null;
 	}
 	
 	public function isSameAs($object) {
@@ -47,7 +46,7 @@ abstract class BaseModel extends Model {
 	// model updating methods
 	//
 
-	public function change(Array $attributes = []) {
+	public function change(array $attributes = []) {
 		$this->fill($attributes);
 		$changes = $this->getDirty();
 		$this->save();

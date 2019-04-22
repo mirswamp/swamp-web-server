@@ -21,8 +21,8 @@ namespace App\Models\Utilities;
 
 use App\Models\BaseModel;
 
-class Country extends BaseModel {
-
+class Country extends BaseModel
+{
 	// database attributes
 	//
 	public $primaryKey = 'country_id';

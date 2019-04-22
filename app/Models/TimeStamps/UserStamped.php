@@ -21,8 +21,8 @@ namespace App\Models\TimeStamps;
 
 use App\Models\TimeStamps\TimeStamped;
 
-class UserStamped extends TimeStamped {
-	
+class UserStamped extends TimeStamped
+{
 	// mass assignment policy
 	//
 	protected $fillable = [

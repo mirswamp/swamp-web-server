@@ -20,8 +20,8 @@ namespace App\Models\Packages;
 
 use App\Models\BaseModel;
 
-class PackageSharing extends BaseModel {
-
+class PackageSharing extends BaseModel
+{
 	// database attributes
 	//
 	/*

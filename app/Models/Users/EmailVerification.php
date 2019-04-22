@@ -18,13 +18,12 @@
 
 namespace App\Models\Users;
 
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use App\Models\TimeStamps\CreateStamped;
 use App\Models\Users\User;
 
-class EmailVerification extends CreateStamped {
-
+class EmailVerification extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'email_verification';

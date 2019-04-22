@@ -18,7 +18,7 @@
 		<a href="{{ $password_reset_url }}">{{ $password_reset_url }}</a>
 		<br />
 		<br />
-		If you did not request a password change or have other questions, please contact the SWAMP staff at: {{ Config::get('mail.contact.address') }} .
+		If you did not request a password change or have other questions, please contact the SWAMP staff at: {{ config('mail.contact.address') }} .
 		<br />
 		<br />
 		-The Software Assurance Marketplace (SWAMP)

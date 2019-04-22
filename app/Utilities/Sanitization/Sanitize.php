@@ -23,5 +23,6 @@ namespace App\Utilities\Sanitization;
 
 require_once app_path().'/Lib/HTMLPurifier/sanitize.php';
 
-class Sanitize extends \Sanitize {
+class Sanitize extends \Sanitize
+{
 }

@@ -23,8 +23,8 @@ use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
 
-class JavaSourcePackageVersion extends PackageVersion {
-
+class JavaSourcePackageVersion extends PackageVersion
+{
 	//
 	// attributes
 	//

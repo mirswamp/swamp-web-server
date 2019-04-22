@@ -24,8 +24,8 @@ namespace App\Utilities\Files;
 use App\Utilities\Files\BaseArchive;
 use App\Utilities\Strings\StringUtils;
 
-class JarArchive extends BaseArchive {
-
+class JarArchive extends BaseArchive
+{
 	//
 	// jar specific archive methods
 	//
@@ -100,5 +100,17 @@ class JarArchive extends BaseArchive {
 		// return names converted to info
 		//
 		return $this->namesToInfoArray($names);
+	}
+
+	public function extractTo($destination, $filenames = null) {
+		$tarArchive = new \PharData($this->path);
+
+		// remove destination file / directory if already exists
+		//
+		if (file_exists($destination)) {
+			$this->rmdir($destination);
+		}
+
+		$tarArchive->extractTo($destination, $filenames);
 	}
 }

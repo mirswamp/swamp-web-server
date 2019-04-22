@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Input;
 use App\Http\Controllers\BaseController;
 use App\Services\SWAMPStatus;
 
-class StatusController extends BaseController {
-
+class StatusController extends BaseController
+{
 	// return sample JSON results data
 	//
 	// const sampleStatus = 'status.json';

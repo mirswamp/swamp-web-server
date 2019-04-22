@@ -20,8 +20,8 @@ namespace App\Models\Packages;
 
 use App\Models\BaseModel;
 
-class PackageVersionDependency extends BaseModel {
-
+class PackageVersionDependency extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'package_store';

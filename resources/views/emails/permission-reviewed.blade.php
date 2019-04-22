@@ -24,7 +24,7 @@
 		<br/>
 		<br/>
 
-		If you have any questions please contact the SWAMP staff at: {{ Config::get('mail.contact.address') }} .
+		If you have any questions please contact the SWAMP staff at: {{ config('mail.contact.address') }} .
 		
 		<br/>
 		<br/>

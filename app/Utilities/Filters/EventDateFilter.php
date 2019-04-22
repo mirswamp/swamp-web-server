@@ -23,8 +23,8 @@ namespace App\Utilities\Filters;
 
 use Illuminate\Support\Facades\Input;
 
-class EventDateFilter {
-
+class EventDateFilter
+{
 	// check for after date
 	//
 	static function after($query) {

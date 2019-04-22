@@ -21,12 +21,11 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Config;
-
-class HTCondor {
+class HTCondor
+{
 	public static function get_condor_env_command() {
 		$command = '';
-		$HTCONDOR_ROOT = Config::get('app.htcondorroot');
+		$HTCONDOR_ROOT = config('app.htcondorroot');
 		if ($HTCONDOR_ROOT) {
 			$command = '. ' . $HTCONDOR_ROOT . '/condor.sh; '; 
 		}

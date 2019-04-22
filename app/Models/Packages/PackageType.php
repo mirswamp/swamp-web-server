@@ -20,8 +20,8 @@ namespace App\Models\Packages;
 
 use App\Models\TimeStamps\TimeStamped;
 
-class PackageType extends TimeStamped {
-
+class PackageType extends TimeStamped
+{
 	// database attributes
 	//
 	protected $connection = 'package_store';

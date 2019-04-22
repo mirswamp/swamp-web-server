@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Users\UserPermission;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyUserPermission {
-
+class VerifyUserPermission
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -55,5 +55,4 @@ class VerifyUserPermission {
 
 		return $next($request);
 	}
-
 }

@@ -27,8 +27,8 @@ use App\Models\Users\User;
 use App\Models\Users\UserAccount;
 use App\Http\Controllers\BaseController;
 
-class AdminInvitationsController extends BaseController {
-
+class AdminInvitationsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

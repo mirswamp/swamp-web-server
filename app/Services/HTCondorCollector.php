@@ -23,12 +23,13 @@
 namespace App\Services;
 
 use App\Models\Viewers\ViewerInstance;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use App\Services\HTCondor;
 
-class HTCondorCollector {
-
+class HTCondorCollector
+{
+	// turn trace logging on or off
+	// 
 	private static $global_trace_logging = false;
 
 	public static function getViewerData($proxyUrl) {

@@ -21,8 +21,8 @@
 
 namespace App\Utilities\Files;
 
-class Filename {
-
+class Filename
+{
 	/**
 	 * Sanitizes a filename replacing whitespace with dashes
 	 *

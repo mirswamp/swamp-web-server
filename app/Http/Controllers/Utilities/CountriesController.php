@@ -21,8 +21,8 @@ namespace App\Http\Controllers\Utilities;
 use App\Http\Controllers\BaseController;
 use App\Models\Utilities\Country;
 
-class CountriesController extends BaseController {
-
+class CountriesController extends BaseController
+{
 	// get all
 	//
 	public function getAll() {

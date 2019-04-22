@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Users\EmailVerification;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyEmailVerification {
-
+class VerifyEmailVerification
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -57,5 +57,4 @@ class VerifyEmailVerification {
 
 		return $next($request);
 	}
-
 }

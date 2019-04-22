@@ -25,7 +25,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
 
-class ToolFilter {
+class ToolFilter
+{
 	static function apply($query) {
 
 		// parse parameters

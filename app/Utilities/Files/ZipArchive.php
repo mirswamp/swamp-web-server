@@ -24,8 +24,8 @@ namespace App\Utilities\Files;
 use App\Utilities\Files\BaseArchive;
 use App\Utilities\Strings\StringUtils;
 
-class ZipArchive extends BaseArchive {
-
+class ZipArchive extends BaseArchive
+{
 	//
 	// zip specific archive methods
 	//
@@ -55,7 +55,7 @@ class ZipArchive extends BaseArchive {
 					'name' => $name
 				];
 
-				if ($dirname == NULL) {
+				if ($dirname == null) {
 
 					// all files and directories
 					//
@@ -164,9 +164,9 @@ class ZipArchive extends BaseArchive {
 			$stat = $zipArchive->statIndex($i);
 			$name = $stat['name'];
 
-			if ($filter == NULL || $filter == basename($name)) {
+			if ($filter == null || $filter == basename($name)) {
 				if ($this->isDirectoryName($name)) {
-					if ($dirname == NULL) {
+					if ($dirname == null) {
 
 						// all files and directories
 						//
@@ -193,9 +193,47 @@ class ZipArchive extends BaseArchive {
 		return $directories;
 	}
 
-	public function extractTo($destination) {
+	public function extractTo($destination, $filenames = null) {
 		$zipArchive = new \ZipArchive();
 		$zipArchive->open($this->path);
-		$zipArchive->extractTo($destination);
+
+		// remove destination file / directory if already exists
+		//
+		if (file_exists($destination)) {
+			$this->rmdir($destination);
+		}
+
+		$zipArchive->extractTo($destination, $filenames);
+	}
+
+	public function extractContents($filePath) {
+
+		// extract file contents
+		//
+		$zip = zip_open($this->path);
+		$contents = null;
+
+		if (is_resource($zip)) {
+
+			// find entry
+			//
+			do {
+				$entry = zip_read($zip);
+			} while ($entry && zip_entry_name($entry) != $filePath);
+
+			// open entry
+			//
+			if ($entry) {
+				zip_entry_open($zip, $entry, "r");
+
+				// read entry
+				//
+				$contents = zip_entry_read($entry, zip_entry_filesize($entry));
+			}
+
+			zip_close($zip);
+		}
+
+		return $contents;
 	}
 }

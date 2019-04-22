@@ -19,17 +19,16 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use \DateTime;
+use \DateTimeZone;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Users\User;
 use App\Models\Users\PasswordReset;
 use App\Utilities\Filters\FiltersHelper;
 
-use \DateTime;
-use \DateTimeZone;
-
-class VerifyPasswordReset {
-
+class VerifyPasswordReset
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -91,5 +90,4 @@ class VerifyPasswordReset {
 
 		return $next($request);
 	}
-
 }

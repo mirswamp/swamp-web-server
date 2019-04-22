@@ -23,8 +23,8 @@ use App\Models\Packages\Package;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 
-class PackagePlatform extends BaseModel {
-
+class PackagePlatform extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'package_store';

@@ -20,8 +20,8 @@ namespace App\Models\TimeStamps;
 
 use App\Models\BaseModel;
 
-class CreateStamped extends BaseModel {
-
+class CreateStamped extends BaseModel
+{
 	// use non-standard timestamp field names
 	//
 	const CREATED_AT = 'create_date';

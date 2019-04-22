@@ -21,8 +21,8 @@ namespace App\Http\Controllers\Utilities;
 use App\Http\Controllers\BaseController;
 use App\Models\Utilities\Usage;
 
-class UsageController extends BaseController {
-
+class UsageController extends BaseController
+{
 	//
 	// querying methods
 	//

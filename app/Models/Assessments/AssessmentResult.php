@@ -18,6 +18,8 @@
 
 namespace App\Models\Assessments;
 
+use PDO;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\TimeStamps\UserStamped;
 use App\Models\Users\UserPolicy;
@@ -26,9 +28,10 @@ use App\Models\Projects\Project;
 use App\Models\Executions\ExecutionRecord;
 use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
+use App\Models\Viewers\Viewer;
 
-class AssessmentResult extends UserStamped {
-
+class AssessmentResult extends UserStamped
+{
 	// enable soft delete
 	//
 	use SoftDeletes;
@@ -114,77 +117,6 @@ class AssessmentResult extends UserStamped {
 		//
 		if ($tool->isRestricted()) {
 
-			// check for no tool permission
-			//
-			$permission = Permission::where('policy_code', '=', $tool->policy_code)->first();
-			/*
-			if (!$permission) {
-				return [
-					'status' => 'tool_no_permission',
-					'tool_name' => $tool->name
-				];
-			}
-			*/
-
-			// check for owner permission
-			//
-			/*
-			$owner = User::getIndex($project->project_owner_uid);
-			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $owner->user_uid)->first();
-
-			// if the permission doesn't exist or isn't valid, return error
-			//
-			if ($tool->isRestrictedByProjectOwner()) {
-				if (!$userPermission) {
-					return [
-						'status' => 'owner_no_permission',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					];
-				}
-				if ($userPermission->status !== 'granted') {
-					return [
-						'status' => 'owner_no_permission',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					];
-				}
-			}
-
-			// if the project hasn't been designated
-			//
-			if ($tool->isRestrictedByProject()) {
-				$userPermissionProject = UserPermissionProject::where('user_permission_uid', '=', $userPermission->user_permission_uid)->where('project_uid', '=', $assessmentRun->project_uuid)->first();
-				if (!$userPermissionProject) {
-					return [
-						'status' => 'no_project',
-						'project_name' => $project->full_name,
-						'tool_name' => $tool->name
-					];
-				}
-			}
-			*/
-
-			// check user permission
-			//
-			/*
-			$userPermission = UserPermission::where('permission_code', '=', $permission->permission_code)->where('user_uid', '=', $user['user_uid'])->first();
-			if (!$userPermission) {
-				return [
-					'status' => 'tool_no_permission',
-					'project_name' => $project->full_name,
-					'tool_name' => $tool->name
-				];
-			}
-			if ($userPermission->status !== 'granted') {
-				return [
-					'status' => 'tool_no_permission',
-					'project_name' => $project->full_name,
-					'tool_name' => $tool->name
-				];
-			}
-			*/
-
 			// if the policy hasn't been accepted, return error
 			//
 			$userPolicy	= UserPolicy::where('policy_code', '=', $tool->policy_code)->where('user_uid', '=', $user->user_uid)->first();
@@ -199,5 +131,78 @@ class AssessmentResult extends UserStamped {
 		}
 
 		return true;
+	}
+
+	public function launchViewer($viewer) {
+
+		// get latest version of viewer
+		//
+		$viewerVersion = $viewer->getLatestVersion();
+
+		// create stored procedure call
+		//
+		$connection = DB::connection('assessment');
+		$pdo = $connection->getPdo();
+		$stmt = $pdo->prepare("CALL launch_viewer(:assessmentResultsUuid, :userUuidIn, :viewerVersionUuid, :projectUuid, :destinationBasePath, @returnPath, @returnString, @viewerInstanceUuid);");
+
+		// set parameters to pass to stored procedure
+		//
+		$assessmentResultsUuid = $this->assessment_result_uuid;
+		$userUuidIn = session('user_uid');
+		$viewerVersionUuid = $viewerVersion->viewer_version_uuid;
+		$projectUuid = $this->project_uuid;
+		$returnString = null;
+		$resultsDestination = config('app.outgoing');
+		$returnPath = null;
+		$returnString = null;
+		$viewerInstanceUuid = null;	
+
+		// bind params
+		//
+		$stmt->bindParam(":assessmentResultsUuid", $assessmentResultsUuid, PDO::PARAM_STR, 5000);
+		$stmt->bindParam(":userUuidIn", $userUuidIn, PDO::PARAM_STR, 45);
+		$stmt->bindParam(":viewerVersionUuid", $viewerVersionUuid, PDO::PARAM_STR, 45);
+		$stmt->bindParam(":projectUuid", $projectUuid, PDO::PARAM_STR, 45);
+		$stmt->bindParam(":destinationBasePath", $resultsDestination, PDO::PARAM_STR, 45);
+
+		// call stored procedure
+		//
+		$results = $stmt->execute();
+
+		// fetch return parameters
+		//
+		$select = $pdo->query('SELECT @returnPath, @returnString, @viewerInstanceUuid');
+		return $select->fetchAll();
+	}
+
+	public function getNativeResultsData() {
+
+		// find path for cached results
+		//
+		if (config('app.sample_results')) {
+			$resultsPath = config('app.sample_results');
+		} else {
+			$resultsPath = config('app.outgoing').'/'.$this->assessment_result_uuid.'/nativereport.json';	
+		}
+
+		// check for cached results in storage directory
+		//
+		if (file_exists($resultsPath)) {
+			return file_get_contents($resultsPath, $this->assessment_result_uuid);
+		}
+
+		// call stored procedure
+		//
+		$nativeViewer = Viewer::where('name', '=', 'Native')->first();
+		$results = $this::launchViewer($nativeViewer);
+
+		// read and return native results data
+		//
+		return @file_get_contents($results[0]["@returnPath"], false, stream_context_create([
+			"ssl" => [
+				"verify_peer" => false,
+				"verify_peer_name" => false
+			]
+		]));
 	}
 }

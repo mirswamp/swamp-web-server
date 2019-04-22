@@ -26,9 +26,8 @@ use App\Models\Platforms\Platform;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyPlatform {
-
+class VerifyPlatform
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -70,5 +69,4 @@ class VerifyPlatform {
 
 		return $next($request);
 	}
-
 }

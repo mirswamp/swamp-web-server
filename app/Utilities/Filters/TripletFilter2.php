@@ -27,7 +27,8 @@ use App\Utilities\Filters\PackageFilter2;
 use App\Utilities\Filters\ToolFilter2;
 use App\Utilities\Filters\PlatformFilter2;
 
-class TripletFilter2 {
+class TripletFilter2
+{
 	static function apply($query, $projectUuid) {
 		$query = PackageFilter2::apply($query, $projectUuid);
 		$query = ToolFilter2::apply($query);

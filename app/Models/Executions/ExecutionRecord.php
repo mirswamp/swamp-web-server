@@ -32,8 +32,8 @@ use App\Models\Assessments\AssessmentResult;
 use App\Models\Users\User;
 use PDO;
 
-class ExecutionRecord extends TimeStamped {
-
+class ExecutionRecord extends TimeStamped
+{
 	// enable soft delete
 	//
 	use SoftDeletes;

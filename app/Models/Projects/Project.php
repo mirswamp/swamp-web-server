@@ -29,8 +29,8 @@ use App\Models\Users\UserPermissionProject;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Projects\ProjectInvitation;
 
-class Project extends CreateStamped {
-
+class Project extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'project';

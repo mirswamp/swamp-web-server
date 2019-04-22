@@ -20,13 +20,12 @@ namespace App\Http\Controllers\Utilities;
 
 use App\Http\Controllers\BaseController;
 use App\Models\Utilities\Configuration;
-use Illuminate\Support\Facades\Config;
 
 define('CILOGON_IDPLIST_URL','https://cilogon.org/idplist/?skin=' .  
 							 config('oauth2.cilogon_skin'));
 
-class IdentitiesController extends BaseController {
-
+class IdentitiesController extends BaseController
+{
 	/**
 	 * This function returns a JSON array of the Identity Providers which are
 	 * configured for OAuth 2.0 authentication. The contents of the JSON
@@ -112,5 +111,4 @@ class IdentitiesController extends BaseController {
 		return json_encode($idparray,JSON_UNESCAPED_SLASHES |
 			JSON_UNESCAPED_UNICODE);
 	}
-
 }

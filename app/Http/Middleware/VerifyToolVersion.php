@@ -26,9 +26,8 @@ use App\Models\Tools\ToolVersion;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyToolVersion {
-
+class VerifyToolVersion
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -83,5 +82,4 @@ class VerifyToolVersion {
 
 		return $next($request);
 	}
-
 }

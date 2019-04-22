@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Assessments\Viewer;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyViewer {
-
+class VerifyViewer
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -56,5 +56,4 @@ class VerifyViewer {
 
 		return $next($request);
 	}
-
 }

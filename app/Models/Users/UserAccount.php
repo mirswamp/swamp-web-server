@@ -18,12 +18,11 @@
 
 namespace App\Models\Users;
 
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use App\Models\TimeStamps\UserStamped;
 
-class UserAccount extends UserStamped {
-
+class UserAccount extends UserStamped
+{
 	// database attributes
 	//
 	protected $table = 'user_account';

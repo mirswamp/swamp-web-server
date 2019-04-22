@@ -22,7 +22,8 @@
 
 namespace App\Utilities\Uuids;
 
-class Guid {
+class Guid
+{
 	static function create() {
 		if (function_exists('com_create_guid')) {
 

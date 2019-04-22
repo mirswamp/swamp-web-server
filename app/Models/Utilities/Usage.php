@@ -21,8 +21,8 @@ namespace App\Models\Utilities;
 use App\Models\BaseModel;
 use App\Models\TimeStamps\CreateStamped;
 
-class Usage extends CreateStamped {
-
+class Usage extends CreateStamped
+{
 	// database attributes
 	//
 	protected $connection = 'assessment';

@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Packages\RubyPackageVersion;
 use App\Http\Controllers\Packages\PackageVersionsController;
 
-class RubyPackageVersionsController extends PackageVersionsController {
-
+class RubyPackageVersionsController extends PackageVersionsController
+{
 	// get ruby gem information for new packages
 	//
 	public function getNewRubyGemInfo() {

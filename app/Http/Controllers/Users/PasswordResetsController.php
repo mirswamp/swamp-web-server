@@ -20,7 +20,6 @@ namespace App\Http\Controllers\Users;
 
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -33,8 +32,8 @@ use App\Http\Controllers\Users\AppPasswordsController;
 use \DateTime;
 use \DateTimeZone;
 
-class PasswordResetsController extends BaseController {
-
+class PasswordResetsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

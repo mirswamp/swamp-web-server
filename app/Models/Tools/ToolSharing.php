@@ -22,8 +22,8 @@ use Illuminate\Support\Collection;
 use App\Models\BaseModel;
 use App\Models\Tools\Tool;
 
-class ToolSharing extends BaseModel {
-
+class ToolSharing extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'tool_shed';

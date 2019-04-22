@@ -25,8 +25,8 @@ use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Events\ProjectEventsController;
 use App\Utilities\Filters\EventDateFilter;
 
-class PersonalEventsController extends BaseController {
-
+class PersonalEventsController extends BaseController
+{
 	// get number of all events by user id
 	//
 	public static function getNumByUser($userUid) {

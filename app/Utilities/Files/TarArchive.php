@@ -24,8 +24,8 @@ namespace App\Utilities\Files;
 use App\Utilities\Files\BaseArchive;
 use App\Utilities\Strings\StringUtils;
 
-class TarArchive extends BaseArchive {
-
+class TarArchive extends BaseArchive
+{
 	//
 	// tar specific archive methods
 	//
@@ -117,5 +117,49 @@ class TarArchive extends BaseArchive {
 		// return names converted to info
 		//
 		return $this->namesToInfoArray($names);
+	}
+
+	public function extractTo($destination, $filenames = null) {
+		$tarArchive = new \PharData($this->path);
+
+		// remove destination file / directory if already exists
+		//
+		if (file_exists($destination)) {
+			$this->rmdir($destination);
+		}
+
+		$tarArchive->extractTo($destination, $filenames);
+	}
+
+	public function extractContents($filePath) {
+		$destination = '/tmp';
+		$fullPath = $destination . '/' . $filePath;
+		$contents = null;
+
+		// extract specified file to destination directory
+		//
+		if (!file_exists($fullPath)) {
+			if ($this->isZipped()) {
+				exec('tar -z -C ' . $destination . ' --extract --file=' . $this->path . ' ' . $filePath);
+			} else {
+				exec('tar -C ' . $destination . ' --extract --file=' . $this->path . ' ' . $filePath);
+			}
+		}
+
+		// get file contents
+		//
+		if (file_exists($fullPath)) {
+			$contents = file_get_contents($fullPath);
+		}
+
+		// remove destination directory
+		//
+		$paths = explode('/', $filePath);
+		$destDir = $destination . '/' . $paths[0];
+		if (file_exists($destDir)) {
+			$this->rmdir($destDir);
+		}
+
+		return $contents;
 	}
 }

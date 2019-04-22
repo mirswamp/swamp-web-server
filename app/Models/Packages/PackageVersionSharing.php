@@ -22,8 +22,8 @@ use App\Models\BaseModel;
 use App\Models\Projects\Project;
 use App\Models\Packages\PackageVersion;
 
-class PackageVersionSharing extends BaseModel {
-
+class PackageVersionSharing extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'package_store';

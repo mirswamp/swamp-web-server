@@ -21,8 +21,8 @@ namespace App\Models\TimeStamps;
 
 use App\Models\TimeStamps\CreateStamped;
 
-class TimeStamped extends CreateStamped {
-
+class TimeStamped extends CreateStamped
+{
 	// attributes
 	//
 	public $timestamps = true;

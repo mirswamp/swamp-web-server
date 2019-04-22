@@ -23,7 +23,8 @@ namespace App\Utilities\Filters;
 
 use Illuminate\Support\Facades\Input;
 
-class LimitFilter {
+class LimitFilter
+{
 	static function apply($query) {
 
 		// parse parameters

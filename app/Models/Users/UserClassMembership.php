@@ -20,8 +20,8 @@ namespace App\Models\Users;
 
 use App\Models\TimeStamps\TimeStamped;
 
-class UserClassMembership extends TimeStamped {
-
+class UserClassMembership extends TimeStamped
+{
 	// database attributes
 	//
 	protected $table = 'class_user';

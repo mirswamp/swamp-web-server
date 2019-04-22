@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\BaseController;
 use App\Models\Users\User;
@@ -37,12 +36,13 @@ use App\Models\Users\UserEvent;
 use App\Utilities\Uuids\Guid;
 use App\Utilities\Identity\IdentityProvider;
 
-class LinkedAccountsController extends BaseController {
-
+class LinkedAccountsController extends BaseController
+{
 	public function getLinkedAccountsByUser($userUid) {
 		$active_user = User::getIndex(session('user_uid'));
-		if ($userUid == session('user_uid') || $active_user->isAdmin())
+		if ($userUid == session('user_uid') || $active_user->isAdmin()) {
 			return LinkedAccount::where('user_uid', '=', $userUid)->get();
+		}
 		return response('User not allowed to retrieve linked accounts.', 401);
 	}
 

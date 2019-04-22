@@ -26,9 +26,8 @@ use App\Models\Tools\Tool;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyTool {
-
+class VerifyTool
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -83,5 +82,4 @@ class VerifyTool {
 
 		return $next($request);
 	}
-
 }

@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Packages\PythonPackageVersion;
 use App\Http\Controllers\Packages\PackageVersionsController;
 
-class PythonPackageVersionsController extends PackageVersionsController {
-
+class PythonPackageVersionsController extends PackageVersionsController
+{
 	// get wheel information for new packages
 	//
 	public function getNewPythonWheelInfo() {

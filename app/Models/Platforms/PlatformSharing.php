@@ -20,8 +20,8 @@ namespace App\Models\Platforms;
 
 use App\Models\BaseModel;
 
-class PlatformSharing extends BaseModel {
-
+class PlatformSharing extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'platform_store';

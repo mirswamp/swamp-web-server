@@ -19,11 +19,10 @@
 
 namespace App\Http\Controllers\Utilities;
 
-use Illuminate\Support\Facades\Config;
 use App\Http\Controllers\BaseController;
 
-class RoutesController extends BaseController {
-
+class RoutesController extends BaseController
+{
 	// get actual routes
 	//
 	public function getActual() {

@@ -23,8 +23,8 @@ use App\Models\Users\UserClassMembership;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Uuids\Guid;
 
-class UserClassesController extends BaseController {
-
+class UserClassesController extends BaseController
+{
 	//
 	// get methods
 	//

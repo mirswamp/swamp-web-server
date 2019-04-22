@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Users\LinkedAccount;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyLinkedAccount {
-
+class VerifyLinkedAccount
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -56,5 +56,4 @@ class VerifyLinkedAccount {
 
 		return $next($request);
 	}
-
 }

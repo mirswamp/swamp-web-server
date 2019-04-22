@@ -19,11 +19,10 @@
 
 namespace App\Models\Users;
 
-use Illuminate\Support\Facades\Config;
 use App\Models\TimeStamps\CreateStamped;
 
-class UserPolicy extends CreateStamped {
-
+class UserPolicy extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'user_policy';

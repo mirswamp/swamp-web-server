@@ -22,7 +22,6 @@
 
 namespace App\Utilities\Identity;
 
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Session;
 use League\OAuth2\Client\Provider\Github;
 use League\OAuth2\Client\Provider\Google;
@@ -30,8 +29,8 @@ use CILogon\OAuth2\Client\Provider\CILogon;
 use App\Http\Controllers\Utilities\IdentitiesController;
 use App\Models\Users\LinkedAccountProvider;
 
-class IdentityProvider {
-	
+class IdentityProvider
+{
 	public $provider = null; 		// Member variable for OAuth 2.0 PHP provider object
 	public $authzUrlOpts = []; 		// Params for getAuthorizationUrl()
 	public $linked_provider = '';   // github, google, or univ. entityId

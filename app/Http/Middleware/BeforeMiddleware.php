@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Session;
 use App\Utilities\Sanitization\Sanitize;
 use Closure;
 
-class BeforeMiddleware {
-
+class BeforeMiddleware
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -88,5 +88,4 @@ class BeforeMiddleware {
 
 		return $next($request);
 	}
-
 }

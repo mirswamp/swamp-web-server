@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 
-class JavaBytecodePackageVersion extends PackageVersion {
-
+class JavaBytecodePackageVersion extends PackageVersion
+{
 	//
 	// querying methods
 	//

@@ -21,7 +21,6 @@ namespace App\Http\Controllers\Executions;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Projects\Project;
 use App\Models\Executions\ExecutionRecord;
@@ -36,9 +35,8 @@ use App\Utilities\Filters\TripletFilter2;
 use App\Utilities\Filters\LimitFilter;
 use App\Services\HTCondorCollector;
 
-
-class ExecutionRecordsController extends BaseController {
-
+class ExecutionRecordsController extends BaseController
+{
 	// get by index
 	//
 	public function getIndex($executionRecordUuid) {

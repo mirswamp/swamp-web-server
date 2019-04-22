@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\JavaBytecodePackageVersion;
 
-class AndroidBytecodePackageVersion extends JavaBytecodePackageVersion {
-
+class AndroidBytecodePackageVersion extends JavaBytecodePackageVersion
+{
 	//
 	// querying methods
 	//

@@ -26,9 +26,8 @@ use App\Models\Packages\Package;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyPackage {
-
+class VerifyPackage
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -83,5 +82,4 @@ class VerifyPackage {
 
 		return $next($request);
 	}
-
 }

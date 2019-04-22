@@ -26,9 +26,8 @@ use App\Models\Projects\Project;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyProject {
-
+class VerifyProject
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -101,5 +100,4 @@ class VerifyProject {
 
 		return $next($request);
 	}
-
 }

@@ -27,7 +27,11 @@ use App\Models\Viewers\ProjectDefaultViewer;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
 
-class ViewersController extends BaseController {
+class ViewersController extends BaseController
+{
+	//
+	// querying methods
+	//
 
 	// get by index
 	//
@@ -35,12 +39,31 @@ class ViewersController extends BaseController {
 		return Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
 	}
 
+	// get all
+	//
+	public function getAll() {
+		$defaultViewer = config('app.default_viewer');
+		if ($defaultViewer && Viewer::where('name', '=', $defaultViewer)->exists()) {
+			$first = Viewer::where('name', '=', $defaultViewer)->first();
+			$list = Viewer::where('name', '!=', $defaultViewer)->get();
+			return $list->prepend($first);
+		} else {
+			return Viewer::all();
+		}
+	}
+
+	// get default
+	//
 	public function getDefaultViewer($projectUid) {
 		$default = ProjectDefaultViewer::where('project_uuid', '=', $projectUid)->first();
 		return $default ?
 			Viewer::where('viewer_uuid', '=', $default->viewer_uuid)->first() :
 			Viewer::where('name', '=', 'Native')->first();
 	}
+
+	//
+	// setting methods
+	//
 
 	public function setDefaultViewer($projectUuid, $viewerUuid) {
 		$default = ProjectDefaultViewer::where('project_uuid', '=', $projectUuid)->first();
@@ -57,18 +80,5 @@ class ViewersController extends BaseController {
 	}
 
 	public function setDefault($projectUuid, $viewerUuid) {
-	}
-
-	// get all
-	//
-	public function getAll() {
-		$defaultViewer = config('app.default_viewer');
-		if ($defaultViewer && Viewer::where('name', '=', $defaultViewer)->exists()) {
-			$first = Viewer::where('name', '=', $defaultViewer)->first();
-			$list = Viewer::where('name', '!=', $defaultViewer)->get();
-			return $list->prepend($first);
-		} else {
-			return Viewer::all();
-		}
 	}
 }

@@ -19,13 +19,12 @@
 namespace App\Models\Admin;
 
 use DateTime;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use App\Models\TimeStamps\CreateStamped;
 use App\Models\Users\User;
 
-class AdminInvitation extends CreateStamped {
-
+class AdminInvitation extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'admin_invitation';

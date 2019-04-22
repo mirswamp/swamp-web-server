@@ -26,8 +26,8 @@ use App\Models\Users\UserClass;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-class VerifyUserClass {
-
+class VerifyUserClass
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -84,5 +84,4 @@ class VerifyUserClass {
 
 		return $next($request);
 	}
-
 }

@@ -22,7 +22,6 @@ use DateTime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
@@ -32,8 +31,8 @@ use App\Models\Users\User;
 use App\Models\Utilities\Configuration;
 use App\Http\Controllers\BaseController;
 
-class ProjectInvitationsController extends BaseController {
-
+class ProjectInvitationsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {
@@ -115,7 +114,8 @@ class ProjectInvitationsController extends BaseController {
 				->where('invitee_email', '=', $projectInvitation->invitee_email)
 				->where('accept_date', '=', null)
 				->where('decline_date', '=', null)
-				->exists()) {
+				->exists()
+			) {
 				return response()->json([
 					'error' => [
 						'message' => $inviteeName . ' already has a pending invitation'
@@ -130,7 +130,8 @@ class ProjectInvitationsController extends BaseController {
 				->where('invitee_username', '=', $projectInvitation->invitee_username)
 				->where('accept_date', '=', null)
 				->where('decline_date', '=', null)
-				->exists()) {
+				->exists()
+			) {
 				return response()->json([
 					'error' => [
 						'message' => $inviteeName . ' already has a pending invitation'

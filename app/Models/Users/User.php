@@ -26,7 +26,6 @@ use Illuminate\Auth\UserInterface;
 use Illuminate\Auth\Reminders\RemindableInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
@@ -44,10 +43,11 @@ use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Utilities\Configuration;
 use App\Utilities\Identity\IdentityProvider;
+use App\Utilities\Security\Password;
 use App\Utilities\Ldap\Ldap;
 
-class User extends TimeStamped {
-
+class User extends TimeStamped
+{
 	// database attributes
 	//
 	protected $table = 'user';
@@ -241,7 +241,7 @@ class User extends TimeStamped {
 	}
 
 	public function isNew() {
-		return $this['user_uid'] == NULL;
+		return $this['user_uid'] == null;
 	}
 
 	//
@@ -645,91 +645,6 @@ class User extends TimeStamped {
 		return !in_array($domain, $restrictedDomainNames);
 	}
 
-	//
-	// password encrypting functons
-	//
-
-	public static function getEncryptedPassword($password, $encryption, $hash='') {
-		switch ($encryption) {
-
-			case '{MD5}':
-				return '{MD5}'.base64_encode(md5($password, TRUE));
-				break;
-
-			case '{SHA1}':
-				return '{SHA1}'.base64_encode(sha1($password, TRUE ));
-				break;
-
-			case '{SSHA}':
-				$salt = substr(base64_decode(substr($hash, 6)), 20);
-				return '{SSHA}'.base64_encode(sha1($password.$salt, TRUE ).$salt);
-				break;
-
-			case '{BCRYPT}':
-			default:
-				return '{BCRYPT}'.password_hash($password, PASSWORD_BCRYPT);
-				break;
-		}
-	}
-
-	public function isValidPassword($password) {
-
-		// no password
-		//
-		if ($this->password == '') {
-			return false;
-		}
-
-		// plaintext password
-		//
-		if ($this->password{0} != '{') {
-			return ($this->password == $password);
-		} else {
-
-			// find hash type
-			//
-			$i = 1;
-			while ($this->password[$i] != '}' && $i < strlen($this->password)) {
-				$i++;
-			}
-			$hash = substr($this->password, 1, $i - 1);
-
-			// crypt
-			//
-			if ($hash == 'CRYPT') {
-				return (crypt($password, substr($this->password, 7)) == substr($this->password, 7));
-
-			// md5
-			//
-			} elseif ($hash == 'MD5') {
-				$encryptedPassword = User::getEncryptedPassword($password, '{MD5}');
-
-			// sha1
-			//
-			} elseif ($hash == 'SHA1') {
-				$encryptedPassword = User::getEncryptedPassword($password, '{SHA1}');
-
-			// ssha
-			//
-			} elseif ($hash == 'SSHA') {
-				$encryptedPassword = User::getEncryptedPassword($password, '{SSHA}', $this->password);
-
-			// bcrypt
-			//
-			} elseif ($hash == 'BCRYPT') {
-				return password_verify($password, substr($this->password, 8));
-
-			// unsupported
-			//
-			} else {
-				echo "Unsupported password hash format: ".$hash.". ";
-				return false;
-			}
-
-			return ($this->password == $encryptedPassword);
-		}
-	}
-
 	public static function isAuthenticatable() {
 		if (config('ldap.enabled') && config('ldap.password_validation')) {
 			return Ldap::checkLdapConnection();
@@ -758,7 +673,7 @@ class User extends TimeStamped {
 
 			// check password against stored password or password hash
 			//
-			if ($this->isValidPassword($password)) {
+			if (Password::isValid($password, $this->password)) {
 
 				// Log successful password hash authentications
 				//
@@ -884,7 +799,7 @@ class User extends TimeStamped {
 
 			// encrypt password
 			//
-			$this->password = $this->getEncryptedPassword($this->password, '{'.$encryption.'}');
+			$this->password = Password::getEncrypted($this->password, $encryption);
 		}
 
 		// check to see if we are to use LDAP
@@ -982,7 +897,7 @@ class User extends TimeStamped {
 
 			// encrypt password
 			//
-			$password = $this->getEncryptedPassword($password, '{'.$encryption.'}');
+			$password = Password::getEncrypted($password, $encryption);
 		}
 
 		// set user attributes
@@ -1022,8 +937,9 @@ class User extends TimeStamped {
 		$results = [];
 
 		do {
-			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
+			foreach($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
 				$results[] = $row;
+			}
 		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');

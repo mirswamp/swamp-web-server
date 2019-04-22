@@ -23,7 +23,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Config;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
 use App\Models\Users\User;
@@ -31,8 +30,8 @@ use App\Models\Users\Policy;
 use App\Models\Users\UserPolicy;
 use App\Http\Controllers\BaseController;
 
-class UserPoliciesController extends BaseController {
-
+class UserPoliciesController extends BaseController
+{
 	//
 	// set methods
 	//

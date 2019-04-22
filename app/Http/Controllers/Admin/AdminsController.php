@@ -22,13 +22,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Config;
 use App\Models\Users\UserAccount;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
 
-class AdminsController extends BaseController {
-
+class AdminsController extends BaseController
+{
 	// get by index
 	//
 	public function getIndex($userUid) {
@@ -122,7 +121,7 @@ class AdminsController extends BaseController {
 			// check body for php signature
 			//
 			$this->secure = false;
-			if ((strpos($body, 'END PGP SIGNATURE') != FALSE) || (strpos($body, 'END GPG SIGNATURE') != FALSE)) {
+			if ((strpos($body, 'END PGP SIGNATURE') != false) || (strpos($body, 'END GPG SIGNATURE') != false)) {
 				$this->secure = true;
 			}
 

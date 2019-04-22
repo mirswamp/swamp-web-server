@@ -21,8 +21,8 @@ namespace App\Models\Events;
 use App\Models\BaseModel;
 use App\Models\Events\Event;
 
-class ProjectEvent extends Event {
-
+class ProjectEvent extends Event
+{
 	// database attributes
 	//
 	protected $table = 'project_events';

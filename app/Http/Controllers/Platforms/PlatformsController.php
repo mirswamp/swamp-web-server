@@ -31,8 +31,8 @@ use App\Models\Platforms\PlatformSharing;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
 
-class PlatformsController extends BaseController {
-
+class PlatformsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

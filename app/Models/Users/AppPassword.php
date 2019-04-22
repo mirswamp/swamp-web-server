@@ -12,11 +12,11 @@
 +-------------------+--------------+------+-----+-------------------+-----------------------------+
 | Field             | Type         | Null | Key | Default           | Extra                       |
 +-------------------+--------------+------+-----+-------------------+-----------------------------+
-| app_password_id   | int(11)      | NO   | PRI | NULL              | auto_increment              |
-| app_password_uuid | varchar(45)  | NO   |     | NULL              |                             |
-| user_uid          | varchar(127) | NO   |     | NULL              |                             |
-| password          | varchar(127) | NO   |     | NULL              |                             |
-| label             | varchar(63)  | YES  |     | NULL              |                             |
+| app_password_id   | int(11)      | NO   | PRI | null              | auto_increment              |
+| app_password_uuid | varchar(45)  | NO   |     | null              |                             |
+| user_uid          | varchar(127) | NO   |     | null              |                             |
+| password          | varchar(127) | NO   |     | null              |                             |
+| label             | varchar(63)  | YES  |     | null              |                             |
 | create_date       | timestamp    | NO   |     | CURRENT_TIMESTAMP |                             |
 | update_date       | timestamp    | NO   |     | CURRENT_TIMESTAMP | on update CURRENT_TIMESTAMP |
 +-------------------+--------------+------+-----+-------------------+-----------------------------+
@@ -36,9 +36,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use App\Models\TimeStamps\TimeStamped;
 
-
-class AppPassword extends TimeStamped {
-
+class AppPassword extends TimeStamped
+{
 	// database attributes
 	//
 	protected $table = 'app_passwords';

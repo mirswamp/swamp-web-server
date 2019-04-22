@@ -20,7 +20,7 @@
 		<br />
 		<br />
 
-		You may contact SWAMP security directly at {{ Config::get('mail.security.address') }} or visit the security contact page for more options: <a href="{{ $url }}/#contact/security">Contact SWAMP Security</a>
+		You may contact SWAMP security directly at {{ config('mail.security.address') }} or visit the security contact page for more options: <a href="{{ $url }}/#contact/security">Contact SWAMP Security</a>
 
 		<br/>
 		<br/>

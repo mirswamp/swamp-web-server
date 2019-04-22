@@ -25,7 +25,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 
-class PlatformFilter2 {
+class PlatformFilter2
+{
 	static function apply($query) {
 
 		// parse parameters

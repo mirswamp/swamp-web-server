@@ -19,10 +19,8 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Log;
-
 
 class CookieCleaner
 {
@@ -75,10 +73,8 @@ class CookieCleaner
 		// session id cookie and should be deleted.
 		//
 		if (count($hexacookies) > 0) {
-			$confpath = Config::has('session.path') ? 
-				config('session.path') : '/';
-			$confdomain = Config::has('session.domain') ? 
-				config('session.domain') : '';
+			$confpath = config('session.path') || '/';
+			$confdomain = config('session.domain') || '';
 			foreach ($hexacookies as $name => $value) {
 				Log::notice("Deleting orphaned cookie.", [
 					'cookie_name' => $name
@@ -136,4 +132,3 @@ class CookieCleaner
 		return $next($request);
 	}
 }
-

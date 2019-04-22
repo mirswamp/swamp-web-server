@@ -18,12 +18,11 @@
 
 namespace App\Models\Users;
 
-use Illuminate\Support\Facades\Config;
 use App\Models\TimeStamps\CreateStamped;
 use App\Models\Users\Policy;
 
-class Permission extends CreateStamped {
-
+class Permission extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'permission';

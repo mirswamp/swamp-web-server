@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
@@ -39,8 +38,8 @@ use App\Models\Users\UserPermissionPackage;
 use App\Models\Users\Permission;
 use App\Http\Controllers\BaseController;
 
-class PermissionsController extends BaseController {
-
+class PermissionsController extends BaseController
+{
 	// get projects by id
 	//
 	public function getPermissions($userUid) {

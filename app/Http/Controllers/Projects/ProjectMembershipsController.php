@@ -22,15 +22,14 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Config;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\User;
 use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
 use App\Http\Controllers\BaseController;
 
-class ProjectMembershipsController extends BaseController {
-
+class ProjectMembershipsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {

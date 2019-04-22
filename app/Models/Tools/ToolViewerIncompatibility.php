@@ -23,8 +23,8 @@ use App\Models\BaseModel;
 use App\Models\Tools\Tool;
 use App\Models\Viewers\Viewer;
 
-class ToolViewerIncompatibility extends BaseModel {
-
+class ToolViewerIncompatibility extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'tool_shed';

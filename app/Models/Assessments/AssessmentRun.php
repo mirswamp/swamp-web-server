@@ -34,8 +34,8 @@ use App\Models\Executions\ExecutionRecord;
 use App\Models\RunRequests\RunRequest;
 use App\Models\Assessments\AssessmentRunRequest;
 
-class AssessmentRun extends UserStamped {
-
+class AssessmentRun extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'assessment';
@@ -247,19 +247,19 @@ class AssessmentRun extends UserStamped {
 	*/
 
 	public function getRunRequests() {
-		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')
+		$oneTimeRunRequest = RunRequest::where('name', '=', 'One-time')
 			->where('project_uuid', '=', null)
 			->first();
-		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)
+		return AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)
 			->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)
 			->get();
 	}
 
 	public function getNumRunRequests() {
-		$oneTimeRunRequest = $runRequest = RunRequest::where('name', '=', 'One-time')
+		$oneTimeRunRequest = RunRequest::where('name', '=', 'One-time')
 			->where('project_uuid', '=', null)
 			->first();
-		return $assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)
+		return AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)
 			->where('run_request_id', '!=', $oneTimeRunRequest->run_request_id)
 			->count();
 	}

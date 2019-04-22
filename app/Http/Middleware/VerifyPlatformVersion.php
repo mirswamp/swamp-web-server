@@ -26,9 +26,8 @@ use App\Models\Platforms\PlatformVersion;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyPlatformVersion {
-
+class VerifyPlatformVersion
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -70,5 +69,4 @@ class VerifyPlatformVersion {
 
 		return $next($request);
 	}
-
 }

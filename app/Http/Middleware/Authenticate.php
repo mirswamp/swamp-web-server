@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Session;
 use App\Models\Users\User;
 use App\Models\Utilities\Configuration;
 
-class Authenticate {
-
+class Authenticate
+{
 	/**
 	 * Handle an incoming request.
 	 *

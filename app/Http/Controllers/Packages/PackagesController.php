@@ -20,7 +20,6 @@ namespace App\Http\Controllers\Packages;
 
 use PDO;
 
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
@@ -40,7 +39,8 @@ use App\Models\Packages\PackagePlatform;
 use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
 
-class PackagesController extends BaseController {
+class PackagesController extends BaseController
+{
 	public static $requireUniquePackageNames = false;
 
 	// create
@@ -702,18 +702,18 @@ class PackagesController extends BaseController {
 		// get all package versions
 		//
 		$packageVersions = PackageVersion::where('package_uuid', '=', $packageUuid)->get();
-		foreach( $packageVersions as $packageVersion ){
+		foreach ($packageVersions as $packageVersion) {
 
 			// reset all package version sharings for current package version
 			//
 			$packageVersionSharings = PackageVersionSharing::where('package_version_uuid', '=', $packageVersion->package_version_uuid)->get();
-			foreach( $packageVersionSharings as $pvs ){
+			foreach ($packageVersionSharings as $pvs) {
 				$pvs->delete();
 			}
 
 			// set all package version sharings for current package version
 			//
-			foreach( $packageSharings as $ps ){
+			foreach ($packageSharings as $ps) {
 				$packageVersionSharing = new PackageVersionSharing([
 					'project_uuid' => $ps->project_uuid,
 					'package_version_uuid' => $packageVersion->package_version_uuid
@@ -761,12 +761,13 @@ class PackagesController extends BaseController {
 		// get results
 		//
 		do {
-			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
-			$results[] = $row;
+			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+				$results[] = $row;
+			}
 		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
+		$returnString = $select->fetchAll(PDO::FETCH_ASSOC)[0]['@returnString'];
 		$select->nextRowset();
 
 		if ($returnString == 'SUCCESS') {
@@ -787,8 +788,9 @@ class PackagesController extends BaseController {
 		// get results
 		//
 		do {
-			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
-			$results[] = $row;
+			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+				$results[] = $row;
+			}
 		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');
@@ -813,8 +815,9 @@ class PackagesController extends BaseController {
 		$results = [];
 
 		do {
-			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
-			$results[] =  $row;
+			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+				$results[] =  $row;
+			}
 		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');
@@ -841,8 +844,9 @@ class PackagesController extends BaseController {
 		// get results
 		//
 		do {
-			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
-			$results[] =  $row;
+			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+				$results[] = $row;
+			}
 		} while ($stmt->nextRowset());
 
 		$select = $pdo->query('SELECT @returnString;');

@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Assessments\AssessmentRun;
 use App\Utilities\Filters\FiltersHelper;
 
-class VerifyAssessmentRun {
-
+class VerifyAssessmentRun
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -56,5 +56,4 @@ class VerifyAssessmentRun {
 
 		return $next($request);
 	}
-
 }

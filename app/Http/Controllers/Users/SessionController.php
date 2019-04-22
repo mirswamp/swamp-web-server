@@ -24,7 +24,6 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Cookie;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
@@ -46,8 +45,8 @@ use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
 use League\OAuth2\Client\Token\AccessToken;
 use ErrorException;
 
-class SessionController extends BaseController {
-
+class SessionController extends BaseController
+{
 	// control pre-launch of CodeDX viewer on login
 	// 
 	const preLaunchCodeDX = false;
@@ -657,7 +656,8 @@ class SessionController extends BaseController {
 		// check for session expiration
 		//
 		if (gmdate('U') - session('oauth2_access_time') >
-			(config('oauth2.session_expiration') * 60)) {
+			(config('oauth2.session_expiration') * 60)
+		) {
 			return response('OAuth2 access has expired.  If you would like to link an external account to an existing SWAMP account, please click "Sign In" and select an external Identity Provider.', 401);
 		}
 
@@ -907,8 +907,7 @@ class SessionController extends BaseController {
 		// UserAccount. So create one now. Since we trust the LDAP
 		// email address, set email_verified_flag to true.
 		//
-		if ((config('ldap.enabled')) &&
-			(count($userAccount) == 0)) {
+		if ((config('ldap.enabled')) && (count($userAccount) == 0)) {
 				$userAccount = new UserAccount([
 					'ldap_profile_update_date' => gmdate('Y-m-d H:i:s'),
 					'user_uid' => $user->user_uid,

@@ -24,8 +24,8 @@ use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
 
-class RubyPackageVersion extends PackageVersion {
-
+class RubyPackageVersion extends PackageVersion
+{
 	//
 	// attributes
 	//
@@ -226,7 +226,8 @@ class RubyPackageVersion extends PackageVersion {
 					// search archive for default build file
 					//
 					if ($archive->contains($searchPath, 'rakefile') || 
-						$archive->contains($searchPath, 'Rakefile')) {
+						$archive->contains($searchPath, 'Rakefile')
+					) {
 						return response("Ruby package build system ok for bundler+rake.", 200);
 					} else {
 						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
@@ -256,7 +257,7 @@ class RubyPackageVersion extends PackageVersion {
 				$archive = Archive::create($this->getPackagePath());
 				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
-				if ($this->build_file != NULL) {
+				if ($this->build_file != null) {
 
 					// check for specified build file
 					//
@@ -270,7 +271,8 @@ class RubyPackageVersion extends PackageVersion {
 					// search archive for default build file
 					//
 					if ($archive->contains($searchPath, 'rakefile') || 
-						$archive->contains($searchPath, 'Rakefile')) {
+						$archive->contains($searchPath, 'Rakefile')
+					) {
 						return response("Ruby package build system ok for rake.", 200);
 					} else {
 						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);

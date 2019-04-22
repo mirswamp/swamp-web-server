@@ -21,8 +21,8 @@ namespace App\Models\Tools;
 use App\Models\BaseModel;
 use App\Models\Packages\PackageType;
 
-class ToolLanguage extends BaseModel {
-
+class ToolLanguage extends BaseModel
+{
 	// database attributes
 	//
 	protected $connection = 'tool_shed';

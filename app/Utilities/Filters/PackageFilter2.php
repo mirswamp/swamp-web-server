@@ -24,7 +24,8 @@ use Illuminate\Support\Facades\Input;
 use App\Models\Packages\Package;
 use App\Models\Packages\PackageVersion;
 
-class PackageFilter2 {
+class PackageFilter2
+{
 	static function apply($query, $projectUuid) {
 
 		// parse parameters

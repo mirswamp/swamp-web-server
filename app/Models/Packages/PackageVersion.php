@@ -24,14 +24,13 @@ use PharData;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Config;
 use App\Utilities\Files\Archive;
 use App\Models\TimeStamps\UserStamped;
 use App\Models\Users\User;
 use App\Models\Packages\Package;
 
-class PackageVersion extends UserStamped {
-
+class PackageVersion extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'package_store';
@@ -213,7 +212,7 @@ class PackageVersion extends UserStamped {
 
 	function getFileContents($filename, $dirname) {
 		$zip = new ZipArchive();
-		if ($zip->open($this->getPackagePath()) === TRUE) {
+		if ($zip->open($this->getPackagePath()) === true) {
 
 			// extract file contents from zip archive
 			//

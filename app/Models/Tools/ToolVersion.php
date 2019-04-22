@@ -21,8 +21,8 @@ namespace App\Models\Tools;
 use App\Models\TimeStamps\UserStamped;
 use App\Models\Tools\Tool;
 
-class ToolVersion extends UserStamped {
-
+class ToolVersion extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'tool_shed';

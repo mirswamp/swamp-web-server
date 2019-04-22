@@ -19,7 +19,6 @@
 namespace App\Models\Projects;
 
 use DateTime;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use App\Utilities\Uuids\Guid;
@@ -28,8 +27,8 @@ use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Users\User;
 
-class ProjectInvitation extends CreateStamped {
-
+class ProjectInvitation extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'project_invitation';

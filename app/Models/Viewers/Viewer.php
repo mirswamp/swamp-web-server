@@ -21,8 +21,8 @@ namespace App\Models\Viewers;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\TimeStamps\UserStamped;
 
-class Viewer extends UserStamped {
-
+class Viewer extends UserStamped
+{
 	// database attributes
 	//
 	protected $connection = 'viewer_store';

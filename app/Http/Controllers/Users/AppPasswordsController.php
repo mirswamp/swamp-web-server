@@ -25,16 +25,15 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Config;
 use App\Http\Controllers\BaseController;
-Use App\Models\Users\AppPassword;
+use App\Models\Users\AppPassword;
 use App\Models\Users\User;
 use App\Models\Utilities\Configuration;
 use App\Utilities\Strings\AppPasswordString;
 use App\Utilities\Uuids\Guid;
 
-class AppPasswordsController extends BaseController {
-
+class AppPasswordsController extends BaseController
+{
 	/**
 	 * Activates when HTTP POST is sent to the app_password route. Creates a
 	 * new app password for the currently logged-in user. An optional POST
@@ -362,5 +361,4 @@ class AppPasswordsController extends BaseController {
 
 		return $label;
 	}
-
 }

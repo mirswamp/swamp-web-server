@@ -18,12 +18,11 @@
 
 namespace App\Models\Users;
 
-use Illuminate\Support\Facades\Config;
 use App\Models\TimeStamps\CreateStamped;
 use App\Models\Users\User;
 
-class UserEvent extends CreateStamped {
-
+class UserEvent extends CreateStamped
+{
 	// database attributes
 	//
 	protected $table = 'user_event';

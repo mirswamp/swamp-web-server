@@ -21,7 +21,6 @@ namespace App\Http\Controllers\RunRequests;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Utilities\Filters\LimitFilter;
@@ -38,8 +37,8 @@ use App\Models\Assessments\AssessmentRunRequest;
 use App\Models\RunRequests\RunRequest;
 use App\Http\Controllers\BaseController;
 
-class RunRequestsController extends BaseController {
-
+class RunRequestsController extends BaseController
+{
 	// create
 	//
 	public function postCreate() {
@@ -77,14 +76,14 @@ class RunRequestsController extends BaseController {
 			->where('project_uuid', '=', null)
 			->first();
 			
-		if ($runRequest != NULL) {
+		if ($runRequest != null) {
 			
 			// check permissions on each assessment run
 			//
 			foreach( $assessmentRunUuids as $assessmentRunUuid ) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)
 					->first();
-				if ($assessmentRun != NULL) {
+				if ($assessmentRun != null) {
 					$user = User::getIndex(session('user_uid'));
 					$result = $assessmentRun->checkPermissions($user);
 
@@ -101,7 +100,7 @@ class RunRequestsController extends BaseController {
 			for ($i = 0; $i < sizeOf($assessmentRunUuids); $i++) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])
 					->first();
-				if ($assessmentRun != NULL) {
+				if ($assessmentRun != null) {
 					$assessmentRunRequest = new AssessmentRunRequest([
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
 						'run_request_id' => $runRequest->run_request_id,
@@ -128,14 +127,14 @@ class RunRequestsController extends BaseController {
 		//
 		$assessmentRunRequests = new Collection;
 		$runRequest = $this->getIndex($runRequestUuid);
-		if ($runRequest != NULL) {
+		if ($runRequest != null) {
 
 			// check permissions on each assessment run
 			//
 			foreach( $assessmentRunUuids as $aru ) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $aru)
 					->first();
-				if ($assessmentRun != NULL) {
+				if ($assessmentRun != null) {
 					$user = User::getIndex(session('user_uid'));
 					$result = $assessmentRun->checkPermissions($user);
 
@@ -152,7 +151,7 @@ class RunRequestsController extends BaseController {
 			for ($i = 0; $i < sizeOf($assessmentRunUuids); $i++) {
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])
 					->first();
-				if ($assessmentRun != NULL) {
+				if ($assessmentRun != null) {
 					$assessmentRunRequest = new AssessmentRunRequest([
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
 						'run_request_id' => $runRequest->run_request_id,

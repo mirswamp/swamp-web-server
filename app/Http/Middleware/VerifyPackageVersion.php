@@ -26,9 +26,8 @@ use App\Models\Packages\PackageVersion;
 use App\Utilities\Filters\FiltersHelper;
 use App\Models\Utilities\Configuration;
 
-
-class VerifyPackageVersion {
-
+class VerifyPackageVersion
+{
 	/**
 	 * Handle an incoming request.
 	 *
@@ -83,5 +82,4 @@ class VerifyPackageVersion {
 
 		return $next($request);
 	}
-
 }
