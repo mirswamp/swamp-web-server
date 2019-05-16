@@ -11,12 +11,12 @@
 
 namespace Symfony\Component\HttpKernel\Profiler;
 
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Exception\ConflictingHeadersException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\DataCollector\DataCollectorInterface;
 use Symfony\Component\HttpKernel\DataCollector\LateDataCollectorInterface;
-use Psr\Log\LoggerInterface;
 
 /**
  * Profiler.
@@ -30,14 +30,14 @@ class Profiler
     /**
      * @var DataCollectorInterface[]
      */
-    private $collectors = array();
+    private $collectors = [];
 
     private $logger;
     private $initiallyEnabled = true;
     private $enabled = true;
 
     /**
-     * @param bool $enable  The initial enabled state
+     * @param bool $enable The initial enabled state
      */
     public function __construct(ProfilerStorageInterface $storage, LoggerInterface $logger = null, $enable = true)
     {
@@ -103,7 +103,7 @@ class Profiler
         }
 
         if (!($ret = $this->storage->write($profile)) && null !== $this->logger) {
-            $this->logger->warning('Unable to store the profiler information.', array('configured_storage' => get_class($this->storage)));
+            $this->logger->warning('Unable to store the profiler information.', ['configured_storage' => \get_class($this->storage)]);
         }
 
         return $ret;
@@ -198,9 +198,9 @@ class Profiler
      *
      * @param DataCollectorInterface[] $collectors An array of collectors
      */
-    public function set(array $collectors = array())
+    public function set(array $collectors = [])
     {
-        $this->collectors = array();
+        $this->collectors = [];
         foreach ($collectors as $collector) {
             $this->add($collector);
         }

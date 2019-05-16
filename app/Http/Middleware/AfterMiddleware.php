@@ -34,16 +34,29 @@ class AfterMiddleware
 	{
 		// set CORS headers if neccessary
 		//
-		if (config('app.cors_url') && config('app.cors_url') != config('app.url') && config('app.cors_url') != 'http://localhost/www-front-end') {
+		if (config('app.cors_url') && config('app.cors_url') != config('app.url')) {
 
 			// allow requests from origin, equivalent to origin of '*'
 			//
+			/*
 			return $next($request)->withHeaders([
 				'Access-Control-Allow-Origin' => $request->header('Origin'),
 				'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
 				'Access-Control-Allow-Headers' => 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token',
 				'Access-Control-Allow-Credentials' => 'true'
 			]);
+			*/
+
+			// add headers individually rather than as a group because when
+			// downloading files, the response type is a BinaryFileResponse, 
+			// which does not support the 'withHeaders' method.
+			//
+ 			$response = $next($request);
+			$response->headers->set('Access-Control-Allow-Origin', $request->header('Origin'));
+			$response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+			$response->headers->set('Access-Control-Allow-Headers', 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token');
+			$response->headers->set('Access-Control-Allow-Credentials', 'true');
+			return $response;
 		} else {
 			return $next($request);
 		}

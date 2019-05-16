@@ -13,7 +13,9 @@
         "league/oauth2-github": "2.0",
         "league/oauth2-google": "2.0",
         "cilogon/oauth2-cilogon": "1.1",
-        "paragonie/random_compat": "2.0"
+        "paragonie/random_compat": "2.0",
+        "nategood/httpful": "*",
+        "guzzlehttp/guzzle": "~6.0"
     },
     "require-dev": {
         "filp/whoops": "~2.0",

@@ -22,9 +22,7 @@ use Illuminate\Http\Request;
 |        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
-Route::get('environment', function() {
-	return App::environment();
-});
+Route::get('environment', 'BaseController@getEnvironment');
 
 // for all application routes, verify that server has been configured
 //
@@ -125,7 +123,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 		// proxy routes
 		//
 		Route::group(['middleware' => 'verify.project'], function () {
-			Route::any('{all}', 'Proxies\ProxyController@proxyCodeDxRequest')->where('all', '^proxy-.*');
+			Route::any('{all}', 'Viewers\ProxyController@proxyCodeDxRequest')->where('all', '^proxy-.*');
 		});
 
 		// linked account routes

@@ -13,14 +13,14 @@ namespace Symfony\Component\HttpKernel\Tests\EventListener;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
-use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
-use Symfony\Component\HttpKernel\HttpKernelInterface;
-use Symfony\Component\HttpKernel\EventListener\ExceptionListener;
-use Symfony\Component\HttpKernel\KernelEvents;
-use Symfony\Component\HttpKernel\Log\DebugLoggerInterface;
-use Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+use Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent;
+use Symfony\Component\HttpKernel\EventListener\ExceptionListener;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\HttpKernel\Log\DebugLoggerInterface;
 use Symfony\Component\HttpKernel\Tests\Logger;
 
 /**
@@ -37,9 +37,9 @@ class ExceptionListenerTest extends TestCase
         $logger = new TestLogger();
         $l = new ExceptionListener('foo', $logger);
 
-        $_logger = new \ReflectionProperty(get_class($l), 'logger');
+        $_logger = new \ReflectionProperty(\get_class($l), 'logger');
         $_logger->setAccessible(true);
-        $_controller = new \ReflectionProperty(get_class($l), 'controller');
+        $_controller = new \ReflectionProperty(\get_class($l), 'controller');
         $_controller->setAccessible(true);
 
         $this->assertSame($logger, $_logger->getValue($l));
@@ -94,7 +94,7 @@ class ExceptionListenerTest extends TestCase
     public function provider()
     {
         if (!class_exists('Symfony\Component\HttpFoundation\Request')) {
-            return array(array(null, null));
+            return [[null, null]];
         }
 
         $request = new Request();
@@ -102,9 +102,9 @@ class ExceptionListenerTest extends TestCase
         $event = new GetResponseForExceptionEvent(new TestKernel(), $request, HttpKernelInterface::MASTER_REQUEST, $exception);
         $event2 = new GetResponseForExceptionEvent(new TestKernelThatThrowsException(), $request, HttpKernelInterface::MASTER_REQUEST, $exception);
 
-        return array(
-            array($event, $event2),
-        );
+        return [
+            [$event, $event2],
+        ];
     }
 
     public function testSubRequestFormat()
@@ -142,7 +142,7 @@ class ExceptionListenerTest extends TestCase
         $event = new GetResponseForExceptionEvent($kernel, $request, HttpKernelInterface::MASTER_REQUEST, new \Exception('foo'));
         $dispatcher->dispatch(KernelEvents::EXCEPTION, $event);
 
-        $response = new Response('', 200, array('content-security-policy' => "style-src 'self'"));
+        $response = new Response('', 200, ['content-security-policy' => "style-src 'self'"]);
         $this->assertTrue($response->headers->has('content-security-policy'));
 
         $event = new FilterResponseEvent($kernel, $request, HttpKernelInterface::MASTER_REQUEST, $response);
@@ -157,7 +157,7 @@ class TestLogger extends Logger implements DebugLoggerInterface
 {
     public function countErrors()
     {
-        return count($this->logs['critical']);
+        return \count($this->logs['critical']);
     }
 }
 
