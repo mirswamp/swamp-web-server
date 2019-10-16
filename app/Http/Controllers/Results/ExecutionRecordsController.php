@@ -16,14 +16,14 @@
 |        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
-namespace App\Http\Controllers\Executions;
+namespace App\Http\Controllers\Results;
 
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Projects\Project;
-use App\Models\Executions\ExecutionRecord;
+use App\Models\Results\ExecutionRecord;
 use App\Models\Packages\PackageVersion;
 use App\Models\Tools\ToolVersion;
 use App\Models\Platforms\PlatformVersion;
@@ -293,7 +293,7 @@ class ExecutionRecordsController extends BaseController
 				$project = $executionRecord->getProject();
 				$hasPermission = ($user && ($project->isOwnedBy($user) || $project->hasMember($user)) || $user->isAdmin()); 
 				break;
-			case 'projectuid':
+			case 'project_uuid':
 
 				// viewer runs
 				//

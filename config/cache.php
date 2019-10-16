@@ -88,4 +88,18 @@ return [
 
     'prefix' => 'laravel',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Viewer Proxy Caching
+    |--------------------------------------------------------------------------
+    |
+    | These settings determine the behavior of the viewer proxy cache.  This 
+    | caching is used to reduce the load on the database server when displaying
+    | viewer results by caching the viewer, user, and project information that
+    | would otherwise need to be looked up for each request.
+    |
+    */
+
+    'viewer_proxy_caching' => env('VIEWER_PROXY_CACHING', false),
+    'viewer_proxy_caching_duration' => env('VIEWER_PROXY_CACHING_DURATION', 1),
 ];

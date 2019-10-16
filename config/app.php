@@ -280,7 +280,7 @@ return [
     |
     */
 
-    'python' => env('APP_PYTHON', 'python3'),
+    'python' => env('APP_PYTHON', 'python3.4'),
 
     /*
     |--------------------------------------------------------------------------
@@ -404,7 +404,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-
+        App\Providers\SessionServiceProvider::class
     ],
 
     /*

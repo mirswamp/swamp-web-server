@@ -94,24 +94,20 @@ class ProjectsController extends BaseController
 
 	// get all
 	//
-	public function getAll($userUid) {
-		$user = User::getIndex($userUid);
-		if ($user) {
-			if ($user->isAdmin()) {
-				$projectsQuery = Project::orderBy('create_date', 'DESC');
-
-				// add filters
-				//
-				$projectsQuery = DateFilter::apply($projectsQuery);
-				$projectsQuery = LimitFilter::apply($projectsQuery);
-
-				return $projectsQuery->get();
-			} else {
-				return response('This user is not an administrator.', 400);
-			}
-		} else {
+	public function getAll() {
+		$currentUser = User::getIndex(session('user_uid'));
+		if (!$currentUser || !$currentUser->isAdmin()) {
 			return response('Administrator authorization is required.', 400);
 		}
+
+		$projectsQuery = Project::orderBy('create_date', 'DESC');
+
+		// add filters
+		//
+		$projectsQuery = DateFilter::apply($projectsQuery);
+		$projectsQuery = LimitFilter::apply($projectsQuery);
+
+		return $projectsQuery->get();
 	}
 
 	public function getByPackage($packageUuid) {

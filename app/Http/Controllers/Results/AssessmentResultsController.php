@@ -16,7 +16,7 @@
 |        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
-namespace App\Http\Controllers\Assessments;
+namespace App\Http\Controllers\Results;
 
 use PDO;
 use Illuminate\Support\Facades\DB;
@@ -33,9 +33,9 @@ use App\Models\Users\UserPermissionProject;
 use App\Models\Projects\Project;
 use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
-use App\Models\Assessments\AssessmentResult;
 use App\Models\Assessments\AssessmentRun;
-use App\Models\Executions\ExecutionRecord;
+use App\Models\Results\ExecutionRecord;
+use App\Models\Results\AssessmentResult;
 use App\Models\Viewers\Viewer;
 use App\Models\Viewers\ViewerInstance;
 use App\Http\Controllers\BaseController;
@@ -298,11 +298,9 @@ class AssessmentResultsController extends BaseController
 
 		for ($i = 0; $i < count($bugInstances); $i++) {
 			$bugInstance = $bugInstances[$i];
-			$bugCode = $bugInstance['BugCode'];
+			$bugCode = htmlspecialchars_decode($bugInstance['BugCode']);
 
-			//if (!in_array($bugCode, $catalog)) {
 			if (!array_key_exists($bugCode, $catalog)) {
-				// array_push($catalog, $bugCode);
 				$catalog[$bugCode] = array(
 					'code' => $bugCode,
 					'count' => 1
@@ -544,7 +542,8 @@ class AssessmentResultsController extends BaseController
 		$filtered = [];
 		for ($i = 0; $i < count($bugInstances); $i++) {
 			$bugInstance = $bugInstances[$i];
-			if (in_array($bugInstance['BugCode'], $filter)) {
+			$bugCode = htmlspecialchars_decode($bugInstance['BugCode']);
+			if (in_array($bugCode, $filter)) {
 				array_push($filtered, $bugInstance);
 			}
 		}
@@ -555,7 +554,8 @@ class AssessmentResultsController extends BaseController
 		$filtered = [];
 		for ($i = 0; $i < count($bugInstances); $i++) {
 			$bugInstance = $bugInstances[$i];
-			if (!in_array($bugInstance['BugCode'], $filter)) {
+			$bugCode = htmlspecialchars_decode($bugInstance['BugCode']);
+			if (!in_array($bugCode, $filter)) {
 				array_push($filtered, $bugInstance);
 			}
 		}
@@ -570,13 +570,27 @@ class AssessmentResultsController extends BaseController
 		$include = Input::get('include');
 		$exclude = Input::get('exclude');	
 
-		// cast filters to arrays, if necessary
+		// convert filters to arrays, if necessary
 		//
-		if ($include && !is_array($include)) {
-			$include = [$include];
+		if ($include && is_string($include)) {
+			if (StringUtils::contains($include, ',')) {
+				$include = explode(',', $include);
+				foreach ($include as &$string) {
+					$string = urldecode($string);
+				}
+			} else {
+				$include = [urldecode($include)];
+			}
 		}
-		if ($exclude && !is_array($exclude)) {
-			$exclude = [$exclude];
+		if ($exclude && is_string($exclude)) {
+			if (StringUtils::contains($exclude, ',')) {
+				$exclude = explode(',', $exclude);
+				foreach ($exclude as &$string) {
+					$string = urldecode($string);
+				}
+			} else {
+				$exclude = [urldecode($exclude)];
+			}
 		}
 
 		// filter bug instances
@@ -610,6 +624,12 @@ class AssessmentResultsController extends BaseController
 		return $results;	
 	}
 
+	public function sortResults($results) {
+		usort($results['AnalyzerReport']['BugInstances'], function($a, $b) {
+			return $a['BugLocations'][0]->StartLine < $b['BugLocations'][0]->StartLine ? 1 : -1;
+		});
+	}
+
 	public function getJSONResults($results, $assessmentResultUuid) {
 
 		// parse results
@@ -618,6 +638,7 @@ class AssessmentResultsController extends BaseController
 		$results = $this->filterResults($results);
 		$results = $this->limitResults($results);
 		$results = $this->annotateResults($results, $assessmentResultUuid);
+		// $results = $this->sortResults($results);
 
 		return $results;
 	}

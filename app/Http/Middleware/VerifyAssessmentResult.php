@@ -21,7 +21,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Input;
-use App\Models\Assessments\AssessmentResult;
+use App\Models\Results\AssessmentResult;
 use App\Utilities\Filters\FiltersHelper;
 
 class VerifyAssessmentResult

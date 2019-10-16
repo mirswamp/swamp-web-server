@@ -48,8 +48,14 @@ class StringUtils
 		return (substr($haystack, -$length) === $needle);
 	}
 
-	public static function contains($haystack, $needle) {
-		return strpos($haystack, $needle) !== false;
+	public static function contains($haystack, $needle, $caseSensitive = true) {
+		if (!$caseSensitive) {
+			$haystack = strtolower($haystack);
+		}
+		if (!$caseSensitive) {
+			$needle = strtolower($needle);
+		}
+		return ($haystack == $needle) || (strpos($haystack, $needle) !== false);
 	}
 
 	//

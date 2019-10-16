@@ -30,9 +30,9 @@ use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
-use App\Models\Executions\ExecutionRecord;
 use App\Models\RunRequests\RunRequest;
 use App\Models\Assessments\AssessmentRunRequest;
+use App\Models\Results\ExecutionRecord;
 
 class AssessmentRun extends UserStamped
 {

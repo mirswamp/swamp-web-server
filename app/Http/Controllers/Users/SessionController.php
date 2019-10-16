@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -39,7 +40,7 @@ use App\Models\Users\UserClassMembership;
 use App\Models\Viewers\Viewer;
 use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Users\AppPasswordsController;
-use App\Http\Controllers\Assessments\AssessmentResultsController;
+use App\Http\Controllers\Results\AssessmentResultsController;
 use App\Utilities\Identity\IdentityProvider;
 use League\OAuth2\Client\Provider\Exception\IdentityProviderException;
 use League\OAuth2\Client\Token\AccessToken;
@@ -92,15 +93,19 @@ class SessionController extends BaseController
 							return $this->resetPassword($user);
 						} else {
 
+							// create new session
+							//
+							Request::session()->regenerate();
+
+							// store user id in session
+							//
+							$user->setSession();
+
 							// update login dates
 							//
 							$userAccount->penultimate_login_date = $userAccount->ultimate_login_date;
 							$userAccount->ultimate_login_date = gmdate('Y-m-d H:i:s');
 							$userAccount->save();
-
-							// successful login - set session var
-							//
-							$user->setSession();
 
 							Log::info("Login attempt succeeded.");
 
@@ -161,13 +166,13 @@ class SessionController extends BaseController
 	 */
 	public function oauth2() {
 
-		if (!Session::has('oauth2_state')) {
+		if (!self::has('oauth2_state')) {
 			return Redirect::to(config('app.cors_url').'/#linked-account/error/linked-account-general-error');
 		}
 
 		// parse parameters
 		//
-		$state = Session::pull('oauth2_state'); // Forget it afterwards
+		$state = self::pull('oauth2_state'); // Forget it afterwards
 		$code = Input::get('code','');
 		$receivedState = Input::get('state'); // The state returned from OAuth server
 
@@ -187,7 +192,7 @@ class SessionController extends BaseController
 				'code' => $code
 			]);
 
-			session([
+			self::putAll([
 				'oauth2_access_token' => $token->getToken(),
 				'oauth2_access_time' => gmdate('U')
 			]);	
@@ -543,9 +548,7 @@ class SessionController extends BaseController
 			return response('Invalid Identity Provider "' . $entityid . '".', 401);
 		} else {
 			$authUrl = $idp->provider->getAuthorizationUrl($idp->authzUrlOpts);
-			session([
-				'oauth2_state' => $idp->provider->getState()
-			]);
+			self::put('oauth2_state', $idp->provider->getState());
 			return Redirect::to($authUrl);
 		}
 	}
@@ -570,7 +573,7 @@ class SessionController extends BaseController
 		}
 
 		Log::info("Linked account begin.", [
-			'oauth2_access_time' => session('oauth2_access_time'),
+			'oauth2_access_time' => self::get('oauth2_access_time'),
 			'gmdateU' => gmdate('U'),
 		]);
 
@@ -655,7 +658,7 @@ class SessionController extends BaseController
 
 		// check for session expiration
 		//
-		if (gmdate('U') - session('oauth2_access_time') >
+		if (gmdate('U') - self::get('oauth2_access_time') >
 			(config('oauth2.session_expiration') * 60)
 		) {
 			return response('OAuth2 access has expired.  If you would like to link an external account to an existing SWAMP account, please click "Sign In" and select an external Identity Provider.', 401);
@@ -878,8 +881,8 @@ class SessionController extends BaseController
 	private function getAccessTokenFromSession() {
 		$token = null;
 
-		if (Session::has('oauth2_access_token')) {
-			$access_token = session('oauth2_access_token');
+		if (self::has('oauth2_access_token')) {
+			$access_token = self::get('oauth2_access_token');
 			try {
 				$token = new AccessToken(['access_token' => $access_token]);
 			} catch (IdentityProviderException $e) {
@@ -919,5 +922,36 @@ class SessionController extends BaseController
 				$userAccount->save();
 		}
 		return $userAccount;
+	}
+
+	//
+	// methods for storing and retreiving persistent session information
+	//
+
+	static function put($key, $value) {
+		// session($key, $value);
+		Cache::put($key, $value, 10);
+	}
+
+	static function putAll($items) {
+		// session(items);
+		foreach ($items as $key => $value) {
+			self::put($key, $value);
+		}
+	}	
+
+	static function has($key) {
+		// return Session::has($key);
+		return Cache::has($key);
+	}
+
+	static function get($key) {
+		// return session($key);
+		return Cache::get($key);	
+	}
+
+	static function pull($key) {
+		// return Session::pull($key);
+		return Cache::pull($key);
 	}
 }

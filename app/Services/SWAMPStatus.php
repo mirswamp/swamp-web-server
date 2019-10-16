@@ -24,7 +24,7 @@ namespace App\Services;
 use \DateTime;
 use \DateTimeZone;
 use Illuminate\Support\Facades\Log;
-use App\Models\Executions\ExecutionRecord;
+use App\Models\Results\ExecutionRecord;
 use App\Models\Viewers\ViewerInstance;
 use App\Services\HTCondor;
 
@@ -715,7 +715,7 @@ class SWAMPStatus
 
 				// collect field names
 				//
-				if (preg_match('/PID/', $output[$i])) {
+				if (preg_match('/PPID\s+PID\s+%CPU\s+%MEM/', $output[$i])) {
 					$fieldnames = preg_split("/[\s]+/", $output[$i], -1, PREG_SPLIT_NO_EMPTY);
 				}
 				else {

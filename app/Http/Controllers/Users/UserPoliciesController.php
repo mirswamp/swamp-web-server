@@ -33,7 +33,20 @@ use App\Http\Controllers\BaseController;
 class UserPoliciesController extends BaseController
 {
 	//
-	// set methods
+	// get methods
+	//
+
+	public function getByCurrentUser($policyCode) {
+		$userUid = Session::get('user_uid');
+		if (UserPolicy::where('user_uid', '=', $userUid)->where('policy_code', '=', $policyCode)->where('accept_flag', '=', 1)->exists()) {
+			return "accepted";
+		} else {
+			return "not_accepted";
+		}
+	}
+
+	//
+	// update methods
 	//
 
 	public function markAcceptance($policyCode, $userUid) {

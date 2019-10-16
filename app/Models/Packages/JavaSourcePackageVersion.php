@@ -150,7 +150,7 @@ class JavaSourcePackageVersion extends PackageVersion
 		
 		// compose no build command
 		//
-		if ($sourceFiles && count($sourceFiles > 0)) {
+		if ($sourceFiles && count($sourceFiles) > 0) {
 
 			// add cd to build directory
 			//

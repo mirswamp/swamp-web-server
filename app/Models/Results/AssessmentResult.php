@@ -16,7 +16,7 @@
 |        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
-namespace App\Models\Assessments;
+namespace App\Models\Results;
 
 use PDO;
 use Illuminate\Support\Facades\DB;
@@ -25,9 +25,9 @@ use App\Models\TimeStamps\UserStamped;
 use App\Models\Users\UserPolicy;
 use App\Models\Users\Permission;
 use App\Models\Projects\Project;
-use App\Models\Executions\ExecutionRecord;
 use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
+use App\Models\Results\ExecutionRecord;
 use App\Models\Viewers\Viewer;
 
 class AssessmentResult extends UserStamped
@@ -57,6 +57,7 @@ class AssessmentResult extends UserStamped
 		'platform_version',
 		'tool_name',
 		'tool_version',
+		'policy_code',
 		'package_name',
 		'package_version'
 	];
@@ -71,6 +72,7 @@ class AssessmentResult extends UserStamped
 		'platform_version',
 		'tool_name',
 		'tool_version',
+		'policy_code',
 		'package_name',
 		'package_version'
 	];
@@ -99,32 +101,25 @@ class AssessmentResult extends UserStamped
 				'status' => 'no_project_permission'
 			];
 		}
-		
-		// return if no tool
-		//
-		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $this->execution_record_uuid)->first();
-		$toolVersion = ToolVersion::where('tool_version_uuid', '=', $executionRecord->tool_version_uuid)->first();
-		if ($toolVersion) {
-			$tool = Tool::where('tool_uuid', '=', $toolVersion->tool_uuid)->first();
-			if (!$tool) {
-				return true;
-			}
-		} else {
-			return true;	
-		}
 
 		// check restricted tools
 		//
-		if ($tool->isRestricted()) {
+		if ($this->policy_code) {
 
 			// if the policy hasn't been accepted, return error
 			//
-			$userPolicy	= UserPolicy::where('policy_code', '=', $tool->policy_code)->where('user_uid', '=', $user->user_uid)->first();
+			$userPolicy	= UserPolicy::where('policy_code', '=', $this->policy_code)->where('user_uid', '=', $user->user_uid)->first();
 			if (!$userPolicy || $userPolicy->accept_flag != '1') {
+
+				// find tool associated with policy
+				//
+				$toolVersion = ToolVersion::find($this->tool_version_uuid);
+				$tool = $toolVersion? $toolVersion->getTool() : null;
+
 				return [
 					'status' => 'no_policy',
-					'policy' => $tool->policy,
-					'policy_code' => $tool->policy_code,
+					'policy' => $tool? $tool->policy : null,
+					'policy_code' => $this->policy_code,
 					'tool' => $tool
 				];
 			}

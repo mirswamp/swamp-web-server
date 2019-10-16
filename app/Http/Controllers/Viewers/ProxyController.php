@@ -34,14 +34,83 @@ use GuzzleHttp\Handler\CurlHandler;
 class ProxyController extends BaseController
 {
 	//
-	// constants
+	// private data access methods
 	//
 
-	const CACHING = true;				// whether to use server side caching
-	const CACHING_DURATION = 600;		// caching duration in seconds
+	private function getViewerData($proxy) {
+		$data = [];
+
+		if (config('cache.viewer_proxy_caching') && Cache::has($proxy)) {
+
+			// get viewer data from cache
+			//
+			$data = Cache::get($proxy);
+		} else {
+
+			// get viewer data from HTCondor
+			//
+			list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
+			$iterations = 0;
+			$maxIterations = 1000;
+			while (!$vm_ip && $iterations < $maxIterations) {
+				$iterations++;
+				usleep(10000);
+				list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
+			}
+
+			$data = [
+				'vm_ip' => $vm_ip,
+				'project_uid' => $projectUid
+			];
+
+			// add viewer data to cache
+			//
+			if (config('cache.viewer_proxy_caching')) {
+				Cache::add($proxy, $data, config('cache.viewer_proxy_caching_duration'));
+			}
+		}
+
+		return $data;
+	}
+
+	private function getUser($userUid) {
+		$user = null;
+
+		if (config('cache.viewer_proxy_caching') && Cache::has($userUid)) {
+			$user = new User(Cache::get($userUid));
+		} else {
+			$user = User::getIndex($userUid);
+
+			// add user data to cache
+			//
+			if (config('cache.viewer_proxy_caching')) {
+				Cache::add($userUid, $user->toArray(), config('cache.viewer_proxy_caching_duration'));
+			}
+		}
+
+		return $user;
+	}
+
+	private function getProject($projectUid) {
+		$project = null;
+
+		if (config('cache.viewer_proxy_caching') && Cache::has($projectUid)) {
+			$project = new Project(Cache::get($projectUid));
+		} else {
+			$project = Project::where('project_uid', '=', $projectUid)->first();
+
+			// add project data to cache
+			//
+			if (config('cache.viewer_proxy_caching')) {
+				Cache::add($projectUid, $project->toArray(), config('cache.viewer_proxy_caching_duration'));
+			}
+		}
+
+		return $project;
+	}
 
 	//
-	// methods
+	// public methods
 	//
 
 	public function proxyCodeDxRequest() {
@@ -51,9 +120,30 @@ class ProxyController extends BaseController
 		$method = $_SERVER['REQUEST_METHOD'];
 		$requestUri = $_SERVER['REQUEST_URI'];
 
+		// get viewer data
+		//
+		$proxy = Request::segment(1);
+		$data = $this->getViewerData($proxy);
+		$vm_ip = $data['vm_ip'];
+		$projectUid = $data['project_uid'];
+
+		// check if associated project is valid
+		//
+		$project = $this->getProject($projectUid);
+		if (!$project) {
+			return response('No valid project is associated with these results.', 400);
+		}
+
+		// check whether current user is a member of this project
+		//
+		$user = $this->getUser(session('user_uid'));
+		if (!$project->isOwnedBy($user) && !$user->isMemberOf($project)) {
+			return response('The current user is not a member of this project', 400);
+		}
+			
 		// check cache for response
 		//
-		if ($method == 'GET' && self::CACHING && Cache::has($requestUri)) {
+		if ($method == 'GET' && config('cache.viewer_proxy_caching') && Cache::has($requestUri)) {
 
 			// get cached response
 			//
@@ -68,56 +158,6 @@ class ProxyController extends BaseController
 				->withHeaders($headers)
 				->header('Transfer-Encoding', '');
 		} else {
-
-			// get current user
-			//
-			$user = User::getIndex(session('user_uid'));
-
-			// get viewer data
-			//
-			$proxy = Request::segment(1);
-			if (Cache::has($proxy)) {
-
-				// get viewer data from cache
-				//
-				$data = Cache::get($proxy);
-				$vm_ip = $data['vm_ip'];
-				$projectUid = $data['project_uid'];
-			} else {
-
-				// get viewer data from HTCondor
-				//
-				list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
-				$iterations = 0;
-				$maxIterations = 1000;
-				while (!$vm_ip && $iterations < $maxIterations) {
-					$iterations++;
-					usleep(10000);
-					list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
-				}
-
-				// add viewer data to cache
-				//
-				Cache::add($proxy, [
-					'vm_ip' => $vm_ip,
-					'project_uid' => $projectUid
-				], self::CACHING_DURATION);
-			}
-
-			// check if associated project is valid
-			//	
-			$project = Project::where('project_uid', '=', $projectUid)->first();
-			if (!$project) {
-				return response('No valid project is associated with these results.', 400);
-			}
-
-			// check whether current user is a member of this project
-			//
-			$currentUser = User::getIndex(session('user_uid'));
-			if (!$project->isOwnedBy($user) && !$currentUser->isMemberOf($project)) {
-				return response('The current user is not a member of this project', 400);
-			}
-
 			if ($vm_ip) {
 
 				// get request data
@@ -152,16 +192,31 @@ class ProxyController extends BaseController
 					
 					// store response data for later use
 					//
-					if ($method == 'GET' & self::CACHING) {
-						$contentType = $headers['Content-Type'][0];
+					if (config('cache.viewer_proxy_caching') && $method == 'GET') {
+						$contentType = null;
+						
+						// find content type
+						//
+						if (array_key_exists('Content-Type', $headers)) {
+							if (is_array($headers['Content-Type'])) {
+								$contentType = $headers['Content-Type'][0];
+							} else {
+								$contentType = $headers['Content-Type'];
+							}
+						}
+
+						// find if content type is cacheable
+						//
 						$cacheable = ($contentType == 'text/javascript;charset=utf-8') || ($contentType == 'image/png') || ($contentType == 'image/x-icon') || ($contentType == 'font/woff2');
 
+						// save, if content type is cacheable
+						//
 						if ($cacheable && !StringUtils::contains($requestUri, 'lift/comet')) {
 							Cache::add($requestUri, [
 								'headers' => $headers,
 								'body' => $body->getContents(),
 								'status' => $status
-							], self::CACHING_DURATION);
+							], config('cache.viewer_proxy_caching_duration'));
 						}
 					}
 

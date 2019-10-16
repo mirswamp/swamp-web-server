@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Session;
 use League\OAuth2\Client\Provider\Github;
 use League\OAuth2\Client\Provider\Google;
 use CILogon\OAuth2\Client\Provider\CILogon;
+use App\Http\Controllers\Users\SessionController;
 use App\Http\Controllers\Utilities\IdentitiesController;
 use App\Models\Users\LinkedAccountProvider;
 
@@ -124,9 +125,7 @@ class IdentityProvider
 			foreach ($idparray as $arr) {
 				if ($arr['entityid'] == $idp) {
 					$selectedidp = $arr['entityid'];
-					session([
-						'oauth2_idp' => $selectedidp
-					]);
+					SessionController::put('oauth2_idp', $selectedidp);
 					$this->addLinkedAccountProvider($selectedidp,$idp);
 					break;
 				}
@@ -136,8 +135,8 @@ class IdentityProvider
 			// if the $idp was not passed in, check the session variable
 			// 'oauth2_idp' for a previously set (and verified) idp.
 			//
-			if (Session::has('oauth2_idp')) {
-				$selectedidp = Session::get('oauth2_idp');
+			if (SessionController::has('oauth2_idp')) {
+				$selectedidp = SessionController::get('oauth2_idp');
 			}
 		}
 

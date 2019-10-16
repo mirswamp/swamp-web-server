@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
 use App\Models\BaseModel;
 use App\Models\TimeStamps\TimeStamped;
+use App\Models\Users\UserSession;
 use App\Models\Users\AppPassword;
 use App\Models\Users\EmailVerification;
 use App\Models\Users\Permission;
@@ -86,6 +87,7 @@ class User extends TimeStamped
 		// boolean flag attributes
 		//
 		'enabled_flag',
+		'signed_in_flag',
 		'admin_flag',		
 		'email_verified_flag',
 		'forcepwreset_flag',
@@ -110,6 +112,7 @@ class User extends TimeStamped
 	//
 	protected $appends = [
 		'enabled_flag',
+		'signed_in_flag',
 		'admin_flag',
 		'email_verified_flag',
 		'forcepwreset_flag',
@@ -131,6 +134,7 @@ class User extends TimeStamped
 	//
 	protected $casts = [
 		'enabled_flag' => 'boolean',
+		'signed_in_flag' => 'boolean',
 		'admin_flag' => 'boolean',
 		'email_verified_flag' => 'boolean',
 		'forcepwreset_flag' => 'boolean',
@@ -154,6 +158,10 @@ class User extends TimeStamped
 		} else {
 			return false;
 		}
+	}
+
+	public function getSignedInFlagAttribute() {
+		return UserSession::where('user_id', '=', $this->user_uid)->exists();
 	}
 
 	public function getAdminFlagAttribute() {
@@ -268,6 +276,10 @@ class User extends TimeStamped
 	public function isEnabled() {
 		$userAccount = $this->getUserAccount();
 		return $userAccount && $userAccount->enabled_flag;
+	}
+
+	public function isSignedIn() {
+		return UserSession::where('user_id', '=', $this->user_uid)->exists();
 	}
 
 	public function getUserAccount() {

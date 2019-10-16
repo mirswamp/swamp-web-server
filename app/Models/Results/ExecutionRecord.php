@@ -16,7 +16,7 @@
 |        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
-namespace App\Models\Executions;
+namespace App\Models\Results;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +28,7 @@ use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
-use App\Models\Assessments\AssessmentResult;
+use App\Models\Results\AssessmentResult;
 use App\Models\Users\User;
 use PDO;
 
@@ -148,11 +148,11 @@ class ExecutionRecord extends TimeStamped
 
 		return [
 			'name' => $package? $package->name : 
-				($assessmentResult? $assessmentResult->package_name : ''),
+				($assessmentResult? $assessmentResult->package_name : null),
 			'version_string' => $packageVersion? $packageVersion->version_string : 
-				($assessmentResult? $assessmentResult->package_version : ''),
-			'package_uuid' => $package? $package->package_uuid : '',
-			'package_version_uuid' => $packageVersion? $packageVersion->package_version_uuid : ''
+				($assessmentResult? $assessmentResult->package_version : null),
+			'package_uuid' => $package? $package->package_uuid : null,
+			'package_version_uuid' => $packageVersion? $packageVersion->package_version_uuid : null
 		];
 	}
 
@@ -173,16 +173,16 @@ class ExecutionRecord extends TimeStamped
 
 		return [
 			'name' => $tool? $tool->name : 
-				($assessmentResult? $assessmentResult->tool_name : ''),
+				($assessmentResult? $assessmentResult->tool_name : null),
 			'version_string' => $toolVersion? $toolVersion->version_string : 
-				($assessmentResult? $assessmentResult->tool_version : ''),
-			'tool_uuid' => $tool? $tool->tool_uuid : '',
-			'tool_version_uuid' => $toolVersion? $toolVersion->tool_version_uuid : '',
-			'policy_code' => $tool? $tool->policy_code : '',
+				($assessmentResult? $assessmentResult->tool_version : null),
+			'tool_uuid' => $tool? $tool->tool_uuid : null,
+			'tool_version_uuid' => $toolVersion? $toolVersion->tool_version_uuid : null,
+			'policy_code' => $tool? $tool->policy_code : null,
 			'viewer_names' => $tool? $tool->viewer_names : ($assessmentResult? (new Tool([
 				'tool_uuid' => $assessmentResult->tool_uuid
-			]))->viewer_names : ''),
-			'is_restricted' => $tool? $tool->is_restricted : '',
+			]))->viewer_names : null),
+			'is_restricted' => $tool? $tool->is_restricted : null,
 			'permission' => $policy? 'granted' : 'no_policy'
 		];
 	}
@@ -199,11 +199,11 @@ class ExecutionRecord extends TimeStamped
 
 		return [
 			'name' => $platform? $platform->name : 
-				($assessmentResult? $assessmentResult->platform_name : ''),
+				($assessmentResult? $assessmentResult->platform_name : null),
 			'version_string' => $platformVersion? $platformVersion->version_string : 
-				($assessmentResult? $assessmentResult->platform_version : ''),
-			'platform_uuid' => $platform? $platform->platform_uuid : '',
-			'platform_version_uuid' => $platformVersion? $platformVersion->platform_version_uuid : ''
+				($assessmentResult? $assessmentResult->platform_version : null),
+			'platform_uuid' => $platform? $platform->platform_uuid : null,
+			'platform_version_uuid' => $platformVersion? $platformVersion->platform_version_uuid : null
 		];
 	}
 

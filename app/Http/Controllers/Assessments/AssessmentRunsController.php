@@ -41,7 +41,7 @@ use App\Models\Platforms\PlatformVersion;
 use App\Models\Users\User;
 use App\Models\RunRequests\RunRequest;
 use App\Http\Controllers\BaseController;
-use App\Http\Controllers\Executions\ExecutionRecordsController;
+use App\Http\Controllers\Results\ExecutionRecordsController;
 
 class AssessmentRunsController extends BaseController
 {
@@ -466,18 +466,13 @@ class AssessmentRunsController extends BaseController
 	// get number by project
 	//
 	public function getNumByProject($projectUuid) {
-		$assessmentRunsQuery = $this->getQueryByProject($projectUuid);
-
-		// perform query
-		//
-		return $assessmentRunsQuery->count();
+		return $this->getQueryByProject($projectUuid)->count();
 	}
 
 	// get run requests
 	//
 	public function getRunRequests($assessmentRunUuid) {
-		$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
-		return $assessmentRun->getRunRequests();
+		return AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first()->getRunRequests();
 	}
 
 	// get scheduled assessment runs by project
@@ -534,12 +529,12 @@ class AssessmentRunsController extends BaseController
 	// get number of scheduled assessment runs by project
 	//
 	public function getNumScheduledByProject($projectUuid) {
-		$num = 0;
-		$assessmentRuns = $this->getByProject($projectUuid);
-		for ($i = 0; $i < sizeof($assessmentRuns); $i++) {
-			$num += $assessmentRuns[$i]->getNumRunRequests();
+		$runs = $this->getScheduledByProject($projectUuid);
+		if ($runs) {
+			return count($runs);
+		} else {
+			return 0;
 		}
-		return $num;
 	}
 
 	// update by index

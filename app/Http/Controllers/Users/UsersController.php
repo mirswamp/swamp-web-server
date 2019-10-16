@@ -40,7 +40,10 @@ use App\Models\Users\UserClassMembership;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\LimitFilter;
+use App\Utilities\Filters\NameFilter;
+use App\Utilities\Filters\UsernameFilter;
 use App\Models\Utilities\Configuration;
+use App\Utilities\Strings\StringUtils;
 
 class UsersController extends BaseController
 {
@@ -272,64 +275,174 @@ class UsersController extends BaseController
 
 	// get all
 	//
-	public function getAll($userUid) {
+	public function getAll() {
+		$currentUser = User::getIndex(session('user_uid'));
+		if (!$currentUser || !$currentUser->isAdmin()) {
+			return response('Administrator authorization is required.', 400);
+		}
 
 		// parse parameters
 		//
 		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
 
-		// get users
+		// check to see if we are to use LDAP
 		//
-		$user = User::getIndex($userUid);
-		if ($user) {
-			if ($user->isAdmin()) {
+		if (config('ldap.enabled')) {
 
-				// check to see if we are to use LDAP
-				//
-				if (config('ldap.enabled')) {
+			// use LDAP
+			//
+			$users = User::getAll();
 
-					// use LDAP
-					//
-					$users = User::getAll();
+			// sort by date
+			//			
+			$users = $users->sortByDesc('create_date')->values();
 
-					// sort by date
-					//			
-					$users = $users->sortByDesc('create_date')->values();
-
-					// add filters
-					//
-					$users = self::filterByUserType($users);
-					$users = self::filterByDate($users);
-					$users = self::filterByLastLoginDate($users);
-
-					// add limit filter
-					//
-					if ($limit != null) {
-						$users = $users->slice(0, $limit);
-					}
-				} else {
-
-					// use SQL
-					//
-					$usersQuery = User::orderBy('create_date', 'DESC');
-
-					// add filters
-					//
-					$usersQuery = DateFilter::apply($usersQuery);
-					$usersQuery = LimitFilter::apply($usersQuery);
-
-					$users = $usersQuery->get();
-					$users = self::filterByLastLoginDate($users);
-					$users = self::filterByUserType($users);
-				}
-
-				return $users;
-			} else {
-				return response('This user is not an administrator.', 400);
-			}
+			// add filters
+			//
+			$users = self::filterByName($users);
+			$users = self::filterByUsername($users);
+			$users = self::filterByUserType($users);
+			$users = self::filterByDate($users);
+			$users = self::filterByLastLoginDate($users);
 		} else {
+
+			// use SQL
+			//
+			$usersQuery = User::orderBy('create_date', 'DESC');
+
+			// add filters
+			//
+			$usersQuery = DateFilter::apply($usersQuery);
+			$usersQuery = NameFilter::apply($usersQuery);
+			$usersQuery = UsernameFilter::apply($usersQuery);
+			$users = $usersQuery->get();
+			$users = self::filterByUserType($users);
+			$users = self::filterByLastLoginDate($users);
+		}
+
+		// add limit filter last
+		//
+		if ($limit != null) {
+			$users = $users->slice(0, $limit);
+		}
+
+		return $users;
+	}
+
+	// get all signed in users
+	//
+	public function getSignedIn() {
+		$currentUser = User::getIndex(session('user_uid'));
+		if (!$currentUser || !$currentUser->isAdmin()) {
 			return response('Administrator authorization is required.', 400);
 		}
+
+		// parse parameters
+		//
+		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+
+		// check to see if we are to use LDAP
+		//
+		if (config('ldap.enabled')) {
+
+			// use LDAP
+			//
+			$users = User::getAll();
+
+			// sort by date
+			//			
+			$users = $users->sortByDesc('create_date')->values();
+
+			// add filters
+			//
+			$users = self::filterByName($users);
+			$users = self::filterByUsername($users);
+			$users = self::filterByUserType($users);
+			$users = self::filterByDate($users);
+			$users = self::filterByLastLoginDate($users);
+			$users = self::filterBySignedIn($users);
+		} else {
+
+			// use SQL
+			//
+			$usersQuery = User::orderBy('create_date', 'DESC');
+
+			// add filters
+			//
+			$usersQuery = DateFilter::apply($usersQuery);
+			$usersQuery = NameFilter::apply($usersQuery);
+			$usersQuery = UsernameFilter::apply($usersQuery);
+			$users = $usersQuery->get();
+			$users = self::filterByLastLoginDate($users);
+			$users = self::filterByUserType($users);
+			$users = self::filterBySignedIn($users);
+		}
+
+		// add limit filter last
+		//
+		if ($limit != null) {
+			$users = $users->slice(0, $limit);
+		}
+
+		return $users;
+	}
+
+	// get all enabled users
+	//
+	public function getEnabled() {
+		$currentUser = User::getIndex(session('user_uid'));
+		if (!$currentUser || !$currentUser->isAdmin()) {
+			return response('Administrator authorization is required.', 400);
+		}
+
+		// parse parameters
+		//
+		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+
+		// check to see if we are to use LDAP
+		//
+		if (config('ldap.enabled')) {
+
+			// use LDAP
+			//
+			$users = User::getAll();
+
+			// sort by date
+			//			
+			$users = $users->sortByDesc('create_date')->values();
+
+			// add filters
+			//
+			$users = self::filterByName($users);
+			$users = self::filterByUsername($users);
+			$users = self::filterByUserType($users);
+			$users = self::filterByDate($users);
+			$users = self::filterByLastLoginDate($users);
+			$users = self::filterByEnabled($users);
+		} else {
+
+			// use SQL
+			//
+			$usersQuery = User::orderBy('create_date', 'DESC');
+
+			// add filters
+			//
+			$usersQuery = DateFilter::apply($usersQuery);
+			$usersQuery = NameFilter::apply($usersQuery);
+			$usersQuery = UsernameFilter::apply($usersQuery);
+			$users = $usersQuery->get();
+			$users = self::filterByLastLoginDate($users);
+			$users = self::filterByUserType($users);
+			$users = self::filterByEnabled($users);
+		}
+
+		// add limit filter last
+		//
+		if ($limit != null) {
+			$users = $users->slice(0, $limit);
+		}
+
+		return $users;
 	}
 
 	// update by index
@@ -640,21 +753,86 @@ class UsersController extends BaseController
 		// parse parameters
 		//
 		$userType = Input::get('type');
+		if ($userType == null || $userType == '') {
+			return $items;
+		}
 
 		// filter users
 		//
-		if ($userType != null && $userType != '') {
-			$filteredItems = new Collection();
-			foreach ($items as $item) {
-				$userAccount = UserAccount::where('user_uid', '=', $item->user_uid)->first();
-				if ($userAccount && $userAccount->user_type == $userType) {
-					$filteredItems->push($item);
-				}
+		$collection = new Collection();
+		foreach ($items as $item) {
+			$userAccount = UserAccount::where('user_uid', '=', $item->user_uid)->first();
+			if ($userAccount && $userAccount->user_type == $userType) {
+				$collection->push($item);
 			}
-			$items = $filteredItems;
 		}
 
-		return $items;
+		return $collection;
+	}
+
+	private static function filterByName($items) {
+		$collection = new Collection();
+
+		// parse parameters
+		//
+		$name = Input::get('name');
+		if ($name == null || $name == '') {
+			return $items;
+		}
+
+		foreach ($items as $item) {
+			if (StringUtils::contains($item->first_name, $name, false) ||
+				StringUtils::contains($item->last_name, $name, false) ||
+				StringUtils::contains($item->preferred_name, $name, false)) {
+				$collection->push($item);
+			}
+		}
+
+		return $collection;
+	}
+
+	private static function filterByUsername($items) {
+		$collection = new Collection();
+
+		// parse parameters
+		//
+		$username = Input::get('username');
+		if ($username == null || $username == '') {
+			return $items;
+		}
+
+		foreach ($items as $item) {
+			if (StringUtils::contains($item->username, $username, false)) {
+				$collection->push($item);
+			}
+		}
+
+		return $collection;
+	}
+
+	private static function filterBySignedIn($items) {
+		$collection = new Collection();
+
+		foreach ($items as $item) {
+			if ($item->isSignedIn()) {
+				$collection->push($item);
+			}
+		}
+
+		return $collection;
+	}
+
+	private static function filterByEnabled($items) {
+		$collection = new Collection();
+
+		foreach ($items as $item) {
+			$userAccount = UserAccount::where('user_uid', '=', $item->user_uid)->first();
+			if ($userAccount && $userAccount->isEnabled()) {
+				$collection->push($item);
+			}
+		}
+
+		return $collection;
 	}
 
 	//
@@ -662,39 +840,53 @@ class UsersController extends BaseController
 	//
 
 	private static function filterByAfterDate($items, $after, $attributeName) {
-		if ($after != null && $after != '') {
-			$afterDate = new \DateTime($after);
-			$afterDate->setTime(0, 0);
-			$filteredItems = new Collection();
-			foreach ($items as $item) {
-				if ($item[$attributeName] != null) {
-					$date = new \DateTime($item[$attributeName]);
-					if ($date->getTimestamp() >= $afterDate->getTimestamp()) {
-						$filteredItems->push($item);
-					}
+
+		// check filter parameter
+		//
+		if ($after == null|| $after == '') {
+			return $items;
+		}
+
+		// filter items
+		//
+		$collection = new Collection();
+		$afterDate = new \DateTime($after);
+		$afterDate->setTime(0, 0);
+		foreach ($items as $item) {
+			if ($item[$attributeName] != null) {
+				$date = new \DateTime($item[$attributeName]);
+				if ($date->getTimestamp() >= $afterDate->getTimestamp()) {
+					$collection->push($item);
 				}
 			}
-			$items = $filteredItems;
 		}
-		return $items;
+
+		return $collection;
 	}
 
 	private static function filterByBeforeDate($items, $before, $attributeName) {
-		if ($before != null && $before != '') {
-			$beforeDate = new \DateTime($before);
-			$beforeDate->setTime(0, 0);
-			$filteredItems = new Collection();
-			foreach ($items as $item) {
-				if ($item[$attributeName] != null) {
-					$date = new \DateTime($item[$attributeName]);
-					if ($date->getTimestamp() <= $beforeDate->getTimestamp()) {
-						$filteredItems->push($item);
-					}
+
+		// check filter parameter
+		//
+		if ($before == null || $before == '') {
+			return $items;
+		}
+
+		// filter items
+		//
+		$collection = new Collection();
+		$beforeDate = new \DateTime($before);
+		$beforeDate->setTime(0, 0);
+		foreach ($items as $item) {
+			if ($item[$attributeName] != null) {
+				$date = new \DateTime($item[$attributeName]);
+				if ($date->getTimestamp() <= $beforeDate->getTimestamp()) {
+					$collection->push($item);
 				}
 			}
-			$items = $filteredItems;
 		}
-		return $items;
+
+		return $collection;
 	}
 
 	private static function filterByDate($items) {

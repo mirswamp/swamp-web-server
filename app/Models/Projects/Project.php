@@ -54,6 +54,7 @@ class Project extends CreateStamped
 	//
 	protected $visible = [
 		'project_uid', 
+		'project_owner_uid', 
 		'full_name', 
 		'description', 
 		'affiliation', 

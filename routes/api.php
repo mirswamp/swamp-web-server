@@ -109,13 +109,16 @@ Route::group(['middleware' => 'verify.config'], function () {
 
 	// public execution record notification route
 	//
-	Route::post('execution_records/{execution_record_uuid}/notify', 'Executions\ExecutionRecordsController@notifyIndex');
+	Route::post('execution_records/{execution_record_uuid}/notify', 'Results\ExecutionRecordsController@notifyIndex');
 
     // github integration with the package
     Route::post('packages/github', 'Packages\PackageVersionsController@getGitHubResponse');
     //Route::get('packages/github', 'Packages\PackageVersionsController@getGitHubResponse');
 
-
+	// route introspection route
+	//
+	Route::get('routes', 'Utilities\RoutesController@getActual');
+	
 	// authenticated routes
 	//
 	Route::group(['middleware' => 'auth'], function () {
@@ -176,6 +179,7 @@ Route::group(['middleware' => 'verify.config'], function () {
 		//
 		Route::group(['middleware' => 'verify.policy'], function () {
 			Route::get('policies/{policy_code}', 'Users\PoliciesController@getByCode');
+			Route::get('user_policies/{policy_code}', 'Users\UserPoliciesController@getByCurrentUser');
 			Route::post('user_policies/{policy_code}/user/{user_uid}', 'Users\UserPoliciesController@markAcceptance');
 		});
 
@@ -213,9 +217,9 @@ Route::group(['middleware' => 'verify.config'], function () {
 			Route::get('projects/{project_uuid}/assessment_runs/scheduled', 'Assessments\AssessmentRunsController@getScheduledByProject');
 			Route::get('projects/{project_uuid}/assessment_runs/scheduled/num', 'Assessments\AssessmentRunsController@getNumScheduledByProject');
 			Route::get('projects/{project_uuid}/run_requests/schedules/num', 'RunRequests\RunRequestsController@getNumByProject');
-			Route::get('projects/{project_uuid}/execution_records', 'Executions\ExecutionRecordsController@getByProject');
-			Route::get('projects/{project_uuid}/execution_records/num', 'Executions\ExecutionRecordsController@getNumByProject');
-			Route::get('projects/{project_uuid}/assessment_results', 'Assessments\AssessmentResultsController@getByProject');
+			Route::get('projects/{project_uuid}/execution_records', 'Results\ExecutionRecordsController@getByProject');
+			Route::get('projects/{project_uuid}/execution_records/num', 'Results\ExecutionRecordsController@getNumByProject');
+			Route::get('projects/{project_uuid}/assessment_results', 'Results\AssessmentResultsController@getByProject');
 		});
 
 		// project invitation routes
@@ -269,10 +273,12 @@ Route::group(['middleware' => 'verify.config'], function () {
 
 			// admin overview routes
 			//	
-			Route::get('admins/{user_uid}/admins', 'Admin\AdminsController@getAll');
-			Route::get('admins/{user_uid}/projects', 'Projects\ProjectsController@getAll');
-			Route::get('admins/{user_uid}/users', 'Users\UsersController@getAll');
-			Route::get('admins/{user_uid}/contacts', 'Utilities\ContactsController@getAll');
+			Route::get('admin/admins/all', 'Admin\AdminsController@getAll');
+			Route::get('admin/projects/all', 'Projects\ProjectsController@getAll');
+			Route::get('admin/users/all', 'Users\UsersController@getAll');
+			Route::get('admin/users/enabled', 'Users\UsersController@getEnabled');
+			Route::get('admin/users/signed-in', 'Users\UsersController@getSignedIn');
+			Route::get('admin/contacts/all', 'Utilities\ContactsController@getAll');
 
 			// admin email
 			//
@@ -513,22 +519,23 @@ Route::group(['middleware' => 'verify.config'], function () {
 		// execution record routes
 		//
 		Route::group(['middleware' => 'verify.execution_record'], function () {
-			Route::get('execution_records/all', 'Executions\ExecutionRecordsController@getAll');
-			Route::get('execution_records/{execution_record_uuid}', 'Executions\ExecutionRecordsController@getIndex');
-			Route::get('execution_records/{execution_record_uuid}/ssh_access', 'Executions\ExecutionRecordsController@getSshAccess');
-			Route::put('execution_records/{execution_record_uuid}/kill', 'Executions\ExecutionRecordsController@killIndex');
-			Route::delete('execution_records/{execution_record_uuid}', 'Executions\ExecutionRecordsController@deleteIndex');
+			Route::get('execution_records/all', 'Results\ExecutionRecordsController@getAll');
+			Route::get('execution_records/{execution_record_uuid}', 'Results\ExecutionRecordsController@getIndex');
+			Route::get('execution_records/{execution_record_uuid}/ssh_access', 'Results\ExecutionRecordsController@getSshAccess');
+			Route::put('execution_records/{execution_record_uuid}/kill', 'Results\ExecutionRecordsController@killIndex');
+			Route::delete('execution_records/{execution_record_uuid}', 'Results\ExecutionRecordsController@deleteIndex');
 		});
 
 		// assessment results routes
 		//
 		Route::group(['middleware' => 'verify.assessment_result'], function () {
-			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}', 'Assessments\AssessmentResultsController@getResults');
-			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}/catalog', 'Assessments\AssessmentResultsController@getCatalog');
-			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}/permission', 'Assessments\AssessmentResultsController@getResultsPermission');
-			Route::get('assessment_results/viewer/{viewer_uuid}/project/{project_uuid}/permission', 'Assessments\AssessmentResultsController@getNoResultsPermission');
-			Route::get('assessment_results/viewer_instance/{viewer_instance_uuid}', 'Assessments\AssessmentResultsController@getInstanceStatus');
-			Route::get('v1/assessment_results/{assessment_result_uuid}/scarf', 'Assessments\AssessmentResultsController@getScarf');
+			Route::get('assessment_results/{assessment_result_uuid}', 'Results\AssessmentResultsController@getIndex');
+			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}', 'Results\AssessmentResultsController@getResults');
+			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}/catalog', 'Results\AssessmentResultsController@getCatalog');
+			Route::get('assessment_results/{assessment_result_uuid}/viewer/{viewer_uuid}/project/{project_uuid}/permission', 'Results\AssessmentResultsController@getResultsPermission');
+			Route::get('assessment_results/viewer/{viewer_uuid}/project/{project_uuid}/permission', 'Results\AssessmentResultsController@getNoResultsPermission');
+			Route::get('assessment_results/viewer_instance/{viewer_instance_uuid}', 'Results\AssessmentResultsController@getInstanceStatus');
+			Route::get('v1/assessment_results/{assessment_result_uuid}/scarf', 'Results\AssessmentResultsController@getScarf');
 		});
 
 		// viewer routes

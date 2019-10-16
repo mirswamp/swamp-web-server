@@ -19,6 +19,7 @@
 namespace App\Models\Projects;
 
 use App\Models\TimeStamps\CreateStamped;
+use App\Models\Users\User;
 
 class ProjectMembership extends CreateStamped
 {
@@ -43,6 +44,7 @@ class ProjectMembership extends CreateStamped
 		'membership_uid',
 		'project_uid', 
 		'user_uid',
+		'user',
 		'admin_flag'
 	];
 
@@ -52,6 +54,20 @@ class ProjectMembership extends CreateStamped
 		'admin_flag' => 'boolean'
 	];
 	
+	// array / json appended model attributes
+	//
+	protected $appends = [
+		'user'
+	];
+
+	//
+	// accessor methods
+	//
+
+	public function getUserAttribute() {
+		return User::getIndex($this->user_uid);
+	}
+
 	//
 	// querying methods
 	//

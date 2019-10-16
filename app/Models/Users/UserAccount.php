@@ -82,6 +82,10 @@ class UserAccount extends UserStamped
 		return $this->forcepwreset_flag;
 	}
 
+	public function isEnabled() {
+		return $this->enabled_flag;
+	}
+
 	public function isHibernating() {
 		return $this->hibernate_flag;
 	}
