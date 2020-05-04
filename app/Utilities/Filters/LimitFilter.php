@@ -16,20 +16,21 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 
 class LimitFilter
 {
-	static function apply($query) {
+	static function apply(Request $request, Builder $query) {
 
 		// parse parameters
 		//
-		$limit = Input::get('limit', null);
+		$limit = $request->input('limit', null);
 
 		// add limit to query
 		//

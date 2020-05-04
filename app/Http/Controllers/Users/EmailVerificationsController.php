@@ -13,14 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
 use DateTime;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\User;
@@ -32,12 +31,12 @@ class EmailVerificationsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): EmailVerification {
 
 		// parse parameters
 		//
-		$userUid = Input::get('user_uid');
-		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
+		$userUid = $request->input('user_uid');
+		$email = filter_var($request->input('email'), FILTER_VALIDATE_EMAIL);
 
 		// create new email verification
 		//
@@ -47,62 +46,28 @@ class EmailVerificationsController extends BaseController
 			'email' => $email
 		]);
 		$emailVerification->save();
-		$emailVerification->send(Input::get('verify_route'));
+		$emailVerification->send($request->input('verify_route'));
 
 		return $emailVerification;
 	}
 
 	// get by key
 	//
-	public function getIndex($verificationKey) {
+	public function getIndex(string $verificationKey): ?EmailVerification {
 		$emailVerification = EmailVerification::where('verification_key', '=', $verificationKey)->first();
+
+		// append user
+		//
 		$user = User::getIndex($emailVerification->user_uid);
 		$user['user_uid'] = $emailVerification->user_uid;
 		$emailVerification->user = $user;
+
 		return $emailVerification;
-	}
-
-	// update by key
-	//
-	public function updateIndex($verificationKey) {
-
-		// parse parameters
-		//
-		$userUid = Input::get('user_uid');
-		$verificationKey = Input::get('verification_key');
-		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
-		$verifyDate = Input::get('verify_date');
-
-		// get model
-		//
-		$emailVerification = EmailVerification::where('verification_key', '=', $verificationKey)->first();
-		
-		// update attributes
-		//
-		$emailVerification->user_uid = $userUid;
-		$emailVerification->verification_key = $verificationKey;
-		$emailVerification->email = $email;
-		$emailVerification->verify_date = $verifyDate;
-
-		// save changes
-		//
-		$changes = $emailVerification->getDirty();
-		$emailVerification->save();
-
-		// update user account
-		//
-		$userAccount = UserAccount::where('user_uid', '=', $emailVerification->user_uid)->first();
-		$userAccount->email_verified_flag = $emailVerification->verify_date != null;
-		$userAccount->save();
-
-		// return changes
-		//
-		return $changes;
 	}
 
 	// verify by key
 	//
-	public function putVerify($verificationKey) {
+	public function putVerify(Request $request, string $verificationKey) {
 		$emailVerification = EmailVerification::where('verification_key', '=', $verificationKey)->first();
 		$emailVerification->verify_date = new DateTime();
 
@@ -118,7 +83,7 @@ class EmailVerificationsController extends BaseController
 
 		$errors = [];
 
-		if (!$user->hasBeenVerified() || $user->isValid($errors)) {
+		if (!$user->hasBeenVerified() || $user->isValid($request, $errors)) {
 			$user->username = $username;
 			$user->modify();
 
@@ -135,15 +100,9 @@ class EmailVerificationsController extends BaseController
 			if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
 				if (!$user->hasBeenVerified()) {
 
-					// automatically send welcome email
+					// send welcome email
 					//
-					Mail::send('emails.welcome', [
-						'user' => $user,
-						'logo' => config('app.cors_url').'/images/logos/swamp-logo-small.png'
-					], function($message) use ($user) {
-						$message->to($user->email, $user->getFullName());
-						$message->subject('Welcome to the Software Assurance Marketplace');
-					});
+					$user->welcome();
 				} else {
 
 					// send notification if email has changed
@@ -179,12 +138,12 @@ class EmailVerificationsController extends BaseController
 
 	// resend by username, password
 	//
-	public function postResend() {
+	public function postResend(Request $request) {
 
 		// parse parameters
 		//
-		$username = Input::get('username');
-		$password = Input::get('password');
+		$username = $request->input('username');
+		$password = $request->input('password');
 
 		// validate user
 		//
@@ -216,7 +175,7 @@ class EmailVerificationsController extends BaseController
 
 	// delete by key
 	//
-	public function deleteIndex($verificationKey) {
+	public function deleteIndex(string $verificationKey) {
 		$emailVerification = EmailVerification::where('verification_key', '=', $verificationKey)->first();
 		$emailVerification->delete();
 		return $emailVerification;

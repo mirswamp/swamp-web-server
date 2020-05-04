@@ -13,13 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
+use \DateTime;
+use \DateTimeZone;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -29,24 +30,25 @@ use App\Models\Users\User;
 use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Users\AppPasswordsController;
 
-use \DateTime;
-use \DateTimeZone;
-
 class PasswordResetsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request) {
 
 		// parse parameters
 		//
-		$username = Input::get('username');
-		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
+		$username = $request->input('username');
+		$email = filter_var($request->input('email'), FILTER_VALIDATE_EMAIL);
 
 		// find current user by username or email
 		//
-		$user = User::getByUsername($username);
-		$user = $user ? $user : User::getByEmail($email); 
+		if ($username) {
+			$user = User::getByUsername($username);
+		} else if ($email) {
+			$user = User::getByEmail($email);
+		}
+		
 		if (!$user) {
 			return response()->json([
 				'success' => true
@@ -66,41 +68,44 @@ class PasswordResetsController extends BaseController
 			'user_uid' => $user->user_uid
 		]);
 		$passwordReset->save();
+
+		// send password reset email
+		//
 		$passwordReset->send($nonce);
 
-		return Response::json([
+		return response()->json([
 			'success' => true
 		]);
 	}
 
 	// get by index
 	//
-	public function getIndex($passwordResetUuid) {
-		return PasswordReset::where('password_reset_uuid', '=', $passwordResetUuid)->first();
+	public function getIndex(string $passwordResetUuid): ?PasswordReset {
+		return PasswordReset::find($passwordResetUuid);
 	}
 
 	// get by key
 	//
-	public function getByKey($passwordResetKey) {
+	public function getByKey(string $passwordResetKey): ?PasswordReset {
 		return PasswordReset::where('password_reset_key', '=', $passwordResetKey)->first();
 	}
 
 	// get by index and nonce
 	//
-	public function getByIndexAndNonce($passwordResetUuid, $passwordResetNonce) {
+	public function getByIndexAndNonce(string $passwordResetUuid, string $passwordResetNonce) {
 		$passwordReset = $this->getIndex($passwordResetUuid);
 
 		if (!$passwordReset) {
-			return Response::make('Password reset key not found.', 401);
+			return response('Password reset key not found.', 401);
 		}
 
 		if (!Hash::check($passwordResetNonce, $passwordReset->password_reset_key)) {
-			return Response::make('Password reset key invalid.', 401);
+			return response('Password reset key invalid.', 401);
 		}
 
 		$time = new DateTime($passwordReset->create_date, new DateTimeZone('GMT'));
 		if ((gmdate('U') - $time->getTimestamp()) > 1800) {
-			return Response::make('Password reset key expired.', 401);
+			return response('Password reset key expired.', 401);
 		}
 
 		return $passwordReset;
@@ -108,12 +113,12 @@ class PasswordResetsController extends BaseController
 
 	// update password
 	//
-	public function updateIndex() {
+	public function updateIndex(Request $request) {
 
 		// parse parameters
 		//
-		$password = Input::get('password');
-		$passwordResetKey = Input::get('password_reset_key');
+		$password = $request->input('password');
+		$passwordResetKey = $request->input('password_reset_key');
 
 		// get models
 		//
@@ -186,7 +191,7 @@ class PasswordResetsController extends BaseController
 
 	// delete by index
 	//
-	public function deleteIndex($passwordResetUuid) {
+	public function deleteIndex(string $passwordResetUuid) {
 		$passwordReset = $this->getIndex($passwordResetUuid);
 		$passwordReset->delete();
 		return $passwordReset;

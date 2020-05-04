@@ -13,14 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Input;
 use App\Models\Users\User;
 use App\Models\Users\UserClass;
 use App\Utilities\Filters\FiltersHelper;
@@ -39,7 +38,7 @@ class VerifyUserClass
 	{
 		// parse parameters
 		//
-		$classCode = Input::get('class_code');
+		$classCode = $request->input('class_code');
 
 		// check class code
 		//
@@ -52,7 +51,7 @@ class VerifyUserClass
 		// get current user
 		//
 		if (Session::has('user_uid')) {
-			$currentUser = User::getIndex(session('user_uid'));
+			$currentUser = User::current();
 		} else {
 			return response([
 				'status' => 'NO_SESSION',
@@ -63,7 +62,7 @@ class VerifyUserClass
 		// get user
 		//
 		$userUid = $request->route('user_uid');
-		if ($userUid != 'current') {
+		if ($userUid && $userUid != 'current') {
 			$user = User::getIndex($userUid);
 		} else {
 			$user = $currentUser;

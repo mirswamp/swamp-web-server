@@ -13,16 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Tools;
 
 use PDO;
-
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
 use App\Utilities\Uuids\Guid;
@@ -43,14 +41,14 @@ class ToolsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): Tool {
 
 		// parse parameters
 		//
-		$name = Input::get('name');
-		$toolOwnerUuid = Input::get('tool_owner_uuid');
-		$isBuildNeeded = filter_var(Input::get('is_build_needed'), FILTER_VALIDATE_BOOLEAN);
-		$toolSharingStatus = Input::get('tool_sharing_status');
+		$name = $request->input('name');
+		$toolOwnerUuid = $request->input('tool_owner_uuid');
+		$isBuildNeeded = filter_var($request->input('is_build_needed'), FILTER_VALIDATE_BOOLEAN);
+		$toolSharingStatus = $request->input('tool_sharing_status');
 
 		// create new tool
 		//
@@ -68,117 +66,96 @@ class ToolsController extends BaseController
 
 	// get all for admin user
 	//
-	public function getAll() {
-		$user = User::getIndex(session('user_uid'));
+	public function getAll(Request $request): Collection {
+		$user = User::current();
 		if ($user && $user->isAdmin()) {
-			$toolsQuery = Tool::orderBy('create_date', 'DESC');
+
+			// create query
+			//
+			$query = Tool::orderBy('create_date', 'DESC');
 
 			// add filters
 			//
-			$toolsQuery = DateFilter::apply($toolsQuery);
-			$toolsQuery = LimitFilter::apply($toolsQuery);
+			$query = DateFilter::apply($request, $query);
+			$query = LimitFilter::apply($request, $query);
 
-			return $toolsQuery->get();
+			// perform query
+			//
+			return $query->get();
+		} else {
+			return collect();
 		}
-		return '';
 	}
 
 	// get by index
 	//
-	public function getIndex($toolUuid) {
-		$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
-		return $tool;
+	public function getIndex(string $toolUuid): ?Tool {
+		return Tool::find($toolUuid);
 	}
 
 	// get by user
 	//
-	public function getByUser($userUuid) {
-
-		// create stored procedure call
-		//
-		/*
-		$connection = DB::connection('tool_shed');
-		$pdo = $connection->getPdo();
-
-		$stmt = $pdo->prepare("CALL list_tools_by_owner(:userUuidIn, @returnString)");
-		$stmt->bindParam(':userUuidIn', $userUuid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-		$results = [];
-
-		do {
-			foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row )
-				$results[] = $row;
-		} while ($stmt->nextRowset());
-
-		$select = $pdo->query('SELECT @returnString');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
-
-		if ($returnString == 'SUCCESS') {
-			return $results;
-		} else {
-			return response( $returnString, 500 );
-		}
-		*/
-		
-		$user = User::getIndex(session('user_uid'));
-
-
+	public function getByUser(Request $request, string $userUuid): Collection {
+		$user = User::current();
 		if ($user->isAdmin() || (session('user_uid')) == $userUuid) {
-			$toolsQuery = Tool::where('tool_owner_uuid', '=', $userUuid)->orderBy('create_date', 'DESC');
-		}
-		else {
-			return response('Cannot access given user.', 400);
-		}
 
-		// add filters
-		//
-		$toolsQuery = DateFilter::apply($toolsQuery);
-		$toolsQuery = LimitFilter::apply($toolsQuery);
+			// create query
+			//
+			$query = Tool::where('tool_owner_uuid', '=', $userUuid)->orderBy('create_date', 'DESC');
 
-		return $toolsQuery->get();
+			// add filters
+			//
+			$query = DateFilter::apply($request, $query);
+			$query = LimitFilter::apply($request, $query);
+
+			// perform query
+			//
+			return $query->get();
+		} else {
+			return collect();
+		}
 	}
 
 	// get number by user
 	//
-	public function getNumByUser($userUuid) {
+	public function getNumByUser(Request $request, string $userUuid): int {
 
-		// create SQL query
+		// create query
 		//
-		$toolsQuery = Tool::where('tool_owner_uuid', '=', $userUuid);
+		$query = Tool::where('tool_owner_uuid', '=', $userUuid);
 
 		// add filters
 		//
-		$toolsQuery = DateFilter::apply($toolsQuery);
+		$query = DateFilter::apply($request, $query);
 
 		// perform query
 		//
-		return $toolsQuery->count();
+		return $query->count();
 	}
 
 	// get by public scoping
 	//
-	public function getPublic() {
+	public function getPublic(): Collection {
 		return Tool::where('tool_sharing_status', '=', 'public')->orderBy('name', 'ASC')->get();
 	}
 
 	// get by policy restriction
 	//
-	public function getRestricted() {
+	public function getRestricted(): Collection {
 		return Tool::whereNotNull('policy_code')->orderBy('name', 'ASC')->get();
 	}
 
 	// get by protected scoping
 	//
-	public function getProtected($projectUuid) {
+	public function getProtected(string $projectUuid): Collection {
 		if (!strpos($projectUuid, '+')) {
 
 			// check permissions
 			//
-			$user = User::getIndex(session('user_uid'));
+			$user = User::current();
 			$project = Project::where('project_uid', '=', $projectUuid)->first();
 			if ($project && !$project->isReadableBy($user)) {
-				return response('Cannot access given project.', 400);
+				return collect();
 			}
 
 			// get tools shared with a single project
@@ -188,12 +165,12 @@ class ToolsController extends BaseController
 
 			// check permissions
 			//
-			$user = User::getIndex(session('user_uid'));
+			$user = User::current();
 			$projectUuids = explode('+', $projectUuid);
 			foreach ($projectUuids as $projectUuid) {
 				$project = Project::where('project_uid', '=', $projectUuid)->first();
 				if ($project && !$project->isReadableBy($user)) {
-					return response('Cannot access given project.', 400);
+					return collect();
 				}
 			}
 
@@ -205,47 +182,20 @@ class ToolsController extends BaseController
 
 	// get by project
 	//
-	public function getByProject($projectUuid) {
-		/*
-		$userUid = session('user_uid');
-		$connection = DB::connection('tool_shed');
-		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL list_tools_by_project_user(:userUid, :projectUuid, @returnString);");
-		$stmt->bindParam(':userUid', $userUid, PDO::PARAM_STR, 45);
-		$stmt->bindParam(':projectUuid', $projectUuid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-		$results = [];
+	public function getByProject(string $projectUuid): Collection {
 
-		do {
-		    foreach( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row ){
-				unset( $row['notes'] );
-				$results[] = $row;
-			}
-		} while ($stmt->nextRowset());
-
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
-
-		if ($returnString == 'SUCCESS') {
-		    return $results;
-		} else {
-		    return response( $returnString, 500 );
-		}
-		*/
-		    
-		$publicTools = $this->getPublic();
-		$protectedTools = $this->getProtected($projectUuid);
-		return $publicTools->merge($protectedTools);
+		// return public and protected tools
+		//
+		return $this->getPublic()->merge($this->getProtected($projectUuid));
 	}
 
 	// get versions
 	//
-	public function getVersions($toolUuid) {
+	public function getVersions(Request $request, string $toolUuid) {
 
 		// parse parameters
 		//
-		$packageTypeName = Input::get('package-type');
+		$packageTypeName = $request->input('package-type');
 
 		// get tool versioins
 		//
@@ -282,7 +232,7 @@ class ToolsController extends BaseController
 
 	// get sharing
 	//
-	public function getSharing($toolUuid) {
+	public function getSharing(string $toolUuid) {
 		$toolSharing = ToolSharing::where('tool_uuid', '=', $toolUuid)->get();
 		$projectUuids = [];
 		for ($i = 0; $i < sizeof($toolSharing); $i++) {
@@ -293,7 +243,7 @@ class ToolsController extends BaseController
 
 	// get policy
 	//
-	public function getPolicy($toolUuid) {
+	public function getPolicy(string $toolUuid) {
 		$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
 		if ($tool) {
 			return $tool->getPolicy();
@@ -302,20 +252,20 @@ class ToolsController extends BaseController
 
 	// get permission status
 	//
-	public function getToolPermissionStatus($toolUuid) {
+	public function getToolPermissionStatus(Request $request, string $toolUuid) {
 
 		// parse parameters
 		//
-		$packageUuid = Input::get('package_uuid', null);
-		$projectUid = Input::get('project_uid', null);
-		$userUid = Input::get('user_uid', null);
+		$packageUuid = $request->input('package_uuid', null);
+		$projectUid = $request->input('project_uid', null);
+		$userUid = $request->input('user_uid', null);
 
 		// fetch models
 		//
 		$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
 		$package = $packageUuid? Package::where('package_uuid','=', $packageUuid)->first() : null;
 		$project = $projectUid? Project::where('project_uid','=', $projectUid)->first() : null;
-		$user = $userUid ? User::getIndex($userUid) : User::getIndex(session('user_uid'));
+		$user = $userUid ? User::getIndex($userUid) : User::current();
 
 		// check models
 		//
@@ -339,20 +289,20 @@ class ToolsController extends BaseController
 		}
 
 		return response()->json([
-			'success', true
+			'status' => 'approved'
 		]);
 	}
 
 	// update by index
 	//
-	public function updateIndex($toolUuid) {
+	public function updateIndex(Request $request, string $toolUuid) {
 
 		// parse parameters
 		//
-		$name = Input::get('name');
-		$toolOwnerUuid = Input::get('tool_owner_uuid');
-		$isBuildNeeded = filter_var(Input::get('is_build_needed'), FILTER_VALIDATE_BOOLEAN);
-		$toolSharingStatus = Input::get('tool_sharing_status');
+		$name = $request->input('name');
+		$toolOwnerUuid = $request->input('tool_owner_uuid');
+		$isBuildNeeded = filter_var($request->input('is_build_needed'), FILTER_VALIDATE_BOOLEAN);
+		$toolSharingStatus = $request->input('tool_sharing_status');
 
 		// get model
 		//
@@ -376,52 +326,95 @@ class ToolsController extends BaseController
 
 	// update sharing by index
 	//
-	public function updateSharing($toolUuid) {
+	public function updateSharing(Request $request, string $toolUuid) {
 
-		// parse parameters
+		// parse input
 		//
-		$projects = Input::get('projects');
+		$projects = $request->input('projects');
+		$projectUuids = $request->input('project_uuids');
+
+		// find tool
+		//
+		$tool = Tool::find($toolUuid);
+		if (!$tool) {
+			return response('Tool not found.', 404);
+		}
 
 		// remove previous sharing
 		//
-		$toolSharings = ToolSharing::where('tool_uuid', '=', $toolUuid)->get();
-		for ($i = 0; $i < sizeof($toolSharings); $i++) {
-			$toolSharing = $toolSharings[$i];
-			$toolSharing->delete();
-		}
+		$tool->unshare();
 
 		// create new sharing
 		//
-		$input = $projects;
-		$toolSharings = new Collection;
-		for ($i = 0; $i < sizeOf($input); $i++) {
-			$project = $input[$i];
-			$projectUid = $project['project_uid'];
-			$toolSharing = new ToolSharing([
-				'tool_uuid' => $toolUuid,
-				'project_uuid' => $projectUid
-			]);
-			$toolSharing->save();
-			$toolSharings->push($toolSharing);
+		$sharing = [];
+
+		// create sharing from array of objects
+		//
+		// Note: this is support for the old way of specifying sharing
+		// which is needed for backwards compatibility with API plugins).
+		//
+		if ($projects) {
+			foreach ($projects as $project) {
+				$projectUid = $project['project_uid'];
+
+				// find project
+				//
+				$project = Project::where('project_uid', '=', $projectUid)->first();
+
+				// add sharing
+				//
+				if ($project) {
+					$sharing[] = $tool->shareWith($project);
+				}
+			}
+		} 
+
+		// create sharing from array of project uuids
+		//
+		if ($projectUuids) {
+			foreach ($projectUuids as $projectUuid) {
+
+				// find project
+				//
+				$project = Project::where('project_uid', '=', $projectUuid)->first();
+
+				// add sharing
+				//
+				if ($project) {
+					$sharing[] = $tool->shareWith($project);
+				}
+			}
 		}
-		return $toolSharings;
+
+		return $sharing;
 	}
 
 	// delete by index
 	//
-	public function deleteIndex($toolUuid) {
-		$tool = Tool::where('tool_uuid', '=', $toolUuid)->first();
+	public function deleteIndex(string $toolUuid) {
+
+		// find tool
+		//
+		$tool = Tool::find($toolUuid);
+		if (!$tool) {
+			return response('Tool not found.', 404);
+		}
+
 		$tool->delete();
 		return $tool;
 	}
 
-	// delete versions
+	// delete versions by index
 	//
-	public function deleteVersions($toolUuid) {
-		$toolVersions = $this->getVersions($toolUuid);
-		for ($i = 0; $i < sizeof($toolVersions); $i++) {
-			$toolVersions[$i]->delete();
+	public function deleteVersions(string $toolUuid) {
+
+		// find tool
+		//
+		$tool = Tool::find($toolUuid);
+		if (!$tool) {
+			return response('Tool not found.', 404);
 		}
-		return $toolVersions;
+		
+		return $tool->deleteVersions();
 	}
 }

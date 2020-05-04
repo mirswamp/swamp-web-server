@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
@@ -37,7 +36,7 @@ class WebScriptingPackageVersion extends PackageVersion
 	// querying methods
 	//
 
-	function getBuildSystem() {
+	function getBuildSystem(): string {
 
 		// search archive for build files
 		//
@@ -59,11 +58,11 @@ class WebScriptingPackageVersion extends PackageVersion
 				return 'composer';
 
 			default:
-				return null;
+				return 'none';
 		}
 	}
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 
 		// initialize build info
 		//
@@ -120,7 +119,7 @@ class WebScriptingPackageVersion extends PackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
+	function checkBuildSystem(): string {
 		switch ($this->build_system) {
 
 			case 'npm':
@@ -130,11 +129,10 @@ class WebScriptingPackageVersion extends PackageVersion
 				$archive = Archive::create($this->getPackagePath());
 
 				if ($archive->contains($this->source_path, 'package.json')) {
-					return response("Web scripting package build system ok for npm.", 200);
+					return "ok";
 				} else {
-					return response("Could not find a build file called 'package.json' within '" . $this->source_path . "' directory. You may need to set your package path.", 404);
+					return "Could not find a build file called 'package.json' within '" . $this->source_path . "' directory. You may need to set your package path.";
 				}
-				break;
 
 			case 'composer':
 
@@ -143,15 +141,13 @@ class WebScriptingPackageVersion extends PackageVersion
 				$archive = Archive::create($this->getPackagePath());
 
 				if ($archive->contains($this->source_path, 'composer.json')) {
-					return response("Web scripting package build system ok for composer.", 200);
+					return "ok";
 				} else {
-					return response("Could not find a build file called 'composer.json' within '" . $this->source_path . "' directory. You may need to set your package path.", 404);
+					return "Could not find a build file called 'composer.json' within '" . $this->source_path . "' directory. You may need to set your package path.";
 				}
-				break;
 
 			default:
-				return response("Web scripting package build system ok.", 200);
-				break;
+				return "ok";
 		}
 	}
 }

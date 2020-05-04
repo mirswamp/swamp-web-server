@@ -17,7 +17,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Identity;
@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\Session;
 use League\OAuth2\Client\Provider\Github;
 use League\OAuth2\Client\Provider\Google;
 use CILogon\OAuth2\Client\Provider\CILogon;
-use App\Http\Controllers\Users\SessionController;
+use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Utilities\IdentitiesController;
 use App\Models\Users\LinkedAccountProvider;
 
@@ -49,7 +49,7 @@ class IdentityProvider
 	 *               getAuthorizationUrl()), 'linked_provider' (which is one
 	 *               'github', 'google', or the university's entityId).
 	 */
-	public function __construct($idp='') {
+	public function __construct(string $idp = '') {
 
 		$selectedidp = $this->getSelectedIdP($idp);
 
@@ -110,7 +110,7 @@ class IdentityProvider
 	 * @return The selected and verified Identity Provider to use for
 	 *         the OAuth2 connection.
 	 */
-	public function getSelectedIdP($idp='') {
+	public function getSelectedIdP(string $idp = '') {
 
 		$selectedidp = '';
 
@@ -125,8 +125,8 @@ class IdentityProvider
 			foreach ($idparray as $arr) {
 				if ($arr['entityid'] == $idp) {
 					$selectedidp = $arr['entityid'];
-					SessionController::put('oauth2_idp', $selectedidp);
-					$this->addLinkedAccountProvider($selectedidp,$idp);
+					AuthController::put('oauth2_idp', $selectedidp);
+					$this->addLinkedAccountProvider($selectedidp, $idp);
 					break;
 				}
 			}
@@ -135,8 +135,8 @@ class IdentityProvider
 			// if the $idp was not passed in, check the session variable
 			// 'oauth2_idp' for a previously set (and verified) idp.
 			//
-			if (SessionController::has('oauth2_idp')) {
-				$selectedidp = SessionController::get('oauth2_idp');
+			if (AuthController::has('oauth2_idp')) {
+				$selectedidp = AuthController::get('oauth2_idp');
 			}
 		}
 
@@ -154,7 +154,7 @@ class IdentityProvider
 	 * @param $idp The pretty-print name of the Identity Provider, e.g.,
 	 *        'GitHub', 'Google', or 'Univesity of Illinois at Urbana-Champaign'.
 	 */
-	protected function addLinkedAccountProvider($entityid,$idp) {
+	protected function addLinkedAccountProvider(string $entityid, string $idp) {
 
 		// see if the entityid is already a LinkedAccountProvider
 		// If not, then add a new entry.

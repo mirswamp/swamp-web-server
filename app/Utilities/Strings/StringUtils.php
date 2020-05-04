@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Strings;
@@ -27,7 +27,7 @@ class StringUtils
 	// string utility methods
 	//
 
-	public static function startsWith($haystack, $needle) {
+	public static function startsWith(?string $haystack, ?string $needle) {
 		if (!$haystack || !$needle) {
 			return false;
 		}
@@ -36,7 +36,7 @@ class StringUtils
 		return (substr($haystack, 0, $length) === $needle);
 	}
 
-	public static function endsWith($haystack, $needle) {
+	public static function endsWith(?string $haystack, ?string $needle) {
 		if (!$haystack || !$needle) {
 			return false;
 		}
@@ -48,21 +48,15 @@ class StringUtils
 		return (substr($haystack, -$length) === $needle);
 	}
 
-	public static function contains($haystack, $needle, $caseSensitive = true) {
-		if (!$caseSensitive) {
-			$haystack = strtolower($haystack);
-		}
-		if (!$caseSensitive) {
-			$needle = strtolower($needle);
-		}
-		return ($haystack == $needle) || (strpos($haystack, $needle) !== false);
+	public static function contains(?string $haystack, ?string $needle) {
+		return strpos($haystack, $needle) !== false;
 	}
 
 	//
 	// url encode / decode methods
 	//
 
-	public static function urldecodeAll($strings) {
+	public static function urldecodeAll(array $strings) {
 		$decoded = [];
 		for ($i = 0; $i < count($strings); $i++) {
 			array_push($decoded, urldecode($strings[$i]));
@@ -70,7 +64,7 @@ class StringUtils
 		return $decoded;
 	}
 
-	public static function urlencodeAll($strings) {
+	public static function urlencodeAll(array $strings) {
 		$encoded = [];
 		for ($i = 0; $i < count($strings); $i++) {
 			array_push($encoded, urlencode($strings[$i]));

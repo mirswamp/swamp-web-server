@@ -13,15 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
-use PDO;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
@@ -36,7 +34,7 @@ class UserPoliciesController extends BaseController
 	// get methods
 	//
 
-	public function getByCurrentUser($policyCode) {
+	public function getByCurrentUser(Request $request, string $policyCode) {
 		$userUid = Session::get('user_uid');
 		if (UserPolicy::where('user_uid', '=', $userUid)->where('policy_code', '=', $policyCode)->where('accept_flag', '=', 1)->exists()) {
 			return "accepted";
@@ -49,13 +47,13 @@ class UserPoliciesController extends BaseController
 	// update methods
 	//
 
-	public function markAcceptance($policyCode, $userUid) {
+	public function markAcceptance(Request $request, string $policyCode, string $userUid) {
 
 		// get inputs
 		//
 		$policy = Policy::where('policy_code','=', $policyCode)->first();
 		$user = User::getIndex($userUid);
-		$acceptFlag = filter_var(Input::get('accept_flag', null), FILTER_VALIDATE_BOOLEAN);
+		$acceptFlag = filter_var($request->input('accept_flag', null), FILTER_VALIDATE_BOOLEAN);
 
 		// check inputs
 		//

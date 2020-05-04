@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -25,13 +25,25 @@ use App\Models\Users\LinkedAccountProvider;
 
 class LinkedAccount extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'linked_account';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'linked_account_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'user_uid',
 		'user_external_id', 
@@ -41,13 +53,14 @@ class LinkedAccount extends CreateStamped
 		// timestamp attributes
 		//
 		'create_date',
-		'create_user',
-		'update_date',
-		'update_user'
+		'update_date'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'linked_account_id',
 		'user_uid',
@@ -58,18 +71,25 @@ class LinkedAccount extends CreateStamped
 
 		// timestamp attributes
 		//
-		'create_date'
+		'create_date',
+		'update_date'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'title',
 		'description'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'enabled_flag' => 'boolean',
 		'create_date' => 'datetime'

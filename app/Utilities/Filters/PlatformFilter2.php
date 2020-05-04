@@ -16,25 +16,26 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 
 class PlatformFilter2
 {
-	static function apply($query) {
+	static function apply(Request $request, Builder $query) {
 
 		// parse parameters
 		//
-		$platformName = Input::get('platform_name', null);
-		$platformUuid = Input::get('platform_uuid', null);
-		$platformVersion = Input::get('platform_version', null);
-		$platformVersionUuid = Input::get('platform_version_uuid', null);
+		$platformName = $request->input('platform_name', null);
+		$platformUuid = $request->input('platform_uuid', null);
+		$platformVersion = $request->input('platform_version', null);
+		$platformVersionUuid = $request->input('platform_version_uuid', null);
 
 		// add platform to query
 		//

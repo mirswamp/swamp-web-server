@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Utilities;
@@ -23,14 +23,32 @@ use App\Models\TimeStamps\CreateStamped;
 
 class Usage extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'assessment';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'usage_stats';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'usage_stats_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'enabled_users', 
 		'package_uploads', 
@@ -38,8 +56,11 @@ class Usage extends CreateStamped
 		'loc'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'usage_banner_id',
 		'enabled_users', 

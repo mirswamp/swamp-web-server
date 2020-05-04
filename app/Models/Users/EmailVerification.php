@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -24,13 +24,39 @@ use App\Models\Users\User;
 
 class EmailVerification extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'email_verification';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'email_verification_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
+	public $incrementing = false;
+
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'user_uid', 
 		'verification_key', 
@@ -41,12 +67,12 @@ class EmailVerification extends CreateStamped
 		'verify_date'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
-
-		// appended fields
-		//
 		'user',
 
 		// timestamp attributes
@@ -54,8 +80,11 @@ class EmailVerification extends CreateStamped
 		'verify_date'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'user'
 	];
@@ -80,12 +109,12 @@ class EmailVerification extends CreateStamped
 	// invitation sending / emailing method
 	//
 
-	public function send($verifyRoute, $changed = false) {
+	public function send(string $verifyRoute, bool $changed = false) {
 
-		// return an error if email has not been enabled
+		// check to see that mail is enabled
 		//
 		if (!config('mail.enabled')) {
-			return response('Email has not been enabled.', 400); 
+			return;
 		}
 
 		// send email verification email

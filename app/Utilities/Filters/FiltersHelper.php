@@ -17,14 +17,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Request;
 use App\Models\Users\User;
 
 class FiltersHelper
@@ -37,8 +36,8 @@ class FiltersHelper
 
 		// parse parameters
 		//
-		$apiKey = Input::get('api_key', null);
-		$userUid = Input::get('user_uid', null);
+		$apiKey = $request->input('api_key', null);
+		$userUid = $request->input('user_uid', null);
 
 		// detect API requests
 		//
@@ -74,7 +73,7 @@ class FiltersHelper
 		return false;
 	}
 
-	static function filterPassword($string) {
+	static function filterPassword(string $string) {
 		return str_ireplace("<script>", "", $string);
 	}
 }

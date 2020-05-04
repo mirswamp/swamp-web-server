@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
  * This file is part of PHPUnit.
  *
@@ -7,15 +7,17 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace PHPUnit\Framework\Constraint;
 
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\TestFailure;
 
-class IsEqualTest extends ConstraintTestCase
+/**
+ * @small
+ */
+final class IsEqualTest extends ConstraintTestCase
 {
-    public function testConstraintIsEqual()
+    public function testConstraintIsEqual(): void
     {
         $constraint = new IsEqual(1);
 
@@ -45,7 +47,7 @@ EOF
     /**
      * @dataProvider isEqualProvider
      */
-    public function testConstraintIsEqual2($expected, $actual, $message)
+    public function testConstraintIsEqual2($expected, $actual, $message): void
     {
         $constraint = new IsEqual($expected);
 
@@ -63,7 +65,14 @@ EOF
         $this->fail();
     }
 
-    public function isEqualProvider()
+    public function testConstraintDeltaIsNotZero(): void
+    {
+        $constraint = new IsEqual(15, 1);
+
+        $this->assertSame('is equal to 15 with delta <1.000000>', $constraint->toString());
+    }
+
+    public function isEqualProvider(): array
     {
         $a      = new \stdClass;
         $a->foo = 'bar';
@@ -132,9 +141,16 @@ Failed asserting that two strings are equal.
  'a\\n
 -b\\n
 +p\\n
+ c\\n
+ d\\n
+ e\\n
 @@ @@
+ g\\n
+ h\\n
+ i\\n
 -j\\n
 +w\\n
+ k'
 
 EOF
             ],
@@ -156,6 +172,7 @@ Failed asserting that two arrays are equal.
  Array (
 -    0 => 0
 +    0 => 1
+ )
 
 EOF
             ],
@@ -167,6 +184,7 @@ Failed asserting that two arrays are equal.
  Array (
 -    0 => true
 +    0 => 'true'
+ )
 
 EOF
             ],
@@ -180,6 +198,10 @@ Failed asserting that two arrays are equal.
      1 => Array (
 -        0 => 1
 +        0 => 4
+     )
+     2 => Array (...)
+     3 => 3
+ )
 
 EOF
             ],
@@ -200,6 +222,7 @@ Failed asserting that two objects are equal.
 @@ @@
  stdClass Object (
 -    'foo' => 'bar'
+ )
 
 EOF
             ],
@@ -217,12 +240,29 @@ Failed asserting that two objects are equal.
          1 => Array (
 -            0 => 1
 +            0 => 4
+         )
+         2 => Array (...)
+         3 => 3
 @@ @@
+     )
+     'related' => stdClass Object (
+         'foo' => 'a\\n
 -        b\\n
 +        p\\n
+         c\\n
+         d\\n
+         e\\n
 @@ @@
+         g\\n
+         h\\n
+         i\\n
 -        j\\n
 +        w\\n
+         k'
+     )
+     'self' => stdClass Object (...)
+     'c' => stdClass Object (...)
+ )
 
 EOF
             ],
@@ -267,6 +307,10 @@ Failed asserting that two objects are equal.
 -    '$bhash' => Array &1 (
 +SplObjectStorage Object &$storage2hash (
 +    '$bhash' => Array &0 (
+         'obj' => stdClass Object &$bhash ()
+         'inf' => null
+     )
+ )
 
 EOF
             ],

@@ -13,15 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Projects;
 
 use DateTime;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 use App\Utilities\Uuids\Guid;
 use App\Models\Projects\Project;
@@ -35,17 +34,17 @@ class ProjectInvitationsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request) {
 
 		// parse parameters
 		//
-		$projectUid = Input::get('project_uid');
-		$inviterUid = Input::get('inviter_uid');
-		$inviteeName = Input::get('invitee_name');
-		$inviteeEmail = filter_var(Input::get('invitee_email'), FILTER_VALIDATE_EMAIL);
-		$inviteeUsername = Input::get('invitee_username');
-		$confirmRoute = Input::get('confirm_route');
-		$registerRoute = Input::get('register_route');
+		$projectUid = $request->input('project_uid');
+		$inviterUid = $request->input('inviter_uid');
+		$inviteeName = $request->input('invitee_name');
+		$inviteeEmail = filter_var($request->input('invitee_email'), FILTER_VALIDATE_EMAIL);
+		$inviteeUsername = $request->input('invitee_username');
+		$confirmRoute = $request->input('confirm_route');
+		$registerRoute = $request->input('register_route');
 
 		// create a single model
 		//
@@ -167,27 +166,38 @@ class ProjectInvitationsController extends BaseController
 
 	// get by key
 	//
-	public function getIndex($invitationKey) {
-		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function getIndex(string $invitationKey): ?ProjectInvitation {
+		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->first();
+
+		// add sender
+		//
 		$sender = User::getIndex($projectInvitation->inviter_uid);
 		$sender = (!$sender || !$sender->isEnabled()) ? false : $sender;
 		if ($sender) {
 			$sender['user_uid'] = $projectInvitation->inviter_uid;
 		}
 		$projectInvitation->sender = $sender;
+		
 		return $projectInvitation;
 	}
 
 	// get by project
 	//
-	public function getByProject($projectUid) {
-		$project = Project::where('project_uid', '=', $projectUid)->first();
+	public function getByProject(string $projectUid): Collection {
+
+		// find project
+		//
+		$project = Project::find($projectUid);
+		if (!$project) {
+			return respone("Project not found.", 404);
+		}
+		
 		return $project->getInvitations();
 	}
 
 	// get by user
 	//
-	public function getByUser($userUid) {
+	public function getByUser(string $userUid): Collection {
 		$user = User::getIndex($userUid);
 		if ($user) {
 			if (config('mail.enabled')) {
@@ -202,11 +212,11 @@ class ProjectInvitationsController extends BaseController
 					->get();
 			}
 		} else {
-			return [];
+			return collect();
 		}
 	}
 
-	public function getNumByUser($userUid) {
+	public function getNumByUser(string $userUid): int {
 		$user = User::getIndex($userUid);
 		if ($user) {
 			if (config('mail.enabled')) {
@@ -225,47 +235,10 @@ class ProjectInvitationsController extends BaseController
 		}
 	}
 
-	// update by key
-	//
-	public function updateIndex($invitationKey) {
-
-		// parse parameters
-		//
-		$projectUid = Input::get('project_uid');
-		$inviterUid = Input::get('inviter_uid');
-		$inviteeName = Input::get('invitee_name');
-		$inviteeEmail = filter_var(Input::get('invitee_email'), FILTER_VALIDATE_EMAIL);
-		$inviteeUsername = Input::get('invitee_username');
-
-		// get model
-		//
-		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
-		
-		// update attributes
-		//
-		$projectInvitation->project_uid = $projectUid;
-		$projectInvitation->invitation_key = $invitationKey;
-		$projectInvitation->inviter_uid = $inviterUid;
-		$projectInvitation->invitee_name = $inviteeName;
-		$projectInvitation->invitee_email = $inviteeEmail;
-		$projectInvitation->invitee_username = $inviteeUsername;
-
-		// save and return changes
-		//
-		$changes = $projectInvitation->getDirty();
-		$projectInvitation->save();
-
-		// log the invitation event
-		//
-		Log::info("Project invitation updated.", $projectInvitation->toArray());
-
-		return $changes;
-	}
-
 	// accept by key
 	//
-	public function acceptIndex($invitationKey) {
-		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function acceptIndex(string $invitationKey) {
+		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->first();
 		$projectInvitation->accept();
 		$projectInvitation->save();
 
@@ -278,8 +251,8 @@ class ProjectInvitationsController extends BaseController
 
 	// decline by key
 	//
-	public function declineIndex($invitationKey) {
-		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function declineIndex(string $invitationKey) {
+		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->first();
 		$projectInvitation->decline();
 		$projectInvitation->save();
 
@@ -290,35 +263,9 @@ class ProjectInvitationsController extends BaseController
 		return $projectInvitation;
 	}
 
-	// update multiple
-	//
-	public function updateAll() {
-		$invitations = Input::all();
-		$projectInvitations = new Collection;
-		for ($i = 0; $i < sizeOf($invitations); $i++) {
-			$invitation = $invitations[$i];
-			$projectInvitation = new ProjectInvitation([
-				'project_uid' => $invitation['project_uid'],
-				'invitation_key' => Guid::create(),
-				'inviter_uid' => $invitation['inviter_uid'],
-				'invitee_name' => $invitation['invitee_name'],
-				'invitee_email' => $invitation['invitee_email'],
-				'invitee_username' => $invitation['invitee_username']
-			]);
-			$projectInvitations->push($projectInvitation);
-			$projectInvitation->save();
-		}
-
-		// log the invitation event
-		//
-		Log::info("Project invitation update all.");
-
-		return $projectInvitations;
-	}
-
 	// delete by key
 	//
-	public function deleteIndex($invitationKey) {
+	public function deleteIndex(string $invitationKey) {
 		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->first();
 
 		if ($projectInvitation) {
@@ -334,8 +281,8 @@ class ProjectInvitationsController extends BaseController
 
 	// get a inviter by key
 	//
-	public function getInviter($invitationKey) {
-		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function getInviter(string $invitationKey) {
+		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->first();
 
 		// get inviter from invitation
 		//
@@ -346,8 +293,8 @@ class ProjectInvitationsController extends BaseController
 
 	// get a invitee by key
 	//
-	public function getInvitee($invitationKey) {
-		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function getInvitee(string $invitationKey) {
+		$projectInvitation = ProjectInvitation::where('invitation_key', '=', $invitationKey)->first();
 
 		// get invitee from invitation
 		//

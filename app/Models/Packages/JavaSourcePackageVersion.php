@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
@@ -36,7 +35,7 @@ class JavaSourcePackageVersion extends PackageVersion
 	// querying methods
 	//
 
-	function getBuildSystem() {
+	function getBuildSystem(): string {
 	
 		// search archive for build files
 		//
@@ -66,11 +65,11 @@ class JavaSourcePackageVersion extends PackageVersion
 				}
 
 			default:
-				return null;
+				return 'none';
 		}
 	}
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 
 		// initialize build info
 		//
@@ -193,7 +192,7 @@ class JavaSourcePackageVersion extends PackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
+	function checkBuildSystem(): string {
 
 		// find build file
 		//
@@ -234,9 +233,9 @@ class JavaSourcePackageVersion extends PackageVersion
 				}
 
 				if ($archive->contains($searchPath, $buildFile)) {
-					return response("Java source package version is ok for ".$this->build_system.".", 200);
+					return "ok";
 				} else {
-					return response("Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+					return "Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.";
 				}
 				break;
 
@@ -248,13 +247,13 @@ class JavaSourcePackageVersion extends PackageVersion
 				//
 				$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, false);
 				if (count($sourceFiles) > 0) {
-					return response("Java source package build system ok for no-build.", 200);
+					return "ok";
 				} else {
-					return response("No assessable Java source code files were found directly in the selected build path ($searchPath).", 404);
+					return "No assessable Java source code files were found directly in the selected build path ($searchPath).";
 				}
 
 			default:
-				return response("Java package build system ok for " . $this->build_system . ".", 200);
+				return "ok";
 		}
 	}
 }

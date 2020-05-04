@@ -2,8 +2,12 @@
 
 namespace Illuminate\Routing;
 
+use Illuminate\Support\Traits\Macroable;
+
 class PendingResourceRegistration
 {
+    use Macroable;
+
     /**
      * The resource registrar.
      *
@@ -31,6 +35,13 @@ class PendingResourceRegistration
      * @var array
      */
     protected $options = [];
+
+    /**
+     * The resource's registration status.
+     *
+     * @var bool
+     */
+    protected $registered = false;
 
     /**
      * Create a new pending resource registration instance.
@@ -130,7 +141,7 @@ class PendingResourceRegistration
     }
 
     /**
-     * Set a middleware to the resource.
+     * Add middleware to the resource routes.
      *
      * @param  mixed  $middleware
      * @return \Illuminate\Routing\PendingResourceRegistration
@@ -143,12 +154,41 @@ class PendingResourceRegistration
     }
 
     /**
+     * Indicate that the resource routes should have "shallow" nesting.
+     *
+     * @param  bool  $shallow
+     * @return \Illuminate\Routing\PendingResourceRegistration
+     */
+    public function shallow($shallow = true)
+    {
+        $this->options['shallow'] = $shallow;
+
+        return $this;
+    }
+
+    /**
+     * Register the resource route.
+     *
+     * @return \Illuminate\Routing\RouteCollection
+     */
+    public function register()
+    {
+        $this->registered = true;
+
+        return $this->registrar->register(
+            $this->name, $this->controller, $this->options
+        );
+    }
+
+    /**
      * Handle the object's destruction.
      *
      * @return void
      */
     public function __destruct()
     {
-        $this->registrar->register($this->name, $this->controller, $this->options);
+        if (! $this->registered) {
+            $this->register();
+        }
     }
 }

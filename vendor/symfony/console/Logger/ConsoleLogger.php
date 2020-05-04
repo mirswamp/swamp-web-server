@@ -22,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * @author Kévin Dunglas <dunglas@gmail.com>
  *
- * @see http://www.php-fig.org/psr/psr-3/
+ * @see https://www.php-fig.org/psr/psr-3/
  */
 class ConsoleLogger extends AbstractLogger
 {
@@ -61,6 +61,8 @@ class ConsoleLogger extends AbstractLogger
 
     /**
      * {@inheritdoc}
+     *
+     * @return void
      */
     public function log($level, $message, array $context = [])
     {
@@ -99,13 +101,8 @@ class ConsoleLogger extends AbstractLogger
      * Interpolates context values into the message placeholders.
      *
      * @author PHP Framework Interoperability Group
-     *
-     * @param string $message
-     * @param array  $context
-     *
-     * @return string
      */
-    private function interpolate($message, array $context)
+    private function interpolate(string $message, array $context): string
     {
         if (false === strpos($message, '{')) {
             return $message;

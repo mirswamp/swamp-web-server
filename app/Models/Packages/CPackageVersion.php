@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
@@ -36,7 +35,7 @@ class CPackageVersion extends PackageVersion
 	// querying methods
 	//
 
-	function getBuildSystem() {
+	function getBuildSystem(): string {
 		
 		// search archive for build files
 		//
@@ -63,11 +62,11 @@ class CPackageVersion extends PackageVersion
 				return 'autotools+configure+make';
 
 			default:
-				return null;
+				return 'none';
 		}
 	}
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 		
 		// initialize build info
 		//
@@ -200,7 +199,7 @@ class CPackageVersion extends PackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
+	function checkBuildSystem(): string {
 		switch ($this->build_system) {
 
 			case 'make':
@@ -213,9 +212,9 @@ class CPackageVersion extends PackageVersion
 
 				if ($buildFile != null) {
 					if ($archive->contains($searchPath, $buildFile)) {
-						return response("C/C++ package build system ok for make.", 200);
+						return "ok";
 					} else {
-						return response("Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
+						return "Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.";
 					}
 				}
 
@@ -224,15 +223,15 @@ class CPackageVersion extends PackageVersion
 				if ($archive->contains($searchPath, 'makefile') || 
 					$archive->contains($searchPath, 'Makefile')
 				) {
-					return response("C/C++ package build system ok for make.", 200);
+					return "ok";
 				} else {
-					return response("Could not find a build file called 'makefile' or 'Makefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+					return "Could not find a build file called 'makefile' or 'Makefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.";
 				}
 				break;
 
 			case 'configure+make':
 			case 'cmake+make':
-				return response("C/C++ package build system ok for cmake+make.", 200);
+				return "ok";
 				break;
 
 			case 'no-build':
@@ -243,14 +242,14 @@ class CPackageVersion extends PackageVersion
 				//
 				$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, false);
 				if (count($sourceFiles) > 0) {
-					return response("C/C++ package build system ok for no-build.", 200);
+					return "ok";
 				} else {
-					return response("No assessable C/C++ code files were found directly in the selected build path ($searchPath).", 404);
+					return "No assessable C/C++ code files were found directly in the selected build path ($searchPath).";
 				}
 				break;
 
 			default:
-				return response("C/C++ package build system ok for " . $this->build_system . ".", 200);
+				return "ok";
 		}
 	}
 }

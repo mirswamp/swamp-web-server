@@ -2,23 +2,36 @@
 
 namespace Illuminate\Redis\Connections;
 
-use Redis;
 use Closure;
+use Illuminate\Contracts\Redis\Connection as ConnectionContract;
+use Illuminate\Support\Str;
+use Redis;
+use RedisCluster;
+use RedisException;
 
 /**
  * @mixin \Redis
  */
-class PhpRedisConnection extends Connection
+class PhpRedisConnection extends Connection implements ConnectionContract
 {
+    /**
+     * The connection creation callback.
+     *
+     * @var callable
+     */
+    protected $connector;
+
     /**
      * Create a new PhpRedis connection.
      *
      * @param  \Redis  $client
+     * @param  callable|null  $connector
      * @return void
      */
-    public function __construct($client)
+    public function __construct($client, callable $connector = null)
     {
         $this->client = $client;
+        $this->connector = $connector;
     }
 
     /**
@@ -29,7 +42,7 @@ class PhpRedisConnection extends Connection
      */
     public function get($key)
     {
-        $result = $this->client->get($key);
+        $result = $this->command('get', [$key]);
 
         return $result !== false ? $result : null;
     }
@@ -44,22 +57,7 @@ class PhpRedisConnection extends Connection
     {
         return array_map(function ($value) {
             return $value !== false ? $value : null;
-        }, $this->client->mget($keys));
-    }
-
-    /**
-     * Determine if the given keys exist.
-     *
-     * @param  dynamic  $keys
-     * @return int
-     */
-    public function exists(...$keys)
-    {
-        $keys = collect($keys)->map(function ($key) {
-            return $this->applyPrefix($key);
-        })->all();
-
-        return $this->executeRaw(array_merge(['exists'], $keys));
+        }, $this->command('mget', [$keys]));
     }
 
     /**
@@ -90,19 +88,19 @@ class PhpRedisConnection extends Connection
      */
     public function setnx($key, $value)
     {
-        return (int) $this->client->setnx($key, $value);
+        return (int) $this->command('setnx', [$key, $value]);
     }
 
     /**
      * Get the value of the given hash fields.
      *
      * @param  string  $key
-     * @param  dynamic  $dictionary
-     * @return int
+     * @param  mixed  $dictionary
+     * @return array
      */
     public function hmget($key, ...$dictionary)
     {
-        if (count($dictionary) == 1) {
+        if (count($dictionary) === 1) {
             $dictionary = $dictionary[0];
         }
 
@@ -113,12 +111,12 @@ class PhpRedisConnection extends Connection
      * Set the given hash fields to their respective values.
      *
      * @param  string  $key
-     * @param  dynamic  $dictionary
+     * @param  mixed  $dictionary
      * @return int
      */
     public function hmset($key, ...$dictionary)
     {
-        if (count($dictionary) == 1) {
+        if (count($dictionary) === 1) {
             $dictionary = $dictionary[0];
         } else {
             $input = collect($dictionary);
@@ -139,7 +137,7 @@ class PhpRedisConnection extends Connection
      */
     public function hsetnx($hash, $key, $value)
     {
-        return (int) $this->client->hsetnx($hash, $key, $value);
+        return (int) $this->command('hsetnx', [$hash, $key, $value]);
     }
 
     /**
@@ -147,12 +145,38 @@ class PhpRedisConnection extends Connection
      *
      * @param  string  $key
      * @param  int  $count
-     * @param  $value  $value
+     * @param  mixed  $value
      * @return int|false
      */
     public function lrem($key, $count, $value)
     {
         return $this->command('lrem', [$key, $value, $count]);
+    }
+
+    /**
+     * Removes and returns the first element of the list stored at key.
+     *
+     * @param  mixed  $arguments
+     * @return array|null
+     */
+    public function blpop(...$arguments)
+    {
+        $result = $this->command('blpop', $arguments);
+
+        return empty($result) ? null : $result;
+    }
+
+    /**
+     * Removes and returns the last element of the list stored at key.
+     *
+     * @param  mixed  $arguments
+     * @return array|null
+     */
+    public function brpop(...$arguments)
+    {
+        $result = $this->command('brpop', $arguments);
+
+        return empty($result) ? null : $result;
     }
 
     /**
@@ -162,16 +186,16 @@ class PhpRedisConnection extends Connection
      * @param  int|null  $count
      * @return mixed|false
      */
-    public function spop($key, $count = null)
+    public function spop($key, $count = 1)
     {
-        return $this->command('spop', [$key]);
+        return $this->command('spop', [$key, $count]);
     }
 
     /**
      * Add one or more members to a sorted set or update its score if it already exists.
      *
      * @param  string  $key
-     * @param  dynamic  $dictionary
+     * @param  mixed  $dictionary
      * @return int
      */
     public function zadd($key, ...$dictionary)
@@ -183,9 +207,17 @@ class PhpRedisConnection extends Connection
             }
         }
 
-        $key = $this->applyPrefix($key);
+        $options = [];
 
-        return $this->executeRaw(array_merge(['zadd', $key], $dictionary));
+        foreach (array_slice($dictionary, 0, 3) as $i => $value) {
+            if (in_array($value, ['nx', 'xx', 'ch', 'incr', 'NX', 'XX', 'CH', 'INCR'], true)) {
+                $options[] = $value;
+
+                unset($dictionary[$i]);
+            }
+        }
+
+        return $this->command('zadd', array_merge([$key], [$options], array_values($dictionary)));
     }
 
     /**
@@ -195,7 +227,7 @@ class PhpRedisConnection extends Connection
      * @param  mixed  $min
      * @param  mixed  $max
      * @param  array  $options
-     * @return int
+     * @return array
      */
     public function zrangebyscore($key, $min, $max, $options = [])
     {
@@ -216,7 +248,7 @@ class PhpRedisConnection extends Connection
      * @param  mixed  $min
      * @param  mixed  $max
      * @param  array  $options
-     * @return int
+     * @return array
      */
     public function zrevrangebyscore($key, $min, $max, $options = [])
     {
@@ -240,10 +272,10 @@ class PhpRedisConnection extends Connection
      */
     public function zinterstore($output, $keys, $options = [])
     {
-        return $this->zInter($output, $keys,
+        return $this->command('zinterstore', [$output, $keys,
             $options['weights'] ?? null,
-            $options['aggregate'] ?? 'sum'
-        );
+            $options['aggregate'] ?? 'sum',
+        ]);
     }
 
     /**
@@ -256,16 +288,16 @@ class PhpRedisConnection extends Connection
      */
     public function zunionstore($output, $keys, $options = [])
     {
-        return $this->zUnion($output, $keys,
+        return $this->command('zunionstore', [$output, $keys,
             $options['weights'] ?? null,
-            $options['aggregate'] ?? 'sum'
-        );
+            $options['aggregate'] ?? 'sum',
+        ]);
     }
 
     /**
      * Execute commands in a pipeline.
      *
-     * @param  callable  $callback
+     * @param  callable|null  $callback
      * @return \Redis|array
      */
     public function pipeline(callable $callback = null)
@@ -280,7 +312,7 @@ class PhpRedisConnection extends Connection
     /**
      * Execute commands in a transaction.
      *
-     * @param  callable  $callback
+     * @param  callable|null  $callback
      * @return \Redis|array
      */
     public function transaction(callable $callback = null)
@@ -317,7 +349,7 @@ class PhpRedisConnection extends Connection
      */
     public function eval($script, $numberOfKeys, ...$arguments)
     {
-        return $this->client->eval($script, $arguments, $numberOfKeys);
+        return $this->command('eval', [$script, $arguments, $numberOfKeys]);
     }
 
     /**
@@ -362,6 +394,22 @@ class PhpRedisConnection extends Connection
     }
 
     /**
+     * Flush the selected Redis database.
+     *
+     * @return void
+     */
+    public function flushdb()
+    {
+        if (! $this->client instanceof RedisCluster) {
+            return $this->command('flushdb');
+        }
+
+        foreach ($this->client->_masters() as [$host, $port]) {
+            tap(new Redis)->connect($host, $port)->flushDb();
+        }
+    }
+
+    /**
      * Execute a raw command.
      *
      * @param  array  $parameters
@@ -370,6 +418,26 @@ class PhpRedisConnection extends Connection
     public function executeRaw(array $parameters)
     {
         return $this->command('rawCommand', $parameters);
+    }
+
+    /**
+     * Run a command against the Redis database.
+     *
+     * @param  string  $method
+     * @param  array  $parameters
+     * @return mixed
+     */
+    public function command($method, array $parameters = [])
+    {
+        try {
+            return parent::command($method, $parameters);
+        } catch (RedisException $e) {
+            if (Str::contains($e->getMessage(), 'went away')) {
+                $this->client = $this->connector ? call_user_func($this->connector) : $this->client;
+            }
+
+            throw $e;
+        }
     }
 
     /**
@@ -404,8 +472,6 @@ class PhpRedisConnection extends Connection
      */
     public function __call($method, $parameters)
     {
-        $method = strtolower($method);
-
-        return parent::__call($method, $parameters);
+        return parent::__call(strtolower($method), $parameters);
     }
 }

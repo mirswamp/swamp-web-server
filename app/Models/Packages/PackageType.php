@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -22,14 +22,32 @@ use App\Models\TimeStamps\TimeStamped;
 
 class PackageType extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'package_store';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'package_type';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'package_type_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'name',
 		'package_type_enabled',
@@ -38,8 +56,11 @@ class PackageType extends TimeStamped
 		'default_platform_version_uuid'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'package_type_id',
 		'name',
@@ -49,8 +70,11 @@ class PackageType extends TimeStamped
 		'default_platform_version_uuid'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'package_type_enabled' => 'boolean',
 		'platform_user_selectable' => 'boolean'

@@ -13,14 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Users\UserAccount;
 use App\Models\Users\User;
@@ -30,24 +29,24 @@ class AdminsController extends BaseController
 {
 	// get by index
 	//
-	public function getIndex($userUid) {
+	public function getIndex(string $userUid): ?UserAccount {
 		$userAccount = UserAccount::where('user_uid', '=', $userUid)->first();
 		if ($userAccount->admin_flag) {
 			return $userAccount;
 		} else {
-			return response('User is not an administrator.', 401);
+			return null;
 		}
 	}
 
 	// get all
 	//
-	public function getAll() {
+	public function getAll(): Collection {
 		$admins = UserAccount::where('admin_flag', '=', 1)->get();
-		$users = new Collection;
+		$users = collect();
 		foreach ($admins as $admin) {
 			$user = User::getIndex($admin->user_uid);
 			if ($user) {
-				$users[] = $user;
+				$users->push($user);
 			}
 		}
 		return $users;
@@ -55,7 +54,7 @@ class AdminsController extends BaseController
 
 	// update by index
 	//
-	public function updateIndex($userUid) {
+	public function updateIndex(string $userUid) {
 
 		// get model
 		//
@@ -74,20 +73,20 @@ class AdminsController extends BaseController
 
 	// delete by index
 	//
-	public function deleteIndex($userUid) {
+	public function deleteIndex(string $userUid) {
 		$userAccount = UserAccount::where('user_uid', '=', $userUid)->first();
 		$userAccount->admin_flag = false;
 		$userAccount->save();
 		return $userAccount;
 	}
 
-	public function sendEmail() {
+	public function sendEmail(Request $request) {
 
 		// parse parameters
 		//
-		$subject = Input::get('subject');
-		$body = Input::get('body');
-		$recipients = Input::get('recipients');
+		$subject = $request->input('subject');
+		$body = $request->input('body');
+		$recipients = $request->input('recipients');
 
 		// return if email is not enabled
 		//
@@ -111,49 +110,57 @@ class AdminsController extends BaseController
 			return response('The email must have at least one recipient.', 400);	
 		}
 
-		$failures = new Collection();
+		$failures = collect();
 		foreach ($recipients as $email) {
 			$user = User::getByEmail($email);
-			if (!$user) {
-				return response("Could not load user: $email", 400);	
-			}
+			if ($user) {
 
-			// check body for php signature
-			//
-			$this->secure = false;
-			if ((strpos($body, 'END PGP SIGNATURE') != false) || (strpos($body, 'END GPG SIGNATURE') != false)) {
-				$this->secure = true;
-			}
+				// check body for php signature
+				//
+				$this->secure = false;
+				if ((strpos($body, 'END PGP SIGNATURE') != false) || (strpos($body, 'END GPG SIGNATURE') != false)) {
+					$this->secure = true;
+				}
 
-			$user_email = '';
+				// make sure user's email is valid
+				//
+				if ($user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+					$user_email = $user->email;
+					$user_fullname = trim($user->getFullName());
 
-			// make sure user's email is valid
-			//
-			if (filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-				$user_email = $user->email;
-			}
-			
-			$user_fullname = trim($user->getFullName());
-			if (strlen($user_email) > 0) {
-				Mail::send([
-					'text' => 'emails.admin'
-				], [
-					'user' => $user,
-					'body' => $body
-				], function($message) use ($user_email, $user_fullname) {
-					$message->to($user_email, $user_fullname);
-					$message->subject($this->subject);
+					Mail::send([
+						'text' => 'emails.admin'
+					], [
+						'user' => $user,
+						'body' => $body
+					], function($message) use ($user_email, $user_fullname) {
+						$message->to($user_email, $user_fullname);
+						$message->subject($this->subject);
 
-					if ($this->secure) {
-						$message->from(config('mail.security.address'));
+						if ($this->secure) {
+							$message->from(config('mail.security.address'));
 
-					}
-				});
+						}
+					});
+				} else {
+
+					// email address is malformed
+					//
+					$failures->push([
+						'username' => $user->username, 
+						'name' => trim($user->getFullName()), 
+						'email' => $email
+					]);
+				}
 			} else {
+
+				// user not found
+				//
 				$failures->push([
-					'user' => $user->toArray(), 
+					'username' => '', 
+					'name' => '', 
 					'email' => $email
-				]);
+				]);			
 			}
 		}
 

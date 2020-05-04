@@ -13,23 +13,41 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use App\Models\TimeStamps\UserStamped;
+use App\Models\TimeStamps\TimeStamped;
 
-class PackageDownloadLogEntry extends UserStamped
+class PackageDownloadLogEntry extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'package_store';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'package_download_log';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'package_download_log_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'package_uuid',
 		'package_version_uuid',

@@ -14,16 +14,15 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use App\Http\Controllers\BaseController;
 use App\Models\Users\AppPassword;
@@ -46,8 +45,8 @@ class AppPasswordsController extends BaseController
 	 * @return Response as HTTP code + JSON token of the newly created
 	 *         app password.
 	 */
-	public function postCreate() {
-	  $retresponse = null; // Response to be returned.
+	public function postCreate(Request $request) {
+		$retresponse = null; // Response to be returned.
 
 		// This method works with the currently logged-in user_uid.
 		//
@@ -56,7 +55,7 @@ class AppPasswordsController extends BaseController
 		// An optional label can be specified in POST form data, e.g.,
 		// 'label=New+label'. If not given, defaults to empty string ''.
 		//
-		$label = $this->getInputLabel();
+		$label = $this->getInputLabel($request);
 
 		// Check how many app passwords the user currently has, and make sure
 		// this number is less than the max number of app passwords available.
@@ -104,10 +103,6 @@ class AppPasswordsController extends BaseController
 				}
 			}
 
-			Log::info("App password created.", [
-				'app_password_uuid' => $uuid
-			]);
-
 			// When returing the JSON object, return the password instead of the hash
 			//
 			$app_password_arr = $app_password->toArray();
@@ -135,20 +130,20 @@ class AppPasswordsController extends BaseController
 	 *        exactly one app password. When null, return ALL app passwords.
 	 * @return Response as HTTP code + JSON token of the app password. 
 	 */
-	public function getIndex($appPasswordUuid) {
-		$appPassword = AppPassword::where('app_password_uuid', '=', $appPasswordUuid)->first();
+	public function getIndex(string $appPasswordUuid): ?AppPassword {
 
-		// check for password not found
+		// find app password
 		//
+		$appPassword = AppPassword::find($appPasswordUuid);
 		if (!$appPassword) {
-			return response('The specified app password identifier could not be found.', 404);
+			return null;
 		}
 
 		// check for permission to view password
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		if ($appPassword->user_uid != $currentUser->user_uid && !$currentUser->isAdmin()) {
-			return response('You do not have permission to view this app password.', 401);
+			return null;
 		}
 
 		return $appPassword;
@@ -161,7 +156,7 @@ class AppPasswordsController extends BaseController
 	 *         If no app passwords are found, an empty JSON arary is
 	 *         returned. 
 	 */
-	public function getAll() {
+	public function getAll(): Collection {
 		return AppPassword::where('user_uid', '=', session('user_uid'))->get();
 	}
 
@@ -177,7 +172,7 @@ class AppPasswordsController extends BaseController
 	 * @return Response as HTTP code, with empty body. On error, the error
 	 *         description is returned as a JSON token.
 	 */
-	public function putIndex($appPasswordUuid) {
+	public function putIndex(Request $request, string $appPasswordUuid) {
 		$appPassword = AppPassword::where('app_password_uuid', $appPasswordUuid)->first();
 
 		// check for password not found
@@ -189,11 +184,11 @@ class AppPasswordsController extends BaseController
 		// New label is specified by query parameter, e.g., '?label="new+label"'.
 		// If not given, default to empty string ''.
 		//
-		$newlabel = $this->getInputLabel();
+		$newlabel = $this->getInputLabel($request);
 
 		// check for permission to change password
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		if ($appPassword->user_uid != $currentUser->user_uid && !$currentUser->isAdmin()) {
 			return response('You do not have permission to change this app password.', 401);
 		}
@@ -214,14 +209,14 @@ class AppPasswordsController extends BaseController
 	 * @return Response as HTTP code, with empty body. On error, the error
 	 *         description is returned as a JSON token.
 	 */
-	public function deleteIndex($appPasswordUuid) {
+	public function deleteIndex(string $appPasswordUuid) {
 		$appPassword = AppPassword::where('app_password_uuid', $appPasswordUuid)->first();
 
 		if ($appPassword) {
 
 			// check for permission to delete password
 			//
-			$currentUser = User::getIndex(session('user_uid'));
+			$currentUser = User::current();
 			if ($appPassword->user_uid != $currentUser->user_uid && !$currentUser->isAdmin()) {
 				return response('You do not have permission to delete this app password.', 401);
 			}
@@ -282,7 +277,7 @@ class AppPasswordsController extends BaseController
 	 *         that when returning ALL app passwords, the resulting JSON
 	 *         token is an array, regardless of the number of app passwords.
 	 */
-	public function getByUser($userUid) {
+	public function getByUser(string $userUid) {
 		return AppPassword::where('user_uid', '=', $userUid)->get();
 	}
 
@@ -294,7 +289,7 @@ class AppPasswordsController extends BaseController
 	 *
 	 * @return Response as HTTP code, with empty body.
 	 */
-	public function deleteByUser($userUid) {
+	public function deleteByUser(string $userUid) {
 
 		// get app passwords for a particular user
 		//
@@ -310,7 +305,7 @@ class AppPasswordsController extends BaseController
 			// At least one app password was deleted - send email and log event
 			//
 			if (config('mail.enabled')) {
-				$user = User::getIndex(session('user_uid'));
+				$user = User::current();
 				if ($user) {
 					$user_email = '';
 
@@ -347,11 +342,11 @@ class AppPasswordsController extends BaseController
 	 *         Defaults to empty string '' if not found. Max length of
 	 *         63 characters.
 	 */
-	private function getInputLabel() {
+	private function getInputLabel(Request $request) {
 
 		// parse parameters
 		//
-		$label = Input::get('label', '');
+		$label = $request->input('label', '');
 
 		// make sure new label isn't too long
 		//

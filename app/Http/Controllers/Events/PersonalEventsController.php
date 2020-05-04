@@ -13,13 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Events;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use App\Models\Events\PersonalEvent;
 use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Events\ProjectEventsController;
@@ -29,44 +29,54 @@ class PersonalEventsController extends BaseController
 {
 	// get number of all events by user id
 	//
-	public static function getNumByUser($userUid) {
+	public static function getNumByUser(Request $request, string $userUid): int {
 
 		// get number of user events
 		//
-		$num = self::getNumPersonalByUser($userUid);
+		$num = self::getNumPersonalByUser($request, $userUid);
 
 		// add number of project events by user
 		//
-		$num += ProjectEventsController::getNumByUser($userUid);
+		$num += ProjectEventsController::getNumByUser($request, $userUid);
 
 		// add number of user project events by user
 		//
-		$num += ProjectEventsController::getNumUserProjectEvents($userUid);
+		$num += ProjectEventsController::getNumUserProjectEvents($request, $userUid);
 
 		return $num;
 	}
 
 	// get personal events by user id
 	//
-	public static function getPersonalByUser($userUid) {
-		$personalEventsQuery = PersonalEvent::where('user_uid', '=', $userUid);
+	public static function getPersonalByUser(Request $request, string $userUid): Collection {
+
+		// create query
+		//
+		$query = PersonalEvent::where('user_uid', '=', $userUid);
 
 		// add filters
 		//
-		$personalEventsQuery = EventDateFilter::apply($personalEventsQuery);
+		$query = EventDateFilter::apply($request, $query);
 
-		return $personalEventsQuery->get();
+		// perform query
+		//
+		return $query->get();
 	}
 
 	// get number of personal events by user id
 	//
-	public static function getNumPersonalByUser($userUid) {
-		$personalEventsQuery = PersonalEvent::where('user_uid', '=', $userUid);
+	public static function getNumPersonalByUser(Request $request, string $userUid): int {
+
+		// create query
+		//
+		$query = PersonalEvent::where('user_uid', '=', $userUid);
 
 		// add filters
 		//
-		$personalEventsQuery = EventDateFilter::apply($personalEventsQuery);
+		$query = EventDateFilter::apply($request, $query);
 
-		return $personalEventsQuery->count();
+		// perform query
+		//
+		return $query->count();
 	}
 }

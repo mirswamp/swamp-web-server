@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
  * This file is part of PHPUnit.
  *
@@ -7,46 +7,58 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace PHPUnit\Framework\Constraint;
 
 use PHPUnit\Framework\TestCase;
 
-class ExceptionMessageTest extends TestCase
+/**
+ * @small
+ */
+final class ExceptionMessageTest extends TestCase
 {
-    /**
-     * @expectedException \Exception
-     * @expectedExceptionMessage A literal exception message
-     */
-    public function testLiteralMessage()
+    public function testLiteralMessage(): void
     {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('A literal exception message');
+
         throw new \Exception('A literal exception message');
     }
 
-    /**
-     * @expectedException \Exception
-     * @expectedExceptionMessage A partial
-     */
-    public function testPartialMessageBegin()
+    public function testPartialMessageBegin(): void
     {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('A partial');
+
         throw new \Exception('A partial exception message');
     }
 
-    /**
-     * @expectedException \Exception
-     * @expectedExceptionMessage partial exception
-     */
-    public function testPartialMessageMiddle()
+    public function testPartialMessageMiddle(): void
     {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('partial exception');
+
         throw new \Exception('A partial exception message');
     }
 
-    /**
-     * @expectedException \Exception
-     * @expectedExceptionMessage exception message
-     */
-    public function testPartialMessageEnd()
+    public function testPartialMessageEnd(): void
     {
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('exception message');
+
         throw new \Exception('A partial exception message');
+    }
+
+    public function testEmptyMessageExportToString(): void
+    {
+        $exceptionMessage = new ExceptionMessage('');
+
+        $this->assertSame('exception message is empty', $exceptionMessage->toString());
+    }
+
+    public function testMessageExportToString(): void
+    {
+        $exceptionMessage = new ExceptionMessage('test');
+
+        $this->assertSame('exception message contains ', $exceptionMessage->toString());
     }
 }

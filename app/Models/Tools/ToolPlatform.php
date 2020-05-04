@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Tools;
@@ -23,30 +23,54 @@ use App\Models\Platforms\Platform;
 
 class ToolPlatform extends BaseModel
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'tool_shed';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'tool_platform';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'tool_platform_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'tool_uuid',
 		'platform_uuid',
 		'platform'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'tool_uuid',
 		'platform_uuid',
 		'platform'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'platform'
 	];

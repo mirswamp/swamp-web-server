@@ -13,16 +13,15 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Assessments;
 
 use DB;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Utilities\Filters\TripletFilter;
 use App\Utilities\Filters\LimitFilter;
@@ -47,15 +46,15 @@ class AssessmentRunsController extends BaseController
 {
 	// checkCompatibility
 	//
-	public function checkCompatibility() {
+	public function checkCompatibility(Request $request) {
 
 		// parse parameters
 		//
-		$projectUuid = Input::get('project_uuid');
-		$packageUuid = Input::get('package_uuid');
-		$packageVersionUuid = Input::get('package_version_uuid');
-		$platformUuid = Input::get('platform_uuid');
-		$platformVersionUuid = Input::get('platform_version_uuid');
+		$projectUuid = $request->input('project_uuid');
+		$packageUuid = $request->input('package_uuid');
+		$packageVersionUuid = $request->input('package_version_uuid');
+		$platformUuid = $request->input('platform_uuid');
+		$platformVersionUuid = $request->input('platform_version_uuid');
 
 		// get specified models
 		//
@@ -133,17 +132,17 @@ class AssessmentRunsController extends BaseController
 
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request) {
 
 		// parse parameters
 		//
-		$projectUuid = Input::get('project_uuid');
-		$packageUuid = Input::get('package_uuid');
-		$packageVersionUuid = Input::get('package_version_uuid');
-		$toolUuid = Input::get('tool_uuid');
-		$toolVersionUuid = Input::get('tool_version_uuid');
-		$platformUuid = Input::get('platform_uuid');
-		$platformVersionUuid = Input::get('platform_version_uuid');
+		$projectUuid = $request->input('project_uuid');
+		$packageUuid = $request->input('package_uuid');
+		$packageVersionUuid = $request->input('package_version_uuid');
+		$toolUuid = $request->input('tool_uuid');
+		$toolVersionUuid = $request->input('tool_version_uuid');
+		$platformUuid = $request->input('platform_uuid');
+		$platformVersionUuid = $request->input('platform_version_uuid');
 
 		// get specified models
 		//
@@ -209,7 +208,7 @@ class AssessmentRunsController extends BaseController
 			// check tool permission
 			//
 			if ($tool->isRestricted()) {
-				$user = User::getIndex(session('user_uid'));
+				$user = User::current();
 				$permission = $tool->getPermission($project, $user);
 				if ($permission != 'granted') {
 					return response($permission, 401);
@@ -267,7 +266,7 @@ class AssessmentRunsController extends BaseController
 				// check tool permission
 				//
 				if ($tool->isRestricted()) {
-					$user = User::getIndex(session('user_uid'));
+					$user = User::current();
 					$permission = $tool->getPermission($project, $user);
 					if ($permission != 'granted') {
 						continue;
@@ -377,15 +376,20 @@ class AssessmentRunsController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($assessmentRunUuid) {
-		$user = User::getIndex(session('user_uid'));
+	public function getIndex(string $assessmentRunUuid): ?AssessmentRun {
+		$user = User::current();
 		$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
-		$project = Project::where('project_uid', '=', $assessmentRun->project_uuid)->first();
+
+		// check permissions
+		//
+		if ($assessmentRun) {
+			$project = Project::where('project_uid', '=', $assessmentRun->project_uuid)->first();
 		
-		if (($user && $user->isAdmin()) || ($assessmentRun && $user->isMemberOf($project))) {
-			return $assessmentRun;
-		} else {
-			return response('Access denied.', 401);
+			if (($user && $user->isAdmin()) || ($assessmentRun && $user->isMemberOf($project))) {
+				return $assessmentRun;
+			} else {
+				return null;
+			}
 		}
 
 		return $assessmentRun;
@@ -393,7 +397,7 @@ class AssessmentRunsController extends BaseController
 
 	// get by project
 	//
-	public function getQueryByProject($projectUuid) {
+	public function getQueryByProject(Request $request, string $projectUuid) {
 		if (!strpos($projectUuid, '+')) {
 
 			// check for inactive or non-existant project
@@ -405,11 +409,11 @@ class AssessmentRunsController extends BaseController
 
 			// get by a single project
 			//
-			$assessmentRunsQuery = AssessmentRun::where('project_uuid', '=', $projectUuid);
+			$query = AssessmentRun::where('project_uuid', '=', $projectUuid);
 
 			// add filters
 			//
-			$assessmentRunsQuery = TripletFilter::apply($assessmentRunsQuery, $projectUuid);
+			$query = TripletFilter::apply($request, $query, $projectUuid);
 		} else {
 
 			// get by multiple projects
@@ -424,65 +428,65 @@ class AssessmentRunsController extends BaseController
 					continue;
 				}
 
-				if (!isset($assessmentRunsQuery)) {
-					$assessmentRunsQuery = AssessmentRun::where('project_uuid', '=', $projectUuid);
+				if (!isset($query)) {
+					$query = AssessmentRun::where('project_uuid', '=', $projectUuid);
 				} else {
-					$assessmentRunsQuery = $assessmentRunsQuery->orWhere('project_uuid', '=', $projectUuid);
+					$query = $query->orWhere('project_uuid', '=', $projectUuid);
 				}
 
 				// add filters
 				//
-				$assessmentRunsQuery = TripletFilter::apply($assessmentRunsQuery, $projectUuid);
+				$query = TripletFilter::apply($request, $query, $projectUuid);
 			}
 		}
 
-		return $assessmentRunsQuery;
+		return $query;
 	}
 
-	public function getAllByProject($projectUuid) {
-		$assessmentRunsQuery = $this->getQueryByProject($projectUuid);
+	public function getAllByProject(Request $request, string $projectUuid): Collection {
+		$query = $this->getQueryByProject($request, $projectUuid);
 
 		// perform query
 		//
-		return $assessmentRunsQuery->get();
+		return $query->get();
 	}
 
-	public function getByProject($projectUuid) {
-		$assessmentRunsQuery = $this->getQueryByProject($projectUuid);
+	public function getByProject(Request $request, string $projectUuid): Collection {
+		$query = $this->getQueryByProject($request, $projectUuid);
 
 		// order results before applying filter
 		//
-		$assessmentRunsQuery = $assessmentRunsQuery->orderBy('create_date', 'DESC');
+		$query = $query->orderBy('create_date', 'DESC');
 
 		// add limit filter
 		//
-		$assessmentRunsQuery = LimitFilter::apply($assessmentRunsQuery);
+		$query = LimitFilter::apply($request, $query);
 
 		// perform query
 		//
-		return $assessmentRunsQuery->get();
+		return $query->get();
 	}
 
 	// get number by project
 	//
-	public function getNumByProject($projectUuid) {
-		return $this->getQueryByProject($projectUuid)->count();
+	public function getNumByProject(Request $request, string $projectUuid): int {
+		return $this->getQueryByProject($request, $projectUuid)->count();
 	}
 
 	// get run requests
 	//
-	public function getRunRequests($assessmentRunUuid) {
+	public function getRunRequests(string $assessmentRunUuid): Collection {
 		return AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first()->getRunRequests();
 	}
 
 	// get scheduled assessment runs by project
 	//
-	public function getScheduledByProject($projectUuid) {
-		$assessmentRuns = $this->getAllByProject($projectUuid);
+	public function getScheduledByProject(Request $request, string $projectUuid): Collection {
+		$assessmentRuns = $this->getAllByProject($request, $projectUuid);
 
 		// parse parameters
 		//
-		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+		$limit = filter_var($request->input('limit'), FILTER_VALIDATE_INT);
 
 		// get one time run request
 		//
@@ -492,7 +496,7 @@ class AssessmentRunsController extends BaseController
 
 		// compile list of non-one time assessment run requests
 		//
-		$assessmentRunRequests = new Collection;
+		$assessmentRunRequests = collect();
 		if ($oneTimeRunRequest) {
 			foreach ($assessmentRuns as $assessmentRun) {
 				$assessmentRunRequests = $assessmentRunRequests->merge(
@@ -508,7 +512,7 @@ class AssessmentRunsController extends BaseController
 
 		// create scheduled assessment runs containing the run request
 		//
-		$scheduledAssessmentRuns = new Collection;
+		$scheduledAssessmentRuns = collect();
 		foreach ($assessmentRunRequests as $assessmentRunRequest) {
 			$scheduledAssessmentRun = AssessmentRun::where('assessment_run_id', '=', $assessmentRunRequest->assessment_run_id)->first()->toArray();
 			$runRequest = RunRequest::where('run_request_id', '=', $assessmentRunRequest->run_request_id)->first();
@@ -528,8 +532,8 @@ class AssessmentRunsController extends BaseController
 
 	// get number of scheduled assessment runs by project
 	//
-	public function getNumScheduledByProject($projectUuid) {
-		$runs = $this->getScheduledByProject($projectUuid);
+	public function getNumScheduledByProject(Request $request, string $projectUuid): int {
+		$runs = $this->getScheduledByProject($request, $projectUuid);
 		if ($runs) {
 			return count($runs);
 		} else {
@@ -539,21 +543,24 @@ class AssessmentRunsController extends BaseController
 
 	// update by index
 	//
-	public function updateIndex($assessmentRunUuid) {
+	public function updateIndex(Request $request, string $assessmentRunUuid) {
 
 		// parse parameters
 		//
-		$projectUuid = Input::get('project_uuid');
-		$packageUuid = Input::get('package_uuid');
-		$packageVersionUuid = Input::get('package_version_uuid');
-		$toolUuid = Input::get('tool_uuid');
-		$toolVersionUuid = Input::get('tool_version_uuid');
-		$platformUuid = Input::get('platform_uuid');
-		$platformVersionUuid = Input::get('platform_version_uuid');
+		$projectUuid = $request->input('project_uuid');
+		$packageUuid = $request->input('package_uuid');
+		$packageVersionUuid = $request->input('package_version_uuid');
+		$toolUuid = $request->input('tool_uuid');
+		$toolVersionUuid = $request->input('tool_version_uuid');
+		$platformUuid = $request->input('platform_uuid');
+		$platformVersionUuid = $request->input('platform_version_uuid');
 
 		// get model
 		//
 		$assessmentRun = $this->getIndex($assessmentRunUuid);
+		if (!$assessmentRun) {
+			return response("Assessment run not found.", 404);
+		}
 
 		// update attributes
 		//
@@ -574,7 +581,7 @@ class AssessmentRunsController extends BaseController
 
 	// delete by index
 	//
-	public function deleteIndex($assessmentRunUuid) {
+	public function deleteIndex(string $assessmentRunUuid) {
 		$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
 		$assessmentRun->delete();
 		return $assessmentRun;

@@ -18,7 +18,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Ldap;
@@ -51,8 +51,10 @@ class Ldap
 	// entry if found (or null if not found). False is returned for LDAP
 	// connectivity problems.
 	//
-	public static function getIndex($userUid) {
+	public static function getIndex(string $userUid) {
 
+		// connect to LDAP
+		//
 		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
 			$ldapConnectionConfig = config('ldap.connection');
@@ -66,6 +68,7 @@ class Ldap
 			$entries = ldap_get_entries($ldapConnection, $searchResults);
 
 			// convert LDAP entry to user
+			//
 			if ($entries['count'] > 0) {
 				return static::entrytoUser($entries[0]);
 			} else {
@@ -82,8 +85,10 @@ class Ldap
 	// LDAP entry if found (or null if not found). False is returned for LDAP
 	// connectivity issues.
 	//
-	public static function getByUsername($username) {
+	public static function getByUsername(string $username) {
 
+		// connect to LDAP
+		//
 		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
 			$ldapConnectionConfig = config('ldap.connection');
@@ -114,8 +119,10 @@ class Ldap
 	// This method returns the matching LDAP entry if found (or null if
 	// not found). False is returned for LDAP connectivity issues.
 	//
-	public static function getByEmail($email) {
+	public static function getByEmail(string $email) {
 
+		// connect to LDAP
+		//
 		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
 			$ldapConnectionConfig = config('ldap.connection');
@@ -146,6 +153,8 @@ class Ldap
 	//
 	public static function getAll() {
 
+		// connect to LDAP
+		//
 		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
 			$ldapConnectionConfig = config('ldap.connection');
@@ -179,7 +188,7 @@ class Ldap
 
 			// Start with a emtpy collection of users
 			//
-			$users = new Collection(); 
+			$users = collect(); 
 
 			// Loop through the pages of LDAP results for all matching user rdns
 			//
@@ -221,14 +230,18 @@ class Ldap
 	// Add a new user object to LDAP. Note this method only works when LDAP
 	// read_only is false.
 	//
-	public static function add($user) {
+	public static function add(User $user) {
 
+		// check that LDAP is writeable
+		//
 		$ldapConnectionConfig = config('ldap.connection');
 		if ($ldapConnectionConfig['read_only']) {
 			throw new ErrorException(
 				'Constraint violation: LDAP is configured read-only.');
 		}
 
+		// connect to LDAP
+		//
 		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
 
@@ -264,14 +277,18 @@ class Ldap
 
 	// Save existing user object to LDAP. Note this method only works when LDAP
 	// read_only is false.
-	public static function save($user) {
+	public static function save(User $user) {
 
+		// check that LDAP is writeable
+		//
 		$ldapConnectionConfig = config('ldap.connection');
 		if ($ldapConnectionConfig['read_only']) {
 			throw new ErrorException(
 				'Constraint violation: LDAP is configured read-only.');
 		}
 
+		// connect to LDAP
+		//
 		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
 
@@ -316,7 +333,7 @@ class Ldap
 	// We then attempt to bind to LDAP with that dn and passed-in $password.
 	// A successful bind means that the password is valid.
 	//
-	public static function validatePassword($userUid,$password) {
+	public static function validatePassword(string $userUid, string $password) {
 		$retval = false;
 
 		$userdn = static::swampUidToUserDN($userUid);
@@ -328,6 +345,9 @@ class Ldap
 			$ldapConnectionConfig = config('ldap.connection');
 			$ldapHost = $ldapConnectionConfig['host'];
 			$ldapPort = $ldapConnectionConfig['port'];
+
+			// connect to LDAP
+			//
 			$ldapConnection = ldap_connect($ldapHost, $ldapPort);
 			if ($ldapConnection) {
 				ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
@@ -348,9 +368,11 @@ class Ldap
 	// Modify an existing user object's password in LDAP. Note this method
 	// only works when LDAP read_only is false.
 	//
-	public static function modifyPassword($user, $password) {
+	public static function modifyPassword(User $user, string $password) {
 		$retval = false;
 
+		// check that LDAP is writeable
+		//
 		$ldapConnectionConfig = config('ldap.connection');
 		if ($ldapConnectionConfig['read_only']) {
 			throw new ErrorException(
@@ -359,6 +381,9 @@ class Ldap
 
 		$userdn = static::swampUidToUserDN($user->user_uid);
 		if (strlen($userdn) > 0) {
+
+			// connect to LDAP
+			//
 			$ldapConnection = static::getLdapConnection('password_set_user');
 			if ($ldapConnection) {
 				try {
@@ -396,9 +421,11 @@ class Ldap
 	// and returns the full 'dn' for that entry. This can be used to
 	// bind against LDAP for a particular user. Upon error, false is returned.
 	//
-	private static function swampUidToUserDN($userUid) {
+	private static function swampUidToUserDN(string $userUid) {
 		$retval = false;
 
+		// connect to LDAP
+		//
 		$ldapConnection = static::getLdapConnection('web_user');
 		if ($ldapConnection) {
 			$ldapConnectionConfig = config('ldap.connection');
@@ -429,13 +456,13 @@ class Ldap
 		return $retval;
 	}
 
-	private static function entryToUser($entry) {
+	private static function entryToUser(array $entry) {
 		return new User([
-			'user_uid' => static::searchEntryForAttr($entry,'swamp_uid_attr'),
-			'first_name' => static::searchEntryForAttr($entry,'firstname_attr'),
-			'last_name' => static::searchEntryForAttr($entry,'lastname_attr'),
-			'preferred_name' => static::searchEntryForAttr($entry,'fullname_attr'),
-			'username' => static::searchEntryForAttr($entry,'username_attr'),
+			'user_uid' => static::searchEntryForAttr($entry, 'swamp_uid_attr'),
+			'first_name' => static::searchEntryForAttr($entry, 'firstname_attr'),
+			'last_name' => static::searchEntryForAttr($entry, 'lastname_attr'),
+			'preferred_name' => static::searchEntryForAttr($entry, 'fullname_attr'),
+			'username' => static::searchEntryForAttr($entry, 'username_attr'),
 			
 			// If LDAP is not doing the password validation, then return the
 			// password from LDAP so it can be validated in the application.
@@ -444,8 +471,8 @@ class Ldap
 
 			// For email address and affiliation, remove any leading/trailing spaces
 			//
-			'email' => trim(static::searchEntryForAttr($entry,'email_attr')),
-			'affiliation' => trim(static::searchEntryForAttr($entry,'org_attr'))
+			'email' => trim(static::searchEntryForAttr($entry, 'email_attr')),
+			'affiliation' => trim(static::searchEntryForAttr($entry, 'org_attr'))
 		]);
 	}
 
@@ -453,8 +480,11 @@ class Ldap
 	// all lowercase keys) for a key matching $attr as configured for LDAP.
 	// If found, it returns the value of that $attr. Otherwise, it returns null.
 	//
-	private static function searchEntryForAttr($entry,$attr) {
+	private static function searchEntryForAttr(array $entry, string $attr) {
 		$retval = null;
+
+		// connect to LDAP
+		//
 		$ldapConnectionConfig = config('ldap.connection');
 		if ($ldapConnectionConfig[$attr] != 'ignore') {
 			$ldapAttr = strtolower($ldapConnectionConfig[$attr]);
@@ -465,15 +495,15 @@ class Ldap
 		return $retval;
 	}
 
-	private static function entriesToUsers($entries) {
-		$users = new Collection();
+	private static function entriesToUsers(array $entries) {
+		$users = collect();
 		for ($i = 0; $i < $entries['count']; $i++) {
 			$users->push(static::entryToUser($entries[$i]));
 		}
 		return $users;
 	}
 
-	private static function newUserToEntry($user) {
+	private static function newUserToEntry(User $user) {
 		return static::userToEntry($user, true);
 	}
 
@@ -485,7 +515,7 @@ class Ldap
 	 *        'password' entry to the returned array. Defaults to false.
 	 * @return An array containing the parameters of the passed-in user object
 	 */
-	public static function userToEntry($user, $newuser=false) {
+	public static function userToEntry(User $user, bool $newuser=false): array {
 		$retarr = [];
 		$ldapConnConf = config('ldap.connection');
 		$mir_swamp = config('ldap.mir_swamp');
@@ -525,6 +555,9 @@ class Ldap
 			$ldapConnectionConfig = config('ldap.connection');
 			$ldapHost = $ldapConnectionConfig['host'];
 			$ldapPort = $ldapConnectionConfig['port'];
+
+			// connect to LDAP
+			//
 			$ldapConnection = ldap_connect($ldapHost, $ldapPort);
 			if ($ldapConnection) {
 				ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
@@ -550,7 +583,7 @@ class Ldap
 	// times without having to bind more than once. Note that when using
 	// this method, DO NOT call ldap_close() for the LDAP connection.
 	//
-	protected static function getLdapConnection($user) {
+	protected static function getLdapConnection(string $user) {
 		$retval = null;
 
 		// Check if we have already set up the LDAP connection for the
@@ -567,6 +600,9 @@ class Ldap
 			$ldapConnectionConfig = config('ldap.connection');
 			$ldapHost = $ldapConnectionConfig['host'];
 			$ldapPort = $ldapConnectionConfig['port'];
+
+			// connect to LDAP
+			//
 			$ldapConnection = ldap_connect($ldapHost, $ldapPort);
 			if ($ldapConnection) {
 				ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);

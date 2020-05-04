@@ -16,22 +16,23 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 
 class EventDateFilter
 {
 	// check for after date
 	//
-	static function after($query) {
+	static function after(Request $request, Builder $query) {
 
 		// parse parameters
 		//
-		$after = Input::get('after', null);
+		$after = $request->input('after', null);
 
 		// add to query
 		//
@@ -45,11 +46,11 @@ class EventDateFilter
 
 	// check for before date
 	//
-	static function before($query) {
+	static function before(Request $request, Builder $query) {
 
 		// parse parameters
 		//
-		$before = Input::get('before', null);
+		$before = $request->input('before', null);
 
 		// add to query
 		//
@@ -63,9 +64,9 @@ class EventDateFilter
 
 	// check for before and after date
 	//
-	static function apply($query) {
-		$query = EventDateFilter::after($query);
-		$query = EventDateFilter::before($query);
+	static function apply(Request $request, Builder $query) {
+		$query = EventDateFilter::after($request, $query);
+		$query = EventDateFilter::before($request, $query);
 		return $query;
 	}
 }

@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -30,7 +30,7 @@ class AfterMiddleware
 	 * @param  \Closure  $next
 	 * @return mixed
 	 */
-	public function handle($request, Closure $next)
+	public function handle(Request $request, Closure $next)
 	{
 		// set CORS headers if neccessary
 		//
@@ -56,9 +56,20 @@ class AfterMiddleware
 			$response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
 			$response->headers->set('Access-Control-Allow-Headers', 'x-requested-with,Content-Type,If-Modified-Since,If-None-Match,Auth-User-Token');
 			$response->headers->set('Access-Control-Allow-Credentials', 'true');
-			return $response;
 		} else {
-			return $next($request);
+			$response = $next($request);
 		}
+
+		// return only 200 status code for all 200 series status codes
+		//
+		if (config('app.simple_status_codes')) {
+			if (method_exists($response, 'status')) {
+				$status = $response->status();
+				if ($status >= 200 && $status < 300) {
+					$response->setStatusCode(200);
+				}
+			}
+		}
+		return $response;
 	}
 }

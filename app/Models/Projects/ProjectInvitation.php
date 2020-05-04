@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Projects;
@@ -29,13 +29,25 @@ use App\Models\Users\User;
 
 class ProjectInvitation extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'project_invitation';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'invitation_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'project_uid', 
 		'invitation_key',
@@ -50,8 +62,11 @@ class ProjectInvitation extends CreateStamped
 		'decline_date'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'project_uid', 
 		'invitation_key',
@@ -68,8 +83,11 @@ class ProjectInvitation extends CreateStamped
 		'decline_date'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'inviter_name',
 		'project_name'
@@ -99,14 +117,14 @@ class ProjectInvitation extends CreateStamped
 	// invitation sending / emailing method
 	//
 
-	public function send($confirmRoute, $registerRoute) {
+	public function send(string $confirmRoute, string $registerRoute) {
 
-		// return an error if email has not been enabled
+		// check to see that mail is enabled
 		//
 		if (!config('mail.enabled')) {
-			return response('Email has not been enabled.', 400); 
+			return;
 		}
-
+		
 		// get invitee user
 		//
 		if ($this->invitee_email) {

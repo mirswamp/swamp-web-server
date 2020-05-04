@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Tools;
@@ -25,21 +25,42 @@ use App\Models\Viewers\Viewer;
 
 class ToolViewerIncompatibility extends BaseModel
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'tool_shed';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'tool_viewer_incompatibility';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'tool_viewer_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'tool_uuid',
 		'viewer_uuid'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'tool_uuid',
 		'viewer_uuid'

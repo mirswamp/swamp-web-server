@@ -3,19 +3,19 @@
 namespace Illuminate\Routing;
 
 use Closure;
-use LogicException;
-use ReflectionFunction;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
 use Illuminate\Container\Container;
-use Illuminate\Support\Traits\Macroable;
-use Illuminate\Routing\Matching\UriValidator;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Contracts\ControllerDispatcher as ControllerDispatcherContract;
 use Illuminate\Routing\Matching\HostValidator;
 use Illuminate\Routing\Matching\MethodValidator;
 use Illuminate\Routing\Matching\SchemeValidator;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Routing\Contracts\ControllerDispatcher as ControllerDispatcherContract;
+use Illuminate\Routing\Matching\UriValidator;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
+use Illuminate\Support\Traits\Macroable;
+use LogicException;
+use ReflectionFunction;
 
 class Route
 {
@@ -83,6 +83,13 @@ class Route
      * @var array|null
      */
     public $parameterNames;
+
+    /**
+     * The array of the matched parameters' original values.
+     *
+     * @var array
+     */
+    protected $originalParameters;
 
     /**
      * The computed gathered middleware.
@@ -300,6 +307,8 @@ class Route
         $this->parameters = (new RouteParameterBinder($this))
                         ->parameters($request);
 
+        $this->originalParameters = $this->parameters;
+
         return $this;
     }
 
@@ -316,7 +325,7 @@ class Route
     /**
      * Determine a given parameter exists from the route.
      *
-     * @param  string $name
+     * @param  string  $name
      * @return bool
      */
     public function hasParameter($name)
@@ -332,7 +341,7 @@ class Route
      * Get a given parameter from the route.
      *
      * @param  string  $name
-     * @param  mixed   $default
+     * @param  mixed  $default
      * @return string|object
      */
     public function parameter($name, $default = null)
@@ -341,10 +350,22 @@ class Route
     }
 
     /**
+     * Get original value of a given parameter from the route.
+     *
+     * @param  string  $name
+     * @param  mixed  $default
+     * @return string
+     */
+    public function originalParameter($name, $default = null)
+    {
+        return Arr::get($this->originalParameters(), $name, $default);
+    }
+
+    /**
      * Set a parameter to the given value.
      *
      * @param  string  $name
-     * @param  mixed   $value
+     * @param  mixed  $value
      * @return void
      */
     public function setParameter($name, $value)
@@ -378,6 +399,22 @@ class Route
     {
         if (isset($this->parameters)) {
             return $this->parameters;
+        }
+
+        throw new LogicException('Route is not bound.');
+    }
+
+    /**
+     * Get the key / value list of original parameters for the route.
+     *
+     * @return array
+     *
+     * @throws \LogicException
+     */
+    public function originalParameters()
+    {
+        if (isset($this->originalParameters)) {
+            return $this->originalParameters;
         }
 
         throw new LogicException('Route is not bound.');
@@ -452,7 +489,7 @@ class Route
      * Set a regular expression requirement on the route.
      *
      * @param  array|string  $name
-     * @param  string  $expression
+     * @param  string|null  $expression
      * @return $this
      */
     public function where($name, $expression = null)
@@ -645,7 +682,7 @@ class Route
     /**
      * Determine whether the route's name matches the given patterns.
      *
-     * @param  dynamic  $patterns
+     * @param  mixed  ...$patterns
      * @return bool
      */
     public function named(...$patterns)
@@ -761,7 +798,7 @@ class Route
     /**
      * Get or set the middlewares attached to the route.
      *
-     * @param  array|string|null $middleware
+     * @param  array|string|null  $middleware
      * @return $this|array
      */
     public function middleware($middleware = null)

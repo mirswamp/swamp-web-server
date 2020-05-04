@@ -43,10 +43,7 @@ class Profile
      */
     private $children = [];
 
-    /**
-     * @param string $token The token
-     */
-    public function __construct($token)
+    public function __construct(string $token)
     {
         $this->token = $token;
     }
@@ -102,7 +99,7 @@ class Profile
     /**
      * Returns the IP.
      *
-     * @return string The IP
+     * @return string|null The IP
      */
     public function getIp()
     {
@@ -122,7 +119,7 @@ class Profile
     /**
      * Returns the request method.
      *
-     * @return string The request method
+     * @return string|null The request method
      */
     public function getMethod()
     {
@@ -137,13 +134,16 @@ class Profile
     /**
      * Returns the URL.
      *
-     * @return string The URL
+     * @return string|null The URL
      */
     public function getUrl()
     {
         return $this->url;
     }
 
+    /**
+     * @param string $url
+     */
     public function setUrl($url)
     {
         $this->url = $url;
@@ -180,7 +180,7 @@ class Profile
     }
 
     /**
-     * @return int
+     * @return int|null
      */
     public function getStatusCode()
     {
@@ -217,6 +217,17 @@ class Profile
     {
         $this->children[] = $child;
         $child->setParent($this);
+    }
+
+    public function getChildByToken(string $token): ?self
+    {
+        foreach ($this->children as $child) {
+            if ($token === $child->getToken()) {
+                return $child;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -280,6 +291,9 @@ class Profile
         return isset($this->collectors[$name]);
     }
 
+    /**
+     * @return array
+     */
     public function __sleep()
     {
         return ['token', 'parent', 'children', 'collectors', 'ip', 'method', 'url', 'time', 'statusCode'];

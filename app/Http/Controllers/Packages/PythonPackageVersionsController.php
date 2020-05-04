@@ -14,12 +14,12 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
 use App\Models\Packages\PythonPackageVersion;
 use App\Http\Controllers\Packages\PackageVersionsController;
 
@@ -27,16 +27,16 @@ class PythonPackageVersionsController extends PackageVersionsController
 {
 	// get wheel information for new packages
 	//
-	public function getNewPythonWheelInfo() {
+	public function getNewPythonWheelInfo(Request $request) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
+		$dirname = $request->input('dirname');
 
 		// create new package version
 		//
 		$packageVersion = new PythonPackageVersion([
-			'package_path' => Input::get('package_path')
+			'package_path' => $request->input('package_path')
 		]);
 
 		return $packageVersion->getWheelInfo($dirname);
@@ -44,15 +44,18 @@ class PythonPackageVersionsController extends PackageVersionsController
 
 	// get wheel information for existing packages
 	//
-	public function getPythonWheelInfo($packageVersionUuid) {
+	public function getPythonWheelInfo(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
+		$dirname = $request->input('dirname');
 
 		// find package version
 		//
-		$packageVersion = PythonPackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PythonPackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return response("Package version not found.", 404);
+		}
 
 		return $packageVersion->getWheelInfo($dirname);
 	}

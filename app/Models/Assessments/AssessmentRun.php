@@ -13,15 +13,16 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Assessments;
 
 use Illuminate\Support\Collection;
-use App\Models\TimeStamps\UserStamped;
+use App\Models\TimeStamps\TimeStamped;
 use App\Models\Users\Permission;
 use App\Models\Projects\Project;
+use App\Models\Users\User;
 use App\Models\Users\UserPolicy;
 use App\Models\Users\UserPermission;
 use App\Models\Packages\Package;
@@ -34,16 +35,48 @@ use App\Models\RunRequests\RunRequest;
 use App\Models\Assessments\AssessmentRunRequest;
 use App\Models\Results\ExecutionRecord;
 
-class AssessmentRun extends UserStamped
+class AssessmentRun extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'assessment';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'assessment_run';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'assessment_run_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
+	public $incrementing = false;
+
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'assessment_run_uuid',
 		'project_uuid',
@@ -55,8 +88,11 @@ class AssessmentRun extends UserStamped
 		'platform_version_uuid'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'assessment_run_uuid',
 		'project_uuid',
@@ -76,8 +112,11 @@ class AssessmentRun extends UserStamped
 		'num_execution_records'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'project_name',
 		'package_name',
@@ -89,8 +128,11 @@ class AssessmentRun extends UserStamped
 		'num_execution_records'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'num_execution_records' => 'integer'
 	];
@@ -99,7 +141,7 @@ class AssessmentRun extends UserStamped
 	// accessor methods
 	//
 
-	public function getProjectNameAttribute() {
+	public function getProjectNameAttribute(): string {
 		if ($this->project_uuid != null) {
 			$project = Project::where('project_uid', '=', $this->project_uuid)->first();
 			if ($project) {
@@ -112,7 +154,7 @@ class AssessmentRun extends UserStamped
 		}
 	}
 
-	public function getPackageNameAttribute() {
+	public function getPackageNameAttribute(): string {
 		if ($this->package_uuid != null) {
 			$package = Package::where('package_uuid', '=', $this->package_uuid)->first();
 			if ($package) {
@@ -125,7 +167,7 @@ class AssessmentRun extends UserStamped
 		}
 	}
 
-	public function getPackageVersionStringAttribute() {
+	public function getPackageVersionStringAttribute(): string {
 		if ($this->package_version_uuid != null) {
 			$packageVersion = PackageVersion::where('package_version_uuid', '=', $this->package_version_uuid)->first();
 			if ($packageVersion) {
@@ -138,7 +180,7 @@ class AssessmentRun extends UserStamped
 		}
 	}
 
-	public function getToolNameAttribute() {
+	public function getToolNameAttribute(): string {
 		if ($this->tool_uuid != null) {
 			$tool = Tool::where('tool_uuid', '=', $this->tool_uuid)->first();
 			if ($tool) {
@@ -151,7 +193,7 @@ class AssessmentRun extends UserStamped
 		}
 	}
 
-	public function getToolVersionStringAttribute() {
+	public function getToolVersionStringAttribute(): string {
 		if ($this->tool_version_uuid != null) {
 			$toolVersion = ToolVersion::where('tool_version_uuid', '=', $this->tool_version_uuid)->first();
 			if ($toolVersion) {
@@ -164,7 +206,7 @@ class AssessmentRun extends UserStamped
 		}
 	}
 
-	public function getPlatformNameAttribute() {
+	public function getPlatformNameAttribute(): string {
 		if ($this->platform_uuid != null) {
 			$platform = Platform::where('platform_uuid', '=', $this->platform_uuid)->first();
 			if ($platform) {
@@ -177,7 +219,7 @@ class AssessmentRun extends UserStamped
 		}
 	}
 
-	public function getPlatformVersionStringAttribute() {
+	public function getPlatformVersionStringAttribute(): string {
 		if ($this->platform_version_uuid != null) {
 			$platformVersion = PlatformVersion::where('platform_version_uuid', '=', $this->platform_version_uuid)->first();
 			if ($platformVersion) {
@@ -190,7 +232,7 @@ class AssessmentRun extends UserStamped
 		}
 	}
 
-	public function getNumExecutionRecordsAttribute() {
+	public function getNumExecutionRecordsAttribute(): string {
 		if (!$this->isMultiple()) {
 			return ExecutionRecord::where('assessment_run_uuid', '=', $this->assessment_run_uuid)->count();
 		} else {
@@ -206,18 +248,18 @@ class AssessmentRun extends UserStamped
 	// querying methods
 	//
 
-	public function getVisible() {
+	public function getVisible(): array {
 		return $this->visible;
 	}
 
-	public function isMultiple() {
+	public function isMultiple(): bool {
 		return is_array($this->assessment_run_uuid);
 	}
 
 	/*
-	public function getRunRequests() {
+	public function getRunRequests(): Collection {
 		$assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->get();
-		$collection = new Collection;
+		$collection = collect();
 		foreach ($assessmentRunRequests as $assessmentRunRequest) {
 			$runRequest = RunRequest::where('run_request_id', '=', $assessmentRunRequest->run_request_id)->first();
 			
@@ -230,7 +272,7 @@ class AssessmentRun extends UserStamped
 		return $collection;
 	}
 
-	public function getNumRunRequests() {
+	public function getNumRunRequests(): int {
 		$num = 0;
 		$assessmentRunRequests = AssessmentRunRequest::where('assessment_run_id', '=', $this->assessment_run_id)->get();
 		foreach ($assessmentRunRequests as $assessmentRunRequest) {
@@ -246,7 +288,7 @@ class AssessmentRun extends UserStamped
 	}
 	*/
 
-	public function getRunRequests() {
+	public function getRunRequests(): Collection {
 		$oneTimeRunRequest = RunRequest::where('name', '=', 'One-time')
 			->where('project_uuid', '=', null)
 			->first();
@@ -255,7 +297,7 @@ class AssessmentRun extends UserStamped
 			->get();
 	}
 
-	public function getNumRunRequests() {
+	public function getNumRunRequests(): int {
 		$oneTimeRunRequest = RunRequest::where('name', '=', 'One-time')
 			->where('project_uuid', '=', null)
 			->first();
@@ -264,7 +306,7 @@ class AssessmentRun extends UserStamped
 			->count();
 	}
 
-	public function checkPermissions($user) {
+	public function checkPermissions(User $user) {
 		$tool = Tool::where('tool_uuid','=',$this->tool_uuid)->first();
 
 		// return if no tool

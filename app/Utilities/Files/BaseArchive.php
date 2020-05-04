@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Files;
@@ -35,7 +35,7 @@ class BaseArchive
 	// constructor
 	//
 
-	public function __construct($path) {
+	public function __construct(?string $path = null) {
 		$this->path = $path;
 	}
 
@@ -43,18 +43,18 @@ class BaseArchive
 	// static path related utility methods
 	//
 
-	function toPath($str) {
+	function toPath(?string $str): ?string {
 		if ($str && $str != '') {
 			if ($str == '.') {
 				return '';
 			} else if (!StringUtils::endsWith($str, '/')) {
-				return $str.'/';
+				return $str . '/';
 			}
 		}
 		return $str;
 	}
 
-	function normalizePaths(&$path, &$file) {
+	function normalizePaths(string &$path, string &$file) {
 
 		// normalize dot path
 		//
@@ -100,9 +100,21 @@ class BaseArchive
 		}
 	}
 
-	function concatPaths($path1, $path2) {
-		$this->normalizePaths($path1, $path2);
-		$path = $this->toPath($path1) . $this->toPath($path2);
+	function concatPaths(?string $path1, ?string $path2): string {
+
+		// check if both paths exist
+		//
+		if (!$path1 || $path1 == '') {
+			$path = $path2;
+		} else if (!$path2 || $path2 == '') {
+			$path = $path1;
+		} else {
+
+			// concatenate paths
+			//
+			$this->normalizePaths($path1, $path2);
+			$path = $this->toPath($path1) . $this->toPath($path2);
+		}
 
 		if ($path == '') {
 			$path = '.';
@@ -111,7 +123,7 @@ class BaseArchive
 		return $path;
 	}
 
-	function toPathName($path) {
+	function toPathName(?string $path): ?string {
 
 		// strip trailing slash
 		//	
@@ -132,17 +144,17 @@ class BaseArchive
 	// public methods
 	//
 
-	public function getRoot() {
-		$list = $this->getFileInfoList();
-		$names = $this->infoListToNames($list);
-		return $this->getRootDirectoryName($names);
+	public function getRoot(bool $trim = true, bool $pad = true): ?string {
+		$list = $this->getFileInfoList(null, null, false, $trim);
+		$names = $this->infoListToNames($list, $trim);
+		return $this->getRootDirectoryName($names, $trim, $pad);
 	}
 
-	public function getExtension() {
+	public function getExtension(): ?string {
 		return pathinfo($this->path, PATHINFO_EXTENSION);
 	}
 
-	public function find($path, $filter = null, $recursive = false) {
+	public function find(?string $path, string $filter = null, bool $recursive = false): ?string {
 		$info = $this->getFileInfoList($path, $filter, $recursive);
 		$names = $this->infoArrayToNames($info);
 
@@ -157,9 +169,11 @@ class BaseArchive
 
 			return $name;
 		}
+
+		return null;
 	}
 
-	public function getListing($path, $filter = null, $recursive = false) {
+	public function getListing(?string $path, string $filter = null, bool $recursive = false): array {
 		$info = $this->getFileInfoList($path, $filter, $recursive);
 		$names = $this->infoArrayToNames($info);
 
@@ -174,7 +188,7 @@ class BaseArchive
 		return $names;
 	}
 
-	public function contains($dirname, $filename) {
+	public function contains(?string $dirname, string $filename): bool {
 		$this->normalizePaths($dirname, $filename);
 
 		if (StringUtils::startsWith($dirname, './')) {
@@ -192,18 +206,13 @@ class BaseArchive
 		return in_array($path, $this->getListing($dirname));
 	}
 
-	public function search($dirname, $filenames, $recursive = true) {
-		$this->normalizePaths($dirname, $filename);
+	public function search(?string $dirname, array $filenames, bool $recursive = true): ?string {
 
-		// get top level item names
-		//
-		if ($dirname && $dirname != '.') {
-			$path = $dirname.$filename;
-		} else {
-			$path = $filename;
+		foreach ($filenames as $filename) {
+			$this->normalizePaths($dirname, $filename);
 		}
 
-		$info = $this->getFileInfoList($path, null, $recursive);
+		$info = $this->getFileInfoList($dirname, null, $recursive);
 		$names = $this->infoArrayToNames($info);
 
 		// strip leading ./ from names
@@ -234,19 +243,21 @@ class BaseArchive
 				}
 			}
 		}
+
+		return null;
 	}
 
-	public function found($dirname, $filter, $recursive = false) {
+	public function found(?string $dirname, ?string $filter, bool $recursive = false): bool {
 		$this->normalizePaths($dirname, $filter);
 		return sizeof($this->getFileInfoList($dirname, $filter, $recursive)) != 0;
 	}
 
-	public function getFileInfoTree($dirname, $filter) {
+	public function getFileInfoTree(?string $dirname, ?string $filter): array {
 		$list = $this->getFileInfoList($dirname, $filter);
 		return $this->directoryInfoListToTree($list);
 	}
 
-	public function getDirectoryInfoTree($dirname, $filter) {
+	public function getDirectoryInfoTree(?string $dirname, ?string $filter): array {
 		$list = $this->getDirectoryInfoList($dirname, $filter);
 		return $this->directoryInfoListToTree($list);
 	}
@@ -255,10 +266,14 @@ class BaseArchive
 	// protected directory utility methods
 	//
 
-	protected function getRootDirectoryName($array) {
+	public function getRootDirectoryName(array $array, bool $trim = true, bool $pad = true): string {
 
 		if (sizeof($array) == 0) {
-			return './';
+			if (!$pad) {
+				return '';
+			} else {
+				return './';
+			}
 		}
 
 		// take the first item as initial prefix
@@ -272,8 +287,10 @@ class BaseArchive
 
 			// strip leading ./
 			//
-			if (StringUtils::startsWith($name, './')) {
-				$name = substr($name, 2);
+			if ($trim) {
+				if (StringUtils::startsWith($name, './')) {
+					$name = substr($name, 2);
+				}
 			}
 
 			// check if there is a match; if not, decrease the prefix length by one
@@ -294,17 +311,21 @@ class BaseArchive
 		}
 
 		if (!$prefix) {
-			$prefix = './';
+			if (!$pad) {
+				$prefix = '';
+			} else {
+				$prefix = './';
+			}
 		}
 
 		return $prefix;
 	}
 
-	protected function isDirectoryName($path) {
+	protected function isDirectoryName(?string $path): bool {
 		return $path[strlen($path) - 1] == '/';
 	}
 
-	protected function addName($name, &$dirnames) {
+	protected function addName(string $name, array &$dirnames) {
 		if (!in_array($name, $dirnames)) {
 
 			// add directory of name
@@ -320,7 +341,7 @@ class BaseArchive
 		}
 	}
 
-	protected function getFileAndDirectoryNames($names) {
+	protected function getFileAndDirectoryNames(array $names, bool $trim = true): array {
 		$dirnames = [];
 
 		for ($i = 0; $i < sizeof($names); $i++) {
@@ -328,7 +349,7 @@ class BaseArchive
 
 			// strip leading ./
 			//
-			if (StringUtils::startsWith($name, './')) {
+			if ($trim && StringUtils::startsWith($name, './')) {
 				$name = substr($name, 2);
 			}
 
@@ -338,7 +359,7 @@ class BaseArchive
 				//
 				$dirname = dirname($name);
 				if ($dirname != '.') {
-					$this->addName($dirname.'/', $dirnames);
+					$this->addName($dirname . '/', $dirnames);
 				}
 
 				// add file or directory
@@ -354,7 +375,7 @@ class BaseArchive
 	// protected file and directory name filtering methods
 	//
 
-	protected function getDirectoryNames($names) {
+	protected function getDirectoryNames(array $names): array {
 		$directoryNames = [];
 
 		for ($i = 0; $i < sizeof($names); $i++) {
@@ -374,7 +395,7 @@ class BaseArchive
 		return $directoryNames;
 	}
 
-	protected function getFileNames($names) {
+	protected function getFileNames(array $names): array {
 		$fileNames = [];
 
 		for ($i = 0; $i < sizeof($names); $i++) {
@@ -398,7 +419,7 @@ class BaseArchive
 	// protected name / directory filtering methods
 	//
 
-	protected function getNamesInDirectory($names, $dirname, $recursive = false) {
+	protected function getNamesInDirectory(array $names, string $dirname = null, bool $recursive = false, bool $trim = true): array {
 		$dirnames = [];
 
 		// make sure that dirname ends with a slash
@@ -452,8 +473,10 @@ class BaseArchive
 
 			// strip leading ./
 			//
-			if (StringUtils::startsWith($name, './')) {
-				$name = substr($name, 2);
+			if ($trim) {
+				if (StringUtils::startsWith($name, './')) {
+					$name = substr($name, 2);
+				}
 			}
 
 			if ($recursive) {
@@ -470,7 +493,7 @@ class BaseArchive
 		return $dirnames;
 	}
 
-	protected function getNamesNestedInDirectory($names, $dirname) {
+	protected function getNamesNestedInDirectory(array $names, string $dirname = null): array {
 
 		// return all if no dirname
 		//
@@ -510,7 +533,7 @@ class BaseArchive
 		return $dirnames;
 	}
 
-	protected function getFilteredNames($names, $filter) {
+	protected function getFilteredNames(array $names, string $filter): array {
 
 		// return all if no filter
 		//
@@ -548,13 +571,13 @@ class BaseArchive
 	// protected file name / info conversion methods
 	//
 
-	protected function nameToInfo($name) {
+	protected function nameToInfo(string $name): array {
 		return [
 			'name' => $name
 		];
 	}
 
-	protected function namesToInfoArray($names) {
+	protected function namesToInfoArray(array $names): array {
 		$info = [];
 		foreach ($names as $name) {
 			array_push($info, $this->nameToInfo($name));
@@ -562,7 +585,7 @@ class BaseArchive
 		return $info;
 	}
 
-	protected function infoArrayToNames($info) {
+	protected function infoArrayToNames(array $info): array {
 		$names = [];
 		foreach ($info as $item) {
 			array_push($names, $item['name']);
@@ -574,7 +597,7 @@ class BaseArchive
 	// protected file type inspection methods
 	//
 
-	protected function getFileTypesFromNames($names) {
+	protected function getFileTypesFromNames(array $names): array {
 		$fileTypes = [];
 		for ($i = 0; $i < sizeof($names); $i++) {
 			$name = $names[$i];
@@ -592,7 +615,7 @@ class BaseArchive
 	// protected archive methods
 	//
 
-	protected function addPath($path, &$names) {
+	protected function addPath(string $path, array &$names) {
 		if ($path && $path != '.' && $path != '/' && !in_array($path, $names)) {
 
 			// add parent dirname
@@ -608,7 +631,7 @@ class BaseArchive
 		}
 	}
 
-	protected function containsDirectoryNames($names) {
+	protected function containsDirectoryNames(string $names): bool {
 		foreach ($names as $value) {
 			if (StringUtils::endsWith($value, '/')) {
 				return true;
@@ -617,7 +640,7 @@ class BaseArchive
 		return false;
 	}
 
-	protected function inferDirectoryNames($names) {
+	protected function inferDirectoryNames(array $names): array {
 		foreach ($names as $value) {
 
 			// for each file name
@@ -656,14 +679,14 @@ class BaseArchive
 	// protected directory list to tree conversion methods
 	//
 
-	protected function infoListToNames($list) {
+	public function infoListToNames(array $list, bool $trim = true): array {
 		$names = [];
 		for ($i = 0; $i < sizeof($list); $i++) {
 			$name = $list[$i]['name'];
 
 			// strip leading ./
 			//
-			if (StringUtils::startsWith($name, './')) {
+			if ($trim && StringUtils::startsWith($name, './')) {
 				$name = substr($name, 2);
 			}
 
@@ -673,7 +696,7 @@ class BaseArchive
 		return $names;
 	}
 
-	protected function directoryInfoListToTree($list) {
+	protected function directoryInfoListToTree(array $list): array {
 		$tree = [];
 
 		function &findLeaf(&$tree, $name) {
@@ -763,15 +786,15 @@ class BaseArchive
 		return $tree;
 	}
 
-	protected function rmdir($dir) { 
+	public static function rmdir(string $dir) { 
 		if (is_dir($dir)) { 
 			$objects = scandir($dir); 
 			foreach ($objects as $object) { 
-				if ($object != "." && $object != "..") { 
-					if (is_dir($dir."/".$object)) {
-						$this->rmdir($dir."/".$object);
+				if ($object != '.' && $object != '..') { 
+					if (is_dir($dir . '/' . $object)) {
+						self::rmdir($dir . '/' . $object);
 					} else {
-						unlink($dir."/".$object); 
+						unlink($dir . '/' . $object); 
 					}
 				} 
 			}

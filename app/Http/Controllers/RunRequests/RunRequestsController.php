@@ -13,15 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\RunRequests;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Utilities\Filters\LimitFilter;
 use App\Models\Users\Permission;
@@ -41,13 +40,13 @@ class RunRequestsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): RunRequest {
 
 		// parse parameters
 		//
-		$projectUuid = Input::get('project_uuid');
-		$name = Input::get('name');
-		$description = Input::get('description');
+		$projectUuid = $request->input('project_uuid');
+		$name = $request->input('name');
+		$description = $request->input('description');
 
 		// create new run request
 		//
@@ -62,16 +61,16 @@ class RunRequestsController extends BaseController
 		return $runRequest;
 	}
 
-	public function postOneTimeAssessmentRunRequests() {
+	public function postOneTimeAssessmentRunRequests(Request $request) {
 
 		// parse parameters
 		//
-		$assessmentRunUuids = Input::get('assessment-run-uuids');
-		$notifyWhenComplete = filter_var(Input::get('notify-when-complete'), FILTER_VALIDATE_BOOLEAN);
+		$assessmentRunUuids = $request->input('assessment-run-uuids');
+		$notifyWhenComplete = filter_var($request->input('notify-when-complete'), FILTER_VALIDATE_BOOLEAN);
 
 		// create new run requests
 		//
-		$assessmentRunRequests = new Collection;
+		$assessmentRunRequests = collect();
 		$runRequest = RunRequest::where('name', '=', 'One-time')
 			->where('project_uuid', '=', null)
 			->first();
@@ -84,7 +83,7 @@ class RunRequestsController extends BaseController
 				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)
 					->first();
 				if ($assessmentRun != null) {
-					$user = User::getIndex(session('user_uid'));
+					$user = User::current();
 					$result = $assessmentRun->checkPermissions($user);
 
 					// if not true, return permissions error
@@ -116,26 +115,26 @@ class RunRequestsController extends BaseController
 		return $assessmentRunRequests;
 	}
 
-	public function postAssessmentRunRequests($runRequestUuid) {
+	public function postAssessmentRunRequests(Request $request, string $runRequestUuid) {
 
 		// parse parameters
 		//
-		$assessmentRunUuids = Input::get('assessment-run-uuids');
-		$notifyWhenComplete = filter_var(Input::get('notify-when-complete'), FILTER_VALIDATE_BOOLEAN);
+		$assessmentRunUuids = $request->input('assessment-run-uuids');
+		$notifyWhenComplete = filter_var($request->input('notify-when-complete'), FILTER_VALIDATE_BOOLEAN);
 
 		// create new run requests
 		//
-		$assessmentRunRequests = new Collection;
+		$assessmentRunRequests = collect();
 		$runRequest = $this->getIndex($runRequestUuid);
-		if ($runRequest != null) {
+
+		if ($runRequest) {
 
 			// check permissions on each assessment run
 			//
-			foreach( $assessmentRunUuids as $aru ) {
-				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $aru)
-					->first();
+			foreach ($assessmentRunUuids as $assessmentRunUuid) {
+				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
 				if ($assessmentRun != null) {
-					$user = User::getIndex(session('user_uid'));
+					$user = User::current();
 					$result = $assessmentRun->checkPermissions($user);
 
 					// if not true, return permissions error
@@ -148,10 +147,9 @@ class RunRequestsController extends BaseController
 
 			// create assessment run requests
 			//
-			for ($i = 0; $i < sizeOf($assessmentRunUuids); $i++) {
-				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])
-					->first();
-				if ($assessmentRun != null) {
+			for ($i = 0; $i < count($assessmentRunUuids); $i++) {
+				$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuids[$i])->first();
+				if ($assessmentRun) {
 					$assessmentRunRequest = new AssessmentRunRequest([
 						'assessment_run_id' => $assessmentRun->assessment_run_id,
 						'run_request_id' => $runRequest->run_request_id,
@@ -168,15 +166,13 @@ class RunRequestsController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($runRequestUuid) {
-		$runRequest = RunRequest::where('run_request_uuid', '=', $runRequestUuid)
-			->first();
-		return $runRequest;
+	public function getIndex(string $runRequestUuid): ?RunRequest {
+		return RunRequest::where('run_request_uuid','=', $runRequestUuid)->first();
 	}
 
 	// get by project
 	//
-	public function getByProject($projectUuid) {
+	public function getByProject(Request $request, string $projectUuid): Collection {
 		if (!strpos($projectUuid, '+')) {
 
 			// check for inactive or non-existant project
@@ -189,7 +185,7 @@ class RunRequestsController extends BaseController
 
 			// get by a single project
 			//
-			$runRequestsQuery = RunRequest::where('project_uuid', '=', $projectUuid);
+			$query = RunRequest::where('project_uuid', '=', $projectUuid);
 		} else {
 
 			// get by multiple projects
@@ -205,64 +201,67 @@ class RunRequestsController extends BaseController
 					continue;
 				}
 
-				if (!isset($runRequestsQuery)) {
-					$runRequestsQuery = RunRequest::where('project_uuid', '=', $projectUuid);
+				if (!isset($query)) {
+					$query = RunRequest::where('project_uuid', '=', $projectUuid);
 				} else {
-					$runRequestsQuery = $runRequestsQuery->orWhere('project_uuid', '=', $projectUuid);
+					$query = $query->orWhere('project_uuid', '=', $projectUuid);
 				}
 			}
 		}
 
-		$runRequestsQuery = $runRequestsQuery->orWhere(function($query) {
+		$query = $query->orWhere(function($query) {
 			return $query->where('project_uuid', '=', null)
 				->where('hidden_flag', '!=', 1);
 		});
 
 		// add limit filter
 		//
-		$runRequestsQuery = LimitFilter::apply($runRequestsQuery);
+		$query = LimitFilter::apply($request, $query);
 
-		return $runRequestsQuery->get();
+		// perform query
+		//
+		return $query->get();
 	}
 
 	// get number by project
 	//
-	public function getNumByProject($projectUuid) {
+	public function getNumByProject(Request $request, string $projectUuid): int {
 		if (!strpos($projectUuid, '+')) {
 
 			// get by a single project
 			//
-			$runRequestsQuery = RunRequest::where('project_uuid', '=', $projectUuid);
+			$query = RunRequest::where('project_uuid', '=', $projectUuid);
 		} else {
 
 			// get by multiple projects
 			//
 			$projectUuids = explode('+', $projectUuid);
-			$runRequestsQuery = RunRequest::where('project_uuid', '=', $projectUuids[0]);
+			$query = RunRequest::where('project_uuid', '=', $projectUuids[0]);
 			for ($i = 1; $i < sizeof($projectUuids); $i++) {
-				$runRequestsQuery = $runRequestsQuery->orWhere('project_uuid', '=', $projectUuids[$i]);
+				$query = $query->orWhere('project_uuid', '=', $projectUuids[$i]);
 			}
 		}
 
-		return $runRequestsQuery->count();
+		// perform query
+		//
+		return $query->count();
 	}
 
 	// get by project
 	//
-	public function getAll() {
-		$runRequests = RunRequest::all();
-		return $runRequests;
+	public function getAll(): Collection {
+		return RunRequest::all();
 	}
 
 	// update by index
 	//
-	public function updateIndex($runRequestUuid) {
+	public function updateIndex(Request $request, string $runRequestUuid) {
 
 		// parse parameters
 		//
-		$projectUuid = Input::get('project_uuid');
-		$name = Input::get('name');
-		$description = Input::get('description');
+		$projectUuid = $request->input('project_uuid');
+		$name = $request->input('name');
+		$description = $request->input('description');
 
 		// get model
 		//
@@ -283,7 +282,7 @@ class RunRequestsController extends BaseController
 
 	// delete by index
 	//
-	public function deleteIndex($runRequestUuid) {
+	public function deleteIndex(string $runRequestUuid) {
 		$runRequest = RunRequest::where('run_request_uuid', '=', $runRequestUuid)
 			->first();
 		$runRequest->delete();
@@ -292,7 +291,7 @@ class RunRequestsController extends BaseController
 
 	// delete assessment run request
 	//
-	public function deleteAssessmentRunRequest($runRequestUuid, $assessmentRunUuid) {
+	public function deleteAssessmentRunRequest(string $runRequestUuid, string $assessmentRunUuid) {
 		$runRequest = $this->getIndex($runRequestUuid);
 		$assessmentRun = AssessmentRun::where('assessment_run_uuid', '=', $assessmentRunUuid)->first();
 		$assessmentRunRequest = AssessmentRunRequest::where('run_request_id', '=', $runRequest->run_request_id)

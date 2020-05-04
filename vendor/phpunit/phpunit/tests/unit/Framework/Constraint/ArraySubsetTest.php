@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
  * This file is part of PHPUnit.
  *
@@ -7,58 +7,63 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace PHPUnit\Framework\Constraint;
 
 use PHPUnit\Framework\ExpectationFailedException;
 
-class ArraySubsetTest extends ConstraintTestCase
+/**
+ * @small
+ */
+final class ArraySubsetTest extends ConstraintTestCase
 {
-    /**
-     * @param bool               $expected
-     * @param array|\Traversable $subset
-     * @param array|\Traversable $other
-     * @param bool               $strict
-     * @dataProvider evaluateDataProvider
-     */
-    public function testEvaluate($expected, $subset, $other, $strict)
-    {
-        $constraint = new ArraySubset($subset, $strict);
-
-        $this->assertSame($expected, $constraint->evaluate($other, '', true));
-    }
-
-    public static function evaluateDataProvider()
+    public static function evaluateDataProvider(): array
     {
         return [
             'loose array subset and array other' => [
                 'expected' => true,
                 'subset'   => ['bar' => 0],
                 'other'    => ['foo' => '', 'bar' => '0'],
-                'strict'   => false
+                'strict'   => false,
             ],
             'strict array subset and array other' => [
                 'expected' => false,
                 'subset'   => ['bar' => 0],
                 'other'    => ['foo' => '', 'bar' => '0'],
-                'strict'   => true
+                'strict'   => true,
             ],
             'loose array subset and ArrayObject other' => [
                 'expected' => true,
                 'subset'   => ['bar' => 0],
                 'other'    => new \ArrayObject(['foo' => '', 'bar' => '0']),
-                'strict'   => false
+                'strict'   => false,
             ],
             'strict ArrayObject subset and array other' => [
                 'expected' => true,
                 'subset'   => new \ArrayObject(['bar' => 0]),
                 'other'    => ['foo' => '', 'bar' => 0],
-                'strict'   => true
+                'strict'   => true,
             ],
         ];
     }
 
-    public function testEvaluateWithArrayAccess()
+    /**
+     * @param bool               $expected
+     * @param array|\Traversable $subset
+     * @param array|\Traversable $other
+     * @param bool               $strict
+     *
+     * @throws ExpectationFailedException
+     * @throws \SebastianBergmann\RecursionContext\InvalidArgumentException
+     * @dataProvider evaluateDataProvider
+     */
+    public function testEvaluate($expected, $subset, $other, $strict): void
+    {
+        $constraint = new ArraySubset($subset, $strict);
+
+        $this->assertSame($expected, $constraint->evaluate($other, '', true));
+    }
+
+    public function testEvaluateWithArrayAccess(): void
     {
         $arrayAccess = new \ArrayAccessible(['foo' => 'bar']);
 
@@ -67,7 +72,7 @@ class ArraySubsetTest extends ConstraintTestCase
         $this->assertTrue($constraint->evaluate($arrayAccess, '', true));
     }
 
-    public function testEvaluateFailMessage()
+    public function testEvaluateFailMessage(): void
     {
         $constraint = new ArraySubset(['foo' => 'bar']);
 
@@ -77,8 +82,8 @@ class ArraySubsetTest extends ConstraintTestCase
         } catch (ExpectationFailedException $expectedException) {
             $comparisonFailure = $expectedException->getComparisonFailure();
             $this->assertNotNull($comparisonFailure);
-            $this->assertContains("'foo' => 'bar'", $comparisonFailure->getExpectedAsString());
-            $this->assertContains("'baz' => 'bar'", $comparisonFailure->getActualAsString());
+            $this->assertStringContainsString("'foo' => 'bar'", $comparisonFailure->getExpectedAsString());
+            $this->assertStringContainsString("'baz' => 'bar'", $comparisonFailure->getActualAsString());
         }
     }
 }

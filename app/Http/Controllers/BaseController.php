@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class BaseController extends Controller
@@ -11,7 +12,7 @@ class BaseController extends Controller
 	 *
 	 * @return string
 	 */
-	protected function getEnvironment()
+	protected function getEnvironment(): string
 	{
 		return \App::environment();
 	}

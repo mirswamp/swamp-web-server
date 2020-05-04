@@ -13,15 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
-use PDO;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -38,16 +36,16 @@ use App\Utilities\Identity\IdentityProvider;
 
 class LinkedAccountsController extends BaseController
 {
-	public function getLinkedAccountsByUser($userUid) {
-		$active_user = User::getIndex(session('user_uid'));
+	public function getLinkedAccountsByUser(Request $request, string $userUid) {
+		$active_user = User::current();
 		if ($userUid == session('user_uid') || $active_user->isAdmin()) {
 			return LinkedAccount::where('user_uid', '=', $userUid)->get();
 		}
 		return response('User not allowed to retrieve linked accounts.', 401);
 	}
 
-	public function deleteLinkedAccount($linkedAccountId) {
-		$active_user = User::getIndex(session('user_uid'));
+	public function deleteLinkedAccount(Request $request, string $linkedAccountId) {
+		$active_user = User::current();
 		$account = LinkedAccount::where('linked_account_id', '=', $linkedAccountId)->first();
 		$user = User::getIndex($account->user_uid);
 
@@ -80,15 +78,15 @@ class LinkedAccountsController extends BaseController
 		}
 	}
 
-	public function setEnabledFlag($linkedAccountId) {
+	public function setEnabledFlag(Request $request, string $linkedAccountId) {
 
 		// parse parameters
 		//
-		$enabled = filter_var(Input::get('enabled_flag'), FILTER_VALIDATE_BOOLEAN);
+		$enabled = filter_var($request->input('enabled_flag'), FILTER_VALIDATE_BOOLEAN);
 
 		// get user info
 		//
-		$active_user = User::getIndex(session('user_uid'));
+		$active_user = User::current();
 		$account = LinkedAccount::where('linked_account_id', '=', $linkedAccountId)->first();
 		$user = User::getIndex($account->user_uid);
 

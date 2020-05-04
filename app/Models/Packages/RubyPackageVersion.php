@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
@@ -50,7 +49,7 @@ class RubyPackageVersion extends PackageVersion
 		}
 	}
 
-	function getGemType() {
+	function getGemType(): string {
 		$contents = file_get_contents($this->getPackagePath());
 
 		// check for framework dependencies
@@ -69,7 +68,7 @@ class RubyPackageVersion extends PackageVersion
 		}
 	}
 
-	function getBuildSystem() {
+	function getBuildSystem(): string {
 
 		// check file extension of archive file
 		//
@@ -94,12 +93,12 @@ class RubyPackageVersion extends PackageVersion
 			} else if ($foundRakefile) {
 				return 'rake';
 			} else {
-				return none;
+				return 'none';
 			}
 		}
 	}
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 
 		// initialize build info
 		//
@@ -196,7 +195,7 @@ class RubyPackageVersion extends PackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
+	function checkBuildSystem(): string {
 		switch ($this->build_system) {
 
 			case 'bundler+rake':
@@ -207,7 +206,7 @@ class RubyPackageVersion extends PackageVersion
 				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
 				if (!$archive->contains($searchPath, 'Gemfile')) {
-					return response("Could not find a Gemfile within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
+					return "Could not find a Gemfile within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.";
 				}
 
 				// search archive for build file
@@ -217,9 +216,9 @@ class RubyPackageVersion extends PackageVersion
 					// check for specified build file
 					//
 					if ($archive->contains($searchPath, $this->build_file)) {
-						return response("Ruby package build system ok for bundler+rake.", 200);
+						return "ok";
 					} else {
-						return response("Could not find a build file called '" . $this->build_file . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
+						return "Could not find a build file called '" . $this->build_file . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.";
 					}
 				} else {
 
@@ -228,9 +227,9 @@ class RubyPackageVersion extends PackageVersion
 					if ($archive->contains($searchPath, 'rakefile') || 
 						$archive->contains($searchPath, 'Rakefile')
 					) {
-						return response("Ruby package build system ok for bundler+rake.", 200);
+						return "ok";
 					} else {
-						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+						return "Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.";
 					}
 				}
 				break;
@@ -244,11 +243,10 @@ class RubyPackageVersion extends PackageVersion
 				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
 				if ($archive->contains($searchPath, 'Gemfile')) {
-					return response("Ruby package build system ok for bundler+other.", 200);
+					return "ok";
 				} else {
-					return response("Could not find a Gemfile within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
+					return "Could not find a Gemfile within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.";
 				}
-				break;
 
 			case 'rake':
 
@@ -262,9 +260,9 @@ class RubyPackageVersion extends PackageVersion
 					// check for specified build file
 					//
 					if ($archive->contains($searchPath, $this->build_file)) {
-						return response("Ruby package build system ok for rake.", 200);
+						return "ok";
 					} else {
-						return response("Could not find a build file called '" . $this->build_file . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.", 404);
+						return "Could not find a build file called '" . $this->build_file . "' within the '" . $searchPath . "' directory.  You may need to set your build path or the path to your build file.";
 					}
 				} else {
 
@@ -273,21 +271,19 @@ class RubyPackageVersion extends PackageVersion
 					if ($archive->contains($searchPath, 'rakefile') || 
 						$archive->contains($searchPath, 'Rakefile')
 					) {
-						return response("Ruby package build system ok for rake.", 200);
+						return "ok";
 					} else {
-						return response("Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+						return "Could not find a build file called 'rakefile' or 'Rakefile' within '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.";
 					}		
 				}
-				break;
 
 			case 'ruby-gem':
 				$path_parts = pathinfo($this->getPackagePath());
 				if ($path_parts['extension'] == 'gem') {
-					return response("Ruby package build system ok for ruby-gem.", 200);
+					return "ok";
 				} else {
-					return response("The package archive file extension should be '.gem' for the ruby-gem build system.", 404);
+					return "The package archive file extension should be '.gem' for the ruby-gem build system.";
 				}
-				break;
 
 			case 'no-build':
 				$archive = Archive::create($this->getPackagePath());
@@ -297,14 +293,13 @@ class RubyPackageVersion extends PackageVersion
 				//
 				$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, true);
 				if (count($sourceFiles) > 0) {
-					return response("Ruby package build system ok for no-build.", 200);
+					return "ok";
 				} else {
-					return response("No assessable Ruby code files were found in the selected build path ($searchPath).", 404);
+					return "No assessable Ruby code files were found in the selected build path ($searchPath).";
 				}
-				break;
 
 			default:
-				return response("Ruby package build system ok for " . $this->build_system . ".", 200);
+				return "ok";
 		}
 	}
 
@@ -312,20 +307,20 @@ class RubyPackageVersion extends PackageVersion
 	// utility methods
 	//
 
-	private static function parseGemItem($string) {
+	private static function parseGemItem(string $string) {
 		$string = trim($string);
 
 		// single quotated string literals
 		//
 		if ($string[0] == "'") {
-			return (object)[
+			return [
 				'strlit' => trim($string, "'")
 			];
 
 		// double quotated string literals
 		//
 		} else if ($string[0] == '"') {
-			return (object)[
+			return [
 				'strlit2' => trim($string, '"')
 			];
 
@@ -367,7 +362,7 @@ class RubyPackageVersion extends PackageVersion
 		}
 	}
 
-	private static function parseGemItems($string) {
+	private static function parseGemItems(string $string): array {
 		$words = explode(', ', $string);
 		$items = [];
 		for ($count = 0; $count < sizeof($words); $count++) {
@@ -376,7 +371,7 @@ class RubyPackageVersion extends PackageVersion
 		return $items;
 	}
 
-	private static function parseGemInfo($lines) {
+	private static function parseGemInfo(array $lines): array {
 		$array = [];
 		$numLines = sizeof($lines);
 		$currentLine = 0;

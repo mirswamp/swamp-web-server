@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
  * This file is part of PHPUnit.
  *
@@ -7,24 +7,26 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace PHPUnit\Framework\Constraint;
 
 use PHPUnit\Framework\Exception;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\TestFailure;
 
+/**
+ * @small
+ */
 final class LogicalAndTest extends ConstraintTestCase
 {
-    public function testSetConstraintsRejectsInvalidConstraint()
+    public function testSetConstraintsRejectsInvalidConstraint(): void
     {
         $constraints = [
-            new \TruthyConstraint(),
-            new \FalsyConstraint(),
-            new \stdClass(),
+            new \TruthyConstraint,
+            new \FalsyConstraint,
+            new \stdClass,
         ];
 
-        $constraint = new LogicalAnd();
+        $constraint = new LogicalAnd;
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage(\sprintf(
@@ -35,7 +37,7 @@ final class LogicalAndTest extends ConstraintTestCase
         $constraint->setConstraints($constraints);
     }
 
-    public function testCountReturnsCountOfComposedConstraints()
+    public function testCountReturnsCountOfComposedConstraints(): void
     {
         $counts = [
             3,
@@ -47,7 +49,7 @@ final class LogicalAndTest extends ConstraintTestCase
             return \CountConstraint::fromCount($count);
         }, $counts);
 
-        $constraint = new LogicalAnd();
+        $constraint = new LogicalAnd;
 
         $constraint->setConstraints($constraints);
 
@@ -56,7 +58,7 @@ final class LogicalAndTest extends ConstraintTestCase
         $this->assertSame($expected, $constraint->count());
     }
 
-    public function testToStringReturnsImplodedStringRepresentationOfComposedConstraintsGluedWithAnd()
+    public function testToStringReturnsImplodedStringRepresentationOfComposedConstraintsGluedWithAnd(): void
     {
         $names = [
             'is healthy',
@@ -68,9 +70,7 @@ final class LogicalAndTest extends ConstraintTestCase
             return \NamedConstraint::fromName($name);
         }, $names);
 
-        $constraint = new LogicalAnd();
-
-        $constraint->setConstraints($constraints);
+        $constraint = LogicalAnd::fromConstraints(...$constraints);
 
         $expected = \implode(' and ', $names);
 
@@ -82,9 +82,9 @@ final class LogicalAndTest extends ConstraintTestCase
      *
      * @param Constraint[] $constraints
      */
-    public function testEvaluateReturnsFalseIfAnyOfTheComposedConstraintsEvaluateToFalse(array $constraints)
+    public function testEvaluateReturnsFalseIfAnyOfTheComposedConstraintsEvaluateToFalse(array $constraints): void
     {
-        $constraint = new LogicalAnd();
+        $constraint = new LogicalAnd;
 
         $constraint->setConstraints($constraints);
 
@@ -96,9 +96,9 @@ final class LogicalAndTest extends ConstraintTestCase
      *
      * @param Constraint[] $constraints
      */
-    public function testEvaluateReturnsTrueIfAllOfTheComposedConstraintsEvaluateToTrue(array $constraints)
+    public function testEvaluateReturnsTrueIfAllOfTheComposedConstraintsEvaluateToTrue(array $constraints): void
     {
-        $constraint = new LogicalAnd();
+        $constraint = new LogicalAnd;
 
         $constraint->setConstraints($constraints);
 
@@ -110,11 +110,11 @@ final class LogicalAndTest extends ConstraintTestCase
      *
      * @param Constraint[] $constraints
      */
-    public function testEvaluateThrowsExceptionIfAnyOfTheComposedConstraintsEvaluateToFalse(array $constraints)
+    public function testEvaluateThrowsExceptionIfAnyOfTheComposedConstraintsEvaluateToFalse(array $constraints): void
     {
         $other = 'whatever';
 
-        $constraint = new LogicalAnd();
+        $constraint = new LogicalAnd;
 
         $constraint->setConstraints($constraints);
 
@@ -141,12 +141,12 @@ EOF;
      *
      * @param Constraint[] $constraints
      */
-    public function testEvaluateThrowsExceptionWithCustomMessageIfAnyOfTheComposedConstraintsEvaluateToFalse(array $constraints)
+    public function testEvaluateThrowsExceptionWithCustomMessageIfAnyOfTheComposedConstraintsEvaluateToFalse(array $constraints): void
     {
         $other             = 'whatever';
         $customDescription = 'Not very happy about the results at this point in time, I have to admit!';
 
-        $constraint = new LogicalAnd();
+        $constraint = new LogicalAnd;
 
         $constraint->setConstraints($constraints);
 
@@ -177,9 +177,9 @@ EOF;
      *
      * @param Constraint[] $constraints
      */
-    public function testEvaluateReturnsNothingIfAllOfTheComposedConstraintsEvaluateToTrue(array $constraints)
+    public function testEvaluateReturnsNothingIfAllOfTheComposedConstraintsEvaluateToTrue(array $constraints): void
     {
-        $constraint = new LogicalAnd();
+        $constraint = new LogicalAnd;
 
         $constraint->setConstraints($constraints);
 
@@ -190,12 +190,12 @@ EOF;
     {
         $values = [
             'single' => [
-                new \FalsyConstraint(),
+                new \FalsyConstraint,
             ],
             'multiple' => [
-                new \TruthyConstraint(),
-                new \FalsyConstraint(),
-                new \TruthyConstraint(),
+                new \TruthyConstraint,
+                new \FalsyConstraint,
+                new \TruthyConstraint,
             ],
         ];
 
@@ -210,12 +210,12 @@ EOF;
     {
         $values = [
             'single' => [
-                new \TruthyConstraint(),
+                new \TruthyConstraint,
             ],
             'multiple' => [
-                new \TruthyConstraint(),
-                new \TruthyConstraint(),
-                new \TruthyConstraint(),
+                new \TruthyConstraint,
+                new \TruthyConstraint,
+                new \TruthyConstraint,
             ],
         ];
 
@@ -226,7 +226,7 @@ EOF;
         }
     }
 
-    private function stringify(array $constraints) : string
+    private function stringify(array $constraints): string
     {
         return \implode(
             ' and ',

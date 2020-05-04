@@ -16,25 +16,26 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use App\Models\Tools\Tool;
 use App\Models\Tools\ToolVersion;
 
 class ToolFilter2
 {
-	static function apply($query) {
+	static function apply(Request $request, Builder $query) {
 
 		// parse parameters
 		//
-		$toolName = Input::get('tool_name', null);
-		$toolUuid = Input::get('tool_uuid', null);
-		$toolVersion = Input::get('tool_version', null);
-		$toolVersionUuid = Input::get('tool_version_uuid', null);
+		$toolName = $request->input('tool_name', null);
+		$toolUuid = $request->input('tool_uuid', null);
+		$toolVersion = $request->input('tool_version', null);
+		$toolVersionUuid = $request->input('tool_version_uuid', null);
 
 		// add tool to query
 		//

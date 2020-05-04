@@ -15,7 +15,7 @@
 src="{{ $logo }}" alt="logo" />
 
 	<h3>Welcome</h3>
-	Greetings {{ $user->getFullName() }}. On behalf of the staff at the Software Assurance Marketplace: thank you for your interest in our services! Please take a moment to view the <a
+	Greetings {{ $name }}. On behalf of the staff at the Software Assurance Marketplace: thank you for your interest in our services! Please take a moment to view the <a
 href="https://www.swampinabox.org/doc/SWAMP-User-Manual.pdf">SWAMP User Manual</a> and the <a
 href='https://continuousassurance.org/video-tutorials/'>video tutorials</a> on our website; they provide valuable guidance for the initial orientation experience.
 

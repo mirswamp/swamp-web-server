@@ -13,15 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Projects;
 
 use DateTime;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -39,17 +38,17 @@ class ProjectsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): Project {
 
 		// parse parameters
 		//
-		$fullName = Input::get('full_name');
-		$description = Input::get('description');
-		$affiliation = Input::get('affiliation');
-		$trialProjectFlag = filter_var(Input::get('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
-		$excludePublicToolsFlag = filter_var(Input::get('exclude_public_tools_flag'), FILTER_VALIDATE_BOOLEAN);
-		$denialDate = Input::get('denial_date');
-		$deactivationDate = Input::get('deactivation_date');
+		$fullName = $request->input('full_name');
+		$description = $request->input('description');
+		$affiliation = $request->input('affiliation');
+		$trialProjectFlag = filter_var($request->input('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
+		$excludePublicToolsFlag = filter_var($request->input('exclude_public_tools_flag'), FILTER_VALIDATE_BOOLEAN);
+		$denialDate = $request->input('denial_date');
+		$deactivationDate = $request->input('deactivation_date');
 
 		// create new project
 		//
@@ -88,54 +87,61 @@ class ProjectsController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($projectUid) {
-		return Project::where('project_uid', '=', $projectUid)->first();
+	public function getIndex(string $projectUid): ?Project {
+		return Project::find($projectUid);
 	}
 
 	// get all
 	//
-	public function getAll() {
-		$currentUser = User::getIndex(session('user_uid'));
+	public function getAll(Request $request): Collection {
+
+		// find current user
+		//
+		$currentUser = User::current();
 		if (!$currentUser || !$currentUser->isAdmin()) {
 			return response('Administrator authorization is required.', 400);
 		}
 
-		$projectsQuery = Project::orderBy('create_date', 'DESC');
+		// create query
+		//
+		$query = Project::orderBy('create_date', 'DESC');
 
 		// add filters
 		//
-		$projectsQuery = DateFilter::apply($projectsQuery);
-		$projectsQuery = LimitFilter::apply($projectsQuery);
+		$query = DateFilter::apply($request, $query);
+		$query = LimitFilter::apply($request, $query);
 
-		return $projectsQuery->get();
+		// perform query
+		//
+		return $query->get();
 	}
 
-	public function getByPackage($packageUuid) {
+	public function getByPackage(string $packageUuid): Collection {
 		$package = Package::where('package_uuid', '=', $packageUuid)->first();
 		if ($package) {
 			return $package->getProjects();
 		} else {
-			return response('Package not found.', 404);
+			return collect();
 		}
 	}
 
-	public function getUserTrialProject($userUid) {
+	public function getUserTrialProject($userUid): ?Project {
 		return Project::where('project_owner_uid', '=', $userUid)->where('trial_project_flag', '=', 1)->first();
 	}
 
 	// update by index
 	//
-	public function updateIndex($projectUid) {
+	public function updateIndex(Request $request, string $projectUid) {
 
 		// get parameters
 		//
-		$fullName = Input::get('full_name');
-		$description = Input::get('description');
-		$affiliation = Input::get('affiliation');
-		$trialProjectFlag = filter_var(Input::get('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
-		$excludePublicToolsFlag = filter_var(Input::get('exclude_public_tools_flag'), FILTER_VALIDATE_BOOLEAN);
-		$denialDate = Input::has('denial_date')? DateTime::createFromFormat('d-m-Y H:i:s', Input::get('denial_date')) : null;
-		$deactivationDate = Input::has('deactivation_date')? DateTime::createFromFormat('d-m-Y H:i:s', Input::get('deactivation_date')) : null;
+		$fullName = $request->input('full_name');
+		$description = $request->input('description');
+		$affiliation = $request->input('affiliation');
+		$trialProjectFlag = filter_var($request->input('trial_project_flag'), FILTER_VALIDATE_BOOLEAN);
+		$excludePublicToolsFlag = filter_var($request->input('exclude_public_tools_flag'), FILTER_VALIDATE_BOOLEAN);
+		$denialDate = $request->has('denial_date')? DateTime::createFromFormat('d-m-Y H:i:s', $request->input('denial_date')) : null;
+		$deactivationDate = $request->has('deactivation_date')? DateTime::createFromFormat('d-m-Y H:i:s', $request->input('deactivation_date')) : null;
 
 		// get model
 		//
@@ -204,46 +210,10 @@ class ProjectsController extends BaseController
 
 		return $changes;
 	}
-
-	// update multiple
-	//
-	public function updateAll()  {
-		$input = Input::all();
-		$collection = new Collection;
-		for ($i = 0; $i < sizeOf($input); $i++) {
-
-			// get project
-			//
-			$item = $input[$i];
-			$projectUid = $item['project_uid'];
-			$project = Project::where('project_uid', '=', $projectUid)->first();
-			$collection->push($project);
-			
-			// update project fields
-			//
-			$project->project_owner_uid = $item['project_owner_uid'];
-			$project->full_name = $item['full_name'];
-			$project->description = $item['description'];
-			$project->affiliation = $item['affiliation'];
-			$project->trial_project_flag = filter_var($item['trial_project_flag'], FILTER_VALIDATE_BOOLEAN);
-			$project->denial_date = $item['denial_date'];
-			$project->deactivation_date = $item['deactivation_date'];
-
-			// save updated project
-			//
-			$project->save();
-		}
-
-		// log the project event
-		//
-		Log::info("Project update all.");
-
-		return response("Projects successfully updated.", 200);
-	}
 	
 	// delete by index
 	//
-public function deleteIndex($projectUid) {
+	public function deleteIndex(string $projectUid) {
 		$project = Project::where('project_uid', '=', $projectUid)->first();
 		
 		if ($project) {
@@ -285,8 +255,8 @@ public function deleteIndex($projectUid) {
 
 	// get project users by index
 	//
-	public function getUsers($projectUid) {
-		$users = new Collection;
+	public function getUsers(string $projectUid): Collection {
+		$users = collect();
 		$projectMemberships = ProjectMembership::where('project_uid', '=', $projectUid)->get();
 		$project = Project::where('project_uid', '=', $projectUid)->first();
 		for ($i = 0; $i < sizeOf($projectMemberships); $i++) {
@@ -313,37 +283,37 @@ public function deleteIndex($projectUid) {
 				}
 			}
 			
-			$users[] = $user;
+			$users->push($user);
 		}
 
 		return $users;
 	}
 
-	public function confirm($projectUuid) {
+	public function confirm(string $projectUuid): array {
 		$project = Project::where('project_uid', '=', $projectUuid)->first();
 		return [
 			'full_name' => $project->full_name
 		];
 	}
 
-	// get project memberships by index
+	// get project memberships by project index
 	//
-	public function getMemberships($projectUid) {
+	public function getMemberships(string $projectUid): Collection {
 		$project = Project::where('project_uid', '=', $projectUid)->first();
-		return $project->getMemberships();
+		return $project? $project->getMemberships() : collect();
 	}
 
-	// delete by project memberships by index
+	// delete by project memberships by project index
 	//
-	public function deleteMembership($projectUid, $userUid) {
+	public function deleteMembership(string $projectUid, string $userUid) {
 		$projectMembership = ProjectMembership::where('project_uid', '=', $projectUid)->where('user_uid', '=', $userUid)->first();
 		return ProjectMembershipsController::deleteIndex($projectMembership->membership_uid);
 	}
 
 	// get project events by index
 	//
-	public function getEvents($projectUid) {
+	public function getEvents(string $projectUid): Collection {
 		$project = Project::where('project_uid', '=', $projectUid)->first();
-		return $project->getEvents();
+		return $project? $project->getEvents() : collect();
 	}
 }

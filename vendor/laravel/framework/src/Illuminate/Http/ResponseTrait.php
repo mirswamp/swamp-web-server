@@ -3,8 +3,8 @@
 namespace Illuminate\Http;
 
 use Exception;
-use Symfony\Component\HttpFoundation\HeaderBag;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Symfony\Component\HttpFoundation\HeaderBag;
 
 trait ResponseTrait
 {
@@ -59,7 +59,7 @@ trait ResponseTrait
      *
      * @param  string  $key
      * @param  array|string  $values
-     * @param  bool    $replace
+     * @param  bool  $replace
      * @return $this
      */
     public function header($key, $values, $replace = true)
@@ -117,6 +117,16 @@ trait ResponseTrait
     }
 
     /**
+     * Get the callback of the response.
+     *
+     * @return string|null
+     */
+    public function getCallback()
+    {
+        return $this->callback ?? null;
+    }
+
+    /**
      * Set the exception to attach to the response.
      *
      * @param  \Exception  $e
@@ -131,6 +141,8 @@ trait ResponseTrait
 
     /**
      * Throws the response in a HttpResponseException instance.
+     *
+     * @return void
      *
      * @throws \Illuminate\Http\Exceptions\HttpResponseException
      */

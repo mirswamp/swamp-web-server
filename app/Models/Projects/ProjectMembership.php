@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Projects;
@@ -23,14 +23,39 @@ use App\Models\Users\User;
 
 class ProjectMembership extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'project_user';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'membership_uid';
+
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
 	public $incrementing = false;
 
-	// mass assignment policy
-	//
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'membership_uid',
 		'project_uid', 
@@ -38,8 +63,11 @@ class ProjectMembership extends CreateStamped
 		'admin_flag'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'membership_uid',
 		'project_uid', 
@@ -48,16 +76,22 @@ class ProjectMembership extends CreateStamped
 		'admin_flag'
 	];
 
-	// attribute types
-	//
-	protected $casts = [
-		'admin_flag' => 'boolean'
-	];
-	
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'user'
+	];
+
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
+	protected $casts = [
+		'admin_flag' => 'boolean'
 	];
 
 	//
@@ -80,36 +114,10 @@ class ProjectMembership extends CreateStamped
 	// methods
 	//
 
-	public static function deleteByUser($user) {
-		if (config('model.database.use_stored_procedures')) {
+	public static function deleteByUser(User $user) {
 
-			// execute stored procedure
-			//
-			self::PDORemoveUserFromAllProjects($userUid);
-		} else {
-
-			// execute SQL query
-			//
-			self::where('user_uid', '=', $user->user_uid)->delete();
-		}
-	}
-
-	//
-	// PDO methods
-	//
-
-	private static function PDORemoveUserFromAllProjects($user) {
-
-		// call stored procedure to remove all project associations
+		// execute SQL query
 		//
-		$connection = DB::connection('mysql');
-		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL remove_user_from_all_projects(:userUuidIn, @returnString);");
-		$stmt->bindParam(':userUuidIn', $user->user_uid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
+		self::where('user_uid', '=', $user->user_uid)->delete();
 	}
 }

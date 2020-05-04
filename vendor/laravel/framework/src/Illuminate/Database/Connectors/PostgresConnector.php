@@ -59,9 +59,11 @@ class PostgresConnector extends Connector implements ConnectorInterface
      */
     protected function configureEncoding($connection, $config)
     {
-        $charset = $config['charset'];
+        if (! isset($config['charset'])) {
+            return;
+        }
 
-        $connection->prepare("set names '$charset'")->execute();
+        $connection->prepare("set names '{$config['charset']}'")->execute();
     }
 
     /**
@@ -130,7 +132,7 @@ class PostgresConnector extends Connector implements ConnectorInterface
     /**
      * Create a DSN string from a configuration.
      *
-     * @param  array   $config
+     * @param  array  $config
      * @return string
      */
     protected function getDsn(array $config)

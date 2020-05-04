@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -41,7 +41,7 @@ class VerifyProjectInvitation
 		switch (FiltersHelper::method()) {
 			case 'post':
 				if (Session::has('user_uid')) {
-					$user = User::getIndex(session('user_uid'));
+					$user = User::current();
 				} else {
 					return response([
 						'status' => 'NO_SESSION',

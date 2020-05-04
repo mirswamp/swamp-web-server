@@ -14,18 +14,19 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
 
 use PDO;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use App\Models\Users\User;
 use App\Models\Projects\Project;
 use App\Models\Packages\Package;
@@ -46,6 +47,8 @@ use App\Models\RunRequests\RunRequest;
 use App\Models\Assessments\AssessmentRunRequest;
 use App\Models\Results\AssessmentResult;
 use App\Http\Controllers\BaseController;
+use App\Utilities\Files\BaseArchive;
+use App\Utilities\Files\TarArchive;
 use App\Utilities\Files\Archive;
 use App\Utilities\Files\Filename;
 use App\Utilities\Strings\StringUtils;
@@ -53,15 +56,31 @@ use App\Utilities\Uuids\Guid;
 
 class PackageVersionsController extends BaseController
 {
+	const ALLOWED_EXTENSIONS = [
+		'.zip',
+		'.tar',
+		'.tar.gz',
+		'.tgz',
+		'.tar.bz2',
+		'.tar.xz',
+		'.tar.Z',
+		'.jar',
+		'.war',
+		'.ear',
+		'.gem',
+		'.whl',
+		'.apk'
+	];
+
 	// post upload
 	//
-	public function postUpload() {
+	public function postUpload(Request $request) {
 
 		// parse parameters
 		//
-		$packageUuid = Input::get('package_uuid');
-		$file = Input::hasFile('file')? Input::file('file') : null;
-		$checkoutArgument = Input::get('checkout_argument');
+		$packageUuid = $request->input('package_uuid');
+		$file = $request->file('file', null);
+		$checkoutArgument = $request->input('checkout_argument');
 
 		// find package that version belongs to
 		//
@@ -69,9 +88,11 @@ class PackageVersionsController extends BaseController
 		if ($package) {
 			$externalUrl = $package->external_url;
 			$useExternalUrl = $package->external_url != null;
+			$externalUrlType = $package->external_url_type;
 		} else {
-			$externalUrl = Input::get('external_url');
-			$useExternalUrl = filter_var(Input::get('use_external_url'), FILTER_VALIDATE_BOOLEAN);
+			$externalUrl = $request->input('external_url');
+			$useExternalUrl = filter_var($request->input('use_external_url'), FILTER_VALIDATE_BOOLEAN);
+			$externalUrlType = $request->input('external_url_type');
 		}
 		
 		// upload file
@@ -81,25 +102,22 @@ class PackageVersionsController extends BaseController
 			if ($uploaded) {
 				return $uploaded;
 			} else {
-				return response('Error uploading file.', 400);
+				return response("Error uploading file.", 400);
 			}
 
 		// upload file from external url
 		//
 		} else if ($externalUrl) {
 			if ($this->acceptableExternalUrl($externalUrl)) {
-				if ($checkoutArgument) {
-					$uploaded = self::uploadFromUrl($externalUrl, $checkoutArgument);
-				} else {
-					$uploaded = self::uploadFromUrl($externalUrl);
-				}
+				$uploaded = self::uploadFromUrl($externalUrl, $externalUrlType, $checkoutArgument);
+
 				if ($uploaded) {
 					return $uploaded;
 				} else {
-					return response('Error uploading file.', 400);
+					return response("Error uploading file.", 400);
 				}
 			} else {
-				return response('External URL unacceptable.', 404);
+				return response("External URL unacceptable.", 404);
 			}
 
 		// upload new package version
@@ -107,42 +125,47 @@ class PackageVersionsController extends BaseController
 		} else if ($useExternalUrl && $packageUuid) {
 			$package = Package::where('package_uuid', '=', $packageUuid)->first();
 			if ($package && $this->acceptableExternalUrl($package->external_url)) {
-				$uploaded = self::uploadFromUrl($package->external_url, $checkoutArgument);
+				$uploaded = self::uploadFromUrl($package->external_url, $externalUrlType, $checkoutArgument);
+
 				if ($uploaded) {
 					return $uploaded;
 				} else {
-					return response('Error uploading file.', 400);
+					return response("Error uploading file.", 400);
 				}
 			} else {
-				return response('External URL unacceptable.', 404);
+				return response("External URL unacceptable.", 404);
 			}
 		} else {
-			return response('No uploaded file.', 404);
+			return response("No uploaded file.", 404);
 		}
 	}
 
-	public function acceptableExternalUrl($url) {
+	public function acceptableExternalUrl(string $url) {
 		return filter_var($url, FILTER_VALIDATE_URL);
 	}
 
 	// post add
 	//
-	public function postAdd($packageVersionUuid) {
+	public function postAdd(Request $request, string $packageVersionUuid) {
 
 		// get parameters
 		//
-		$packagePath = Input::get('package_path');
+		$packagePath = $request->input('package_path');
 
 		// add path
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return response("Package not found.", 404);
+		}
+
 		return $packageVersion->add($packagePath);
 	}
 
 	// create
 	//
-	public function postCreate() {
-		$attributes = self::getAttributes();
+	public function postCreate(Request $request): PackageVersion {
+		$attributes = self::getAttributes($request);
 
 		// set creation attributes
 		//
@@ -155,7 +178,7 @@ class PackageVersionsController extends BaseController
 
 		// share package version with current user's trial project
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		if ($currentUser) {
 			$packageVersion->shareWith($currentUser->getTrialProject());
 		}
@@ -165,39 +188,44 @@ class PackageVersionsController extends BaseController
 
 	// post store (add and create)
 	//
-	public function postStore() {
-		$attributes = self::getAttributes();	
+	public function postStore(Request $request) {
+		$attributes = self::getAttributes($request);	
 		return self::store($attributes);
 	}
 
 	// post new
 	//
-	public function postAddNew() {
+	public function postAddNew(Request $request) {
 
 		// parse paramerers
 		//
-		$file = Input::file('file');
+		$file = $request->file('file', null);
 
 		// add new package version
 		//
 		$uploaded = self::upload($file);
-		$packagePath = $uploaded["destination_path"]."/".$uploaded["filename"];
+		$packagePath = $uploaded["destination_path"] . "/" . $uploaded["filename"];
 		$packageVersion = $this->postCreate();
 		$packageVersion->add($packagePath);	
-		#return self::add($package->package_version_uuid, $packagePath);
 	}
 
 	// get by index
 	//
-	public function getIndex($packageVersionUuid) {
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
-		return $packageVersion;
+	public function getIndex(string $packageVersionUuid): ?PackageVersion {
+		return PackageVersion::find($packageVersionUuid);
 	}
 
 	// get by projects associated with package version
 	//
-	public function getProjects($packageVersionUuid) {
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+	public function getProjects(string $packageVersionUuid): Collection {
+
+		// find package version
+		//
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return response("Package version not found.", 404);
+		}
+
 		return $packageVersion->getProjects();
 	}
 
@@ -207,11 +235,11 @@ class PackageVersionsController extends BaseController
 
 	// get name of root directory
 	//
-	public function getNewRoot() {
+	public function getNewRoot(Request $request) {
 		
 		// parse parameters
 		//
-		$packagePath = Input::get('package_path');
+		$packagePath = $request->input('package_path');
 
 		// create package appropriate to package type
 		//
@@ -224,14 +252,14 @@ class PackageVersionsController extends BaseController
 
 	// check contents
 	//
-	public function getNewContains() {
+	public function getNewContains(Request $request) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filename = Input::get('filename');
-		$recursive = Input::get('recursive');
-		$packagePath = Input::get('package_path');
+		$dirname = $request->input('dirname');
+		$filename = $request->input('filename');
+		$recursive = filter_var($request->input('recursive'), FILTER_VALIDATE_BOOLEAN);
+		$packagePath = $request->input('package_path');
 
 		// create package appropriate to package type
 		//
@@ -242,22 +270,22 @@ class PackageVersionsController extends BaseController
 		if ($packageVersion) {
 			return response()->json($packageVersion->contains($dirname, $filename, $recursive));
 		} else {
-			return response("Unable to check contents for package type ".$packageTypeId.".", 400);
+			return response("Unable to check contents for package type " . $packageTypeId . ".", 400);
 		}
 	}
 
 	// get inventory of files types in the archive
 	//
-	public function getNewFileTypes() {
+	public function getNewFileTypes(Request $request) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
+		$dirname = $request->input('dirname');
 
 		// create new package version
 		//
 		$packageVersion = new PackageVersion([
-			'package_path' => Input::get('package_path')
+			'package_path' => $request->input('package_path')
 		]);
 
 		return $packageVersion->getFileTypes($dirname);
@@ -265,17 +293,17 @@ class PackageVersionsController extends BaseController
 
 	// get file list
 	//
-	public function getNewFileInfoList() {
+	public function getNewFileInfoList(Request $request) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
 
 		// create new package version
 		//
 		$packageVersion = new PackageVersion([
-			'package_path' => Input::get('package_path')
+			'package_path' => $request->input('package_path')
 		]);
 
 		return $packageVersion->getFileInfoList($dirname, $filter);
@@ -283,13 +311,13 @@ class PackageVersionsController extends BaseController
 
 	// get file tree
 	//
-	public function getNewFileInfoTree() {
+	public function getNewFileInfoTree(Request $request) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
-		$packagePath = Input::get('package_path');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
+		$packagePath = $request->input('package_path');
 
 		// create new package version
 		//
@@ -302,17 +330,17 @@ class PackageVersionsController extends BaseController
 
 	// get directory list
 	//
-	public function getNewDirectoryInfoList() {
+	public function getNewDirectoryInfoList(Request $request) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
 
 		// create new package version
 		//
 		$packageVersion = new PackageVersion([
-			'package_path' => Input::get('package_path')
+			'package_path' => $request->input('package_path')
 		]);
 
 		return $packageVersion->getDirectoryInfoList($dirname, $filter);
@@ -320,17 +348,17 @@ class PackageVersionsController extends BaseController
 
 	// get directory tree
 	//
-	public function getNewDirectoryInfoTree() {
+	public function getNewDirectoryInfoTree(Request $request) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
 
 		// create new package version
 		//
 		$packageVersion = new PackageVersion([
-			'package_path' => Input::get('package_path')
+			'package_path' => $request->input('package_path')
 		]);
 
 		return $packageVersion->getDirectoryInfoTree($dirname, $filter);
@@ -342,12 +370,12 @@ class PackageVersionsController extends BaseController
 
 	// infer build system from contents
 	//
-	public function getNewBuildSystem() {
+	public function getNewBuildSystem(Request $request) {
 
 		// create package appropriate to package type
 		//
-		$attributes = self::getAttributes();
-		$packageTypeId = self::getPackageTypeId($attributes);
+		$attributes = self::getAttributes($request);
+		$packageTypeId = self::getPackageTypeId($request, $attributes);
 		$packageVersion = self::getNewPackageVersion($packageTypeId, $attributes);
 
 		if ($packageVersion) {
@@ -356,21 +384,21 @@ class PackageVersionsController extends BaseController
 			if ($buildSystem) {
 				return response($buildSystem, 200);
 			} else {
-				return response("Unable to find build system for package type ".$packageTypeId.".", 404);
+				return response("Unable to find build system for package type " . $packageTypeId . ".", 404);
 			}
 		} else {
-			return response("Unable to find package version for package type ".$packageTypeId.".", 404);
+			return response("Unable to find package version for package type " . $packageTypeId . ".", 404);
 		}
 	}
 
 	// infer build info from contents
 	//
-	public function getNewBuildInfo() {
+	public function getNewBuildInfo(Request $request) {
 
 		// create package appropriate to package type
 		//
-		$attributes = self::getAttributes();
-		$packageTypeId = self::getPackageTypeId($attributes);
+		$attributes = self::getAttributes($request);
+		$packageTypeId = self::getPackageTypeId($request, $attributes);
 		$packageVersion = self::getNewPackageVersion($packageTypeId, $attributes);
 
 		if ($packageVersion) {
@@ -379,10 +407,10 @@ class PackageVersionsController extends BaseController
 			if ($buildInfo) {
 				return response($buildInfo, 200);
 			} else {
-				return response("Unable to find build info for package type ".$packageTypeId.".", 404);
+				return response("Unable to find build info for package type " . $packageTypeId . ".", 404);
 			}
 		} else {
-			return response("Unable to find package version for package type ".$packageTypeId.".", 404);
+			return response("Unable to find package version for package type " . $packageTypeId . ".", 404);
 		}
 	}
 
@@ -392,54 +420,59 @@ class PackageVersionsController extends BaseController
 
 	// get name of root directory
 	//
-	public function getRoot($packageVersionUuid) {
+	public function getRoot(Request $request, string $packageVersionUuid) {
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return response("Package version not found.", 404);
+		}
 
 		return $packageVersion->getRoot();
 	}
 
 	// check contents
 	//
-	public function getContains($packageVersionUuid) {
+	public function getContains(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filename = Input::get('filename');
-		$recursive = Input::get('recursive');
+		$dirname = $request->input('dirname');
+		$filename = $request->input('filename');
+		$recursive = filter_var($request->input('recursive'), FILTER_VALIDATE_BOOLEAN);
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
-
-		if ($packageVersion) {
-			return response()->json($packageVersion->contains($dirname, $filename, $recursive));
-		} else {
-			return response("Unable to check contents for package type ".$packageTypeId.".", 400);
+		$packageVersion = PackageVersion::find('package_version_uuid');
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
 		}
+
+		return response()->json($packageVersion->contains($dirname, $filename, $recursive));
 	}
 
 	// get inventory of files types in the archive
 	//
-	public function getFileTypes($packageVersionUuid) {
+	public function getFileTypes(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
+		$dirname = $request->input('dirname');
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return response("Package not found.", 404);
+		}
 
 		return $packageVersion->getFileTypes($dirname);
 	}
 
 	// get bug count for file or directory
 	//
-	public function getBugCount($filename, $bugInstances, $include, $exclude) {
+	public function getBugCount(string $filename, array $bugInstances, ?array $include = null, ?array $exclude = null) {
 		$count = 0;	
 
 		if ($include) {
@@ -492,15 +525,15 @@ class PackageVersionsController extends BaseController
 
 	// get file list
 	//
-	public function getFileInfoList($packageVersionUuid) {
+	public function getFileInfoList(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
-		$include = Input::get('include');
-		$exclude = Input::get('exclude');
-		$assessmentResultUuid = Input::get('assessment_result_uuid');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
+		$include = $request->input('include');
+		$exclude = $request->input('exclude');
+		$assessmentResultUuid = $request->input('assessment_result_uuid');
 
 		// cast filters to arrays, if necessary
 		//
@@ -513,18 +546,35 @@ class PackageVersionsController extends BaseController
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return response("Package version not found.", 404);
+		}
+
 		$fileInfoList = $packageVersion->getFileInfoList($dirname, $filter);
 
 		// annotate list with counts
 		//
 		if ($assessmentResultUuid) {
-			$result = AssessmentResult::where('assessment_result_uuid', '=', $assessmentResultUuid)->first();
-			$data = json_decode($result->getNativeResultsData()); 
-			for ($i = 0; $i < count($fileInfoList); $i++) {
-				$filename = $fileInfoList[$i]['name'];
-				$bugInstances = $data->AnalyzerReport->BugInstances;
-				$fileInfoList[$i]['bug_count'] = $this->getBugCount($filename, $bugInstances, $include, $exclude);
+			$result = AssessmentResult::find($assessmentResultUuid);
+
+			// decode JSON results
+			//
+			$data = json_decode($result->getNativeResultsData());
+
+			// check if bug instances exist
+			//
+			if (property_exists($data->AnalyzerReport, 'BugInstances')) {
+				if ($data->AnalyzerReport->BugInstances) {
+
+					// append bug counts
+					//
+					for ($i = 0; $i < count($fileInfoList); $i++) {
+						$filename = $fileInfoList[$i]['name'];
+						$bugInstances = $data->AnalyzerReport->BugInstances;
+						$fileInfoList[$i]['bug_count'] = $this->getBugCount($filename, $bugInstances, $include, $exclude);
+					}
+				}
 			}
 		}
 
@@ -533,48 +583,57 @@ class PackageVersionsController extends BaseController
 
 	// get file tree
 	//
-	public function getFileInfoTree($packageVersionUuid) {
+	public function getFileInfoTree(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respones("Package version not found.", 404);
+		}
 
 		return $packageVersion->getFileInfoTree($dirname, $filter);
 	}
 
 	// get directory list
 	//
-	public function getDirectoryInfoList($packageVersionUuid) {
+	public function getDirectoryInfoList(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
 
 		return $packageVersion->getDirectoryInfoList($dirname, $filter);
 	}
 
 	// get directory tree
 	//
-	public function getDirectoryInfoTree($packageVersionUuid) {
+	public function getDirectoryInfoTree(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$dirname = Input::get('dirname');
-		$filter = Input::get('filter');
+		$dirname = $request->input('dirname');
+		$filter = $request->input('filter');
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
 
 		return $packageVersion->getDirectoryInfoTree($dirname, $filter);
 	}
@@ -585,11 +644,15 @@ class PackageVersionsController extends BaseController
 
 	// infer build system from contents
 	//
-	public function getBuildSystem($packageVersionUuid) {
+	public function getBuildSystem(Request $request, string $packageVersionUuid) {
 		
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
+
 		$package = $packageVersion->getPackage();
 
 		// create package appropriate to package type
@@ -603,21 +666,25 @@ class PackageVersionsController extends BaseController
 			if ($buildSystem) {
 				return response($buildSystem, 200);
 			} else {
-				return response("Unable to find build system for package type ".$packageTypeId.".", 404);
+				return response("Unable to find build system for package type " . $packageTypeId . ".", 404);
 			}
 		} else {
-			return response("Unable to find package version for package type ".$packageTypeId.".", 404);
+			return response("Unable to find package version for package type " . $packageTypeId . ".", 404);
 		}
 	}
 
 	// infer build info from contents
 	//
-	public function getBuildInfo($packageVersionUuid) {
-		$buildDir = Input::get('build_dir');
+	public function getBuildInfo(Request $request, string $packageVersionUuid) {
+		$buildDir = $request->input('build_dir');
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
+
 		$package = $packageVersion->getPackage();
 
 		// create package appropriate to package type
@@ -630,10 +697,10 @@ class PackageVersionsController extends BaseController
 			if ($buildInfo) {
 				return response($buildInfo, 200);
 			} else {
-				return response("Unable to find build info for package type ".$package->package_type_id.".", 404);
+				return response("Unable to find build info for package type " . $package->package_type_id . ".", 404);
 			}
 		} else {
-			return response("Unable to find package version for package type ".$package->package_type_id.".", 404);
+			return response("Unable to find package version for package type " . $package->package_type_id . ".", 404);
 		}
 	}
 
@@ -643,7 +710,7 @@ class PackageVersionsController extends BaseController
 
 	// get sharing
 	//
-	public function getSharing($packageVersionUuid) {
+	public function getSharing(Request $request, string $packageVersionUuid) {
 		$packageVersionSharing = PackageVersionSharing::where('package_version_uuid', '=', $packageVersionUuid)->get();
 		$projectUuids = [];
 		for ($i = 0; $i < sizeof($packageVersionSharing); $i++) {
@@ -654,12 +721,12 @@ class PackageVersionsController extends BaseController
 
 	// update sharing by index
 	//
-	public function updateSharing($packageVersionUuid) {
+	public function updateSharing(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$projects = Input::get('projects');
-		$projectUuids = Input::get('project_uuids');
+		$projects = $request->input('projects');
+		$projectUuids = $request->input('project_uuids');
 
 		// find package version
 		//
@@ -671,7 +738,7 @@ class PackageVersionsController extends BaseController
 
 		// share package version with current user's trial project
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		if ($currentUser) {
 			$packageVersion->shareWith($currentUser->getTrialProject());
 		}
@@ -689,7 +756,7 @@ class PackageVersionsController extends BaseController
 
 					// find project
 					//
-					$project = Project::where('project_uid', '=', $projectUid)->first();
+					$project = Project::find($projectUid);
 
 					// creating sharing
 					//
@@ -708,7 +775,7 @@ class PackageVersionsController extends BaseController
 
 				// find project
 				//
-				$project = Project::where('project_uid', '=', $projectUuid)->first();
+				$project = Project::find($projectUuid);
 
 				// create sharing
 				//
@@ -723,40 +790,40 @@ class PackageVersionsController extends BaseController
 
 	// update by index
 	//
-	public function updateIndex($packageVersionUuid) {
+	public function updateIndex(Request $request, string $packageVersionUuid) {
 
 		// parse parameters
 		//
-		$packageVersionUuid = Input::get('package_version_uuid');
-		$packageUuid = Input::get('package_uuid');
-		$versionString = Input::get('version_string');
-		$languageVersion = Input::get('language_version');
-		$versionSharingStatus = Input::get('version_sharing_status');
-		$releaseDate = Input::get('release_date');
-		$retireDate = Input::get('retire_date');
-		$notes = Input::get('notes');
-		$sourcePath = Input::get('source_path');
-		$excludePaths = Input::get('exclude_paths');
-		$configDir = Input::get('config_dir');
-		$configCmd = Input::get('config_cmd');
-		$configOpt = Input::get('config_opt');
-		$buildFile = Input::get('build_file');
-		$buildSystem = Input::get('build_system');
-		$buildTarget = Input::get('build_target');
-		$buildDir = Input::get('build_dir');
-		$buildCmd = Input::get('build_cmd');
-		$buildOpt = Input::get('build_opt');
-		$useGradleWrapper = filter_var(Input::get('use_gradle_wrapper'), FILTER_VALIDATE_BOOLEAN);
-		$mavenVersion = Input::get('maven_version');
-		$bytecodeClassPath = Input::get('bytecode_class_path');
-		$bytecodeAuxClassPath = Input::get('bytecode_aux_class_path');
-		$bytecodeSourcePath = Input::get('bytecode_source_path');
-		$androidSdkTarget = Input::get('android_sdk_target');
-		$androidLintTarget = Input::get('android_lint_target');
-		$androidRedoBuild = filter_var(Input::get('android_redo_build'), FILTER_VALIDATE_BOOLEAN);
-		$androidMavenPlugin = Input::get('android_maven_plugin');
-		$packageInfo = Input::get('package_info');
-		$packageBuildSettings = Input::get('package_build_settings');
+		$packageVersionUuid = $request->input('package_version_uuid');
+		$packageUuid = $request->input('package_uuid');
+		$versionString = $request->input('version_string');
+		$languageVersion = $request->input('language_version');
+		$versionSharingStatus = $request->input('version_sharing_status');
+		$releaseDate = $request->input('release_date');
+		$retireDate = $request->input('retire_date');
+		$notes = $request->input('notes');
+		$sourcePath = $request->input('source_path');
+		$excludePaths = $request->input('exclude_paths');
+		$configDir = $request->input('config_dir');
+		$configCmd = $request->input('config_cmd');
+		$configOpt = $request->input('config_opt');
+		$buildFile = $request->input('build_file');
+		$buildSystem = $request->input('build_system');
+		$buildTarget = $request->input('build_target');
+		$buildDir = $request->input('build_dir');
+		$buildCmd = $request->input('build_cmd');
+		$buildOpt = $request->input('build_opt');
+		$useGradleWrapper = filter_var($request->input('use_gradle_wrapper'), FILTER_VALIDATE_BOOLEAN);
+		$mavenVersion = $request->input('maven_version');
+		$bytecodeClassPath = $request->input('bytecode_class_path');
+		$bytecodeAuxClassPath = $request->input('bytecode_aux_class_path');
+		$bytecodeSourcePath = $request->input('bytecode_source_path');
+		$androidSdkTarget = $request->input('android_sdk_target');
+		$androidLintTarget = $request->input('android_lint_target');
+		$androidRedoBuild = filter_var($request->input('android_redo_build'), FILTER_VALIDATE_BOOLEAN);
+		$androidMavenPlugin = $request->input('android_maven_plugin');
+		$packageInfo = $request->input('package_info');
+		$packageBuildSettings = $request->input('package_build_settings');
 
 		// convert json to strings for storage
 		//
@@ -813,11 +880,14 @@ class PackageVersionsController extends BaseController
 
 	// download package
 	//
-	public function getDownload($packageVersionUuid) {
+	public function getDownload(string $packageVersionUuid) {
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
 
 		// set download parameters
 		//
@@ -840,26 +910,45 @@ class PackageVersionsController extends BaseController
 
 		// download and return file
 		//
-		return Response::download($packagePath, $filename, $headers);
+		return response()->download($packagePath, $filename, $headers);
 	}
 
 	// download file
 	//
-	public function getDownloadFile($packageVersionUuid) {
+	public function getDownloadFile(Request $request, string $packageVersionUuid) {
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
 
 		// find file paths
 		//
-		$filePath = Input::get('path');
-		$packagePath = $packageVersion->package_path;
-		$packageDir = dirname($packagePath);
+		$filePath = $request->input('path');
+		if (!$filePath) {
+			return response("A file path is required.", 400);
+		}
 
 		// extract file from achive
 		//
 		$archive = Archive::create($packageVersion->getPackagePath());
+		$packageDir = config('app.outgoing');
+
+		// remove directory if it exists
+		//
+		$dirname = dirname($filePath);
+		if ($dirname) {
+			$topDirname = explode('/', dirname($filePath))[0];
+			$tempDir = rtrim($packageDir, '/') . '/' . $topDirname;
+			if (file_exists($tempDir)) {
+				BaseArchive::rmdir($tempDir);
+			}
+		}
+		
+		// extract file to directory
+		//
 		$archive->extractTo($packageDir, [$filePath]);
 
 		// set download parameters
@@ -871,60 +960,99 @@ class PackageVersionsController extends BaseController
 
 		// download and return file
 		//
-		return Response::download($packageDir . '/' . $filePath, $filename, $headers);
+		return response()->download(rtrim($packageDir, '/') . '/' . $filePath, $filename, $headers);
 	}
 
 	// download file
 	//
-	public function getFileContents($packageVersionUuid) {
+	public function getFileContents(Request $request, string $packageVersionUuid) {
 
 		// find package version
 		//
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
 
 		// find paths
 		//
-		$filePath = Input::get('path');
+		$filePath = $request->input('path');
 		$packagePath = $packageVersion->package_path;
 		$packageDir = dirname($packagePath);
 
-		// extract specified contents from archive file
+		// create archive
 		//
 		$archive = Archive::create($packageVersion->package_path);
+
+		// fiddle with path for tar archives
+		//
+		if ($archive instanceof TarArchive) {
+			$root = $archive->getRoot(false, false);
+
+			if (!StringUtils::startsWith($filePath, './') && StringUtils::startsWith($root, './')) {
+
+				// add prefix
+				//
+				$filePath = './' . $filePath;
+			} else if (StringUtils::startsWith($filePath, './') && !StringUtils::startsWith($root, './')) {
+
+				// remove prefix
+				//
+				$filePath = str_replace('./', '', $filePath);
+			}
+		}
+
+		// extract specified contents from archive file
+		//
 		return $archive->extractContents($filePath);
 	}
 
 	// delete by index
 	//
-	public function deleteIndex($packageVersionUuid) {
-		$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionUuid)->first();
+	public function deleteIndex(string $packageVersionUuid) {
+
+		// find package version
+		//
+		$packageVersion = PackageVersion::find($packageVersionUuid);
+		if (!$packageVersion) {
+			return respone("Package version not found.", 404);
+		}
+
 		$packageVersion->delete();
 		return $packageVersion;
 	}
 
 	// post build system check
 	//
-	public function postBuildSystemCheck() {
-		$attributes = self::getAttributes();
+	public function postBuildSystemCheck(Request $request) {
+		$attributes = self::getAttributes($request);
 
 		// create package appropriate to package type
 		//
-		$packageTypeId = self::getPackageTypeId($attributes);
+		$packageTypeId = self::getPackageTypeId($request, $attributes);
 		$packageVersion = self::getNewPackageVersion($packageTypeId, $attributes);
 
 		// look up package path for existing packages
 		//
 		if ($attributes['package_version_uuid']) {
-			$existingPackageVersion = PackageVersion::where("package_version_uuid", "=", $attributes['package_version_uuid'])->first();
+			$existingPackageVersion = PackageVersion::find($attributes['package_version_uuid']);
+			if (!$existingPackageVersion) {
+				return respone("Package version not found.", 404);
+			}
 			$packageVersion->package_path = $existingPackageVersion->package_path;
 		}
 
 		// check build system
 		//
 		if ($packageVersion) {
-			return $packageVersion->checkBuildSystem();
+			$message = $packageVersion->checkBuildSystem();
+			if ($message == 'ok') {
+				return response("Package version is ok for " . $packageVersion->build_system . ".", 200);
+			} else {
+				return response($message, 400);
+			}
 		} else {
-			return response("Unable to check build system for package type ".$packageTypeId.".", 400);
+			return response("Unable to check build system for package type " . $packageTypeId . ".", 400);
 		}
 	}
 
@@ -932,7 +1060,7 @@ class PackageVersionsController extends BaseController
 	// private utility methods
 	//
 
-	private static function getNewPackageVersion($packageTypeId, $attributes) {
+	private static function getNewPackageVersion(string $packageTypeId, array $attributes) {
 		switch ($packageTypeId) {
 			case 1:		// C/C++
 				return new CPackageVersion($attributes);
@@ -977,20 +1105,24 @@ class PackageVersionsController extends BaseController
 		}
 	}
 
-	private static function getPackageTypeId($attributes) {
+	private static function getPackageTypeId(Request $request, array $attributes) {
 
 		// parse parameters
 		//
-		$packageUuid = Input::get('package_uuid');
-		$packageTypeId = Input::get('package_type_id');
+		$packageUuid = $request->input('package_uuid');
+		$packageTypeId = $request->input('package_type_id');
 
 		// get package type id
 		//
 		if ($packageUuid) {
 
-			// existing packages
+			// find package
 			//
-			$package = Package::where('package_uuid', '=', $attributes['package_uuid'])->first();
+			$package = Package::find($attributes['package_uuid']);
+			if (!$package) {
+				return response("Package not found.", 404);
+			}
+
 			return $package->package_type_id;
 		} else {
 
@@ -1000,68 +1132,68 @@ class PackageVersionsController extends BaseController
 		}
 	}
 
-	private static function getAttributes() {
+	private static function getAttributes(Request $request) {
 		$attributes = [
-			'package_version_uuid' => Input::get('package_version_uuid'),
-			'package_uuid' => Input::get('package_uuid'),
+			'package_version_uuid' => $request->input('package_version_uuid'),
+			'package_uuid' => $request->input('package_uuid'),
 
 			// version attributes
 			//
-			'version_string' => Input::get('version_string'),
-			'checkout_argument' => Input::get('checkout_argument'),
-			'language_version' => Input::get('language_version'),
-			'version_sharing_status' => Input::get('version_sharing_status'),
+			'version_string' => $request->input('version_string'),
+			'checkout_argument' => $request->input('checkout_argument'),
+			'language_version' => $request->input('language_version'),
+			'version_sharing_status' => $request->input('version_sharing_status'),
 
 			// date / detail attributes
 			//
-			'release_date' => Input::get('release_date'),
-			'retire_date' => Input::get('retire_date'),
-			'notes' => Input::get('notes'),
+			'release_date' => $request->input('release_date'),
+			'retire_date' => $request->input('retire_date'),
+			'notes' => $request->input('notes'),
 
 			// package path attributes
 			//
-			'package_path' => Input::get('package_path'),
-			'source_path' => Input::get('source_path'),
-			'exclude_paths' => Input::get('exclude_paths'),
+			'package_path' => $request->input('package_path'),
+			'source_path' => $request->input('source_path'),
+			'exclude_paths' => $request->input('exclude_paths'),
 
 			// config attributes
 			//
-			'config_dir' => Input::get('config_dir'),
-			'config_cmd' => Input::get('config_cmd'),
-			'config_opt' => Input::get('config_opt'),
+			'config_dir' => $request->input('config_dir'),
+			'config_cmd' => $request->input('config_cmd'),
+			'config_opt' => $request->input('config_opt'),
 
 			// build attributes
 			//
-			'build_file' => Input::get('build_file'),
-			'build_system' => Input::get('build_system'),
-			'build_target' => Input::get('build_target'),
+			'build_file' => $request->input('build_file'),
+			'build_system' => $request->input('build_system'),
+			'build_target' => $request->input('build_target'),
 
-			'build_dir' => Input::get('build_dir'),
-			'build_cmd' => Input::get('build_cmd'),
-			'build_opt' => Input::get('build_opt'),
+			'build_dir' => $request->input('build_dir'),
+			'build_cmd' => $request->input('build_cmd'),
+			'build_opt' => $request->input('build_opt'),
 
 			// java source code attributes
 			//
-			'use_gradle_wrapper' => filter_var(Input::get('use_gradle_wrapper'), FILTER_VALIDATE_BOOLEAN),
-			'maven_version' => Input::get('maven_version'),
+			'use_gradle_wrapper' => filter_var($request->input('use_gradle_wrapper'), FILTER_VALIDATE_BOOLEAN),
+			'maven_version' => $request->input('maven_version'),
 
 			// java bytecode attributes
 			//
-			'bytecode_class_path' => Input::get('bytecode_class_path'),
-			'bytecode_aux_class_path' => Input::get('bytecode_aux_class_path'),
-			'bytecode_source_path' => Input::get('bytecode_source_path'),
+			'bytecode_class_path' => $request->input('bytecode_class_path'),
+			'bytecode_aux_class_path' => $request->input('bytecode_aux_class_path'),
+			'bytecode_source_path' => $request->input('bytecode_source_path'),
 
 			// android attributes
 			//
-			'android_sdk_target' => Input::get('android_sdk_target'),
-			'android_lint_target' => Input::get('android_lint_target'),
-			'android_redo_build' => filter_var(Input::get('android_redo_build'), FILTER_VALIDATE_BOOLEAN),
-			'android_maven_plugin' => Input::get('android_maven_plugin'),
+			'android_sdk_target' => $request->input('android_sdk_target'),
+			'android_lint_target' => $request->input('android_lint_target'),
+			'android_redo_build' => filter_var($request->input('android_redo_build'), FILTER_VALIDATE_BOOLEAN),
+			'android_maven_plugin' => $request->input('android_maven_plugin'),
 
 			// dot net attributes
 			//
-			'package_info' => Input::get('package_info'),
-			'package_build_settings' => Input::get('package_build_settings')
+			'package_info' => $request->input('package_info'),
+			'package_build_settings' => $request->input('package_build_settings')
 		];
 
 		// convert json to strings for storage
@@ -1076,7 +1208,7 @@ class PackageVersionsController extends BaseController
 		return $attributes;
 	}
 
-	private static function upload($file) {
+	private static function upload(UploadedFile $file) {
 		$workdir = '/tmp/' . uniqid();
 		$filename = null;
 		$path = null;
@@ -1100,13 +1232,13 @@ class PackageVersionsController extends BaseController
 		// replace extension with original extension
 		//
 		if ($extension && $extension != '') {
-			$filename = pathinfo($filename, PATHINFO_FILENAME).'.'.$extension;
+			$filename = pathinfo($filename, PATHINFO_FILENAME) . '.' . $extension;
 		}
 
 		// move file to destination
 		//
 		$destinationFolder = Guid::create();
-		$destinationPath = config('app.incoming').$destinationFolder;
+		$destinationPath = rtrim(config('app.incoming'), '/') . '/' . $destinationFolder;
 		$uploadSuccess = $file->move($destinationPath, $filename);
 
 		if ($workdir) {
@@ -1123,13 +1255,13 @@ class PackageVersionsController extends BaseController
 				'destination_path' => $destinationFolder
 			];
 		} else {
-			return response("Could not upload file.", 500);
+			return response("Could not upload package.", 400);
 		}
 	}
 
 	// increment the version string
 	//
-	private function incrementVersion($version){
+	private static function incrementVersion(string $version) {
 		if ($version) {
 			$versions = explode('.', $version);
 			$last = $versions[count($versions)-1];
@@ -1148,7 +1280,7 @@ class PackageVersionsController extends BaseController
 
 	// Function to authorize the Request by using user's secret token.
 	//
-	private function authorizeToken($secretToken, $payloadContent, $githubSignature) {
+	private function authorizeToken(?string $secretToken, ?string $payloadContent, ?string $githubSignature) {
 		$hashResult = 'sha1='.hash_hmac('sha1', $payloadContent, $secretToken);#'gitkey'
 		if ($hashResult == $githubSignature) {
 			return true;
@@ -1161,18 +1293,18 @@ class PackageVersionsController extends BaseController
 	// the swamp user. Then a new package version will be created with the latest version of code pull from Github.
 	//
 	public function getGitHubResponse(Request $request) {
-		$attributes = Input::get('payload');
+		$attributes = $request->input('payload');
 
 		// first we check if the request is a ping event or a push event
 		//
 		$githubEvent = $_SERVER['HTTP_X_GITHUB_EVENT'];
 		if ($githubEvent != 'ping' && $githubEvent != 'push') {
-			return "Unknown Github Event.";
+			return response("Unknown Github Event.", 400);
 		}
 
 		$data = json_decode($attributes);
 		if (is_null($data)) {
-			return "Json decode failed.";
+			return response("Json decode failed.", 400);
 		}
 
 		// extract information from HTTP request
@@ -1192,47 +1324,59 @@ class PackageVersionsController extends BaseController
 		$packages = Package::where('external_url', '=', $clone_url)
 			->orWhere('external_url', '=', preg_replace('/\.git$/', '', $clone_url))
 			->get();
-	
+
+		// check if packages have been found
+		//
+		if (count($packages) == 0) {
+			return response("Git package update failed. No associated package was found in the SWAMP.", 400);
+		}
+
 		// loop and update all git packages with the url
 		//
 		for ($i = 0; $i < count($packages); $i++) {
-			$attributes = $packages[$i]->getAttributes();
-			
-			// authentication using github secret key
-			//
-			if (self::authorizeToken($attributes['secret_token'], file_get_contents('php://input'),$_SERVER['HTTP_X_HUB_SIGNATURE'])) {
-				if ($githubEvent == 'push') {
+			$package = $packages[$i];
+			if ($package->external_url_type == 'git') {
+				$attributes = $package->getAttributes();
 
-					// update the git package
-					//
-					self::updateGitPackage($attributes['package_uuid'], $commitHash, $timeStamp, $branchName, $authorName);
-				}	
+				// authentication using github secret key
+				//
+				if (self::authorizeToken($attributes['secret_token'], file_get_contents('php://input'), $_SERVER['HTTP_X_HUB_SIGNATURE'])) {
+					if ($githubEvent == 'push') {
+
+						// update the git package
+						//
+						self::updateGitPackage($attributes['package_uuid'], $commitHash, $timeStamp, $branchName, $authorName);
+					}	
+				}
 			}
 		}
+	}
 
-		// Nothing is matched in the database
-		//
-		$returnString = ' event failed. No associated package is found in SWAMP. Please create a package in SWAMP.';
-		return $returnString;	
+	//
+	// private utility functions
+	//
+
+	private static function isValidArchivePath(?string $path) {
+		$extension = pathinfo($path, PATHINFO_EXTENSION);
+		return in_array($extension, self::ALLOWED_EXTENSIONS);
 	}
 
 	// This function clones the latest code from github and creates and new package version based on that.
 	// Then the associated assessment run is found if the user has set an on update run schedule on the assessment.
 	// New assessment run request will be created and executed.
 	//
-	private function updateGitPackage($packageUuid, $commitHash, $timeStamp, $branchName, $authorName){
-		$package = $packageUuid? Package::where('package_uuid', '=', $packageUuid)->first() : null;
-	
-		// find the lasted version regardless of the project
-		//
-		if ($package) {
+	private static function updateGitPackage(string $packageUuid, string $commitHash, string $timeStamp, ?string $branchName, ?string $authorName) {
 
-			// get the latest package version regardless of project
-			//
-			$packageVersion = $package->getLatestVersion(null);
-		} else {
-			return response('Cannot find the package.', 400);
+		// find package
+		//
+		$package = Package::find($packageUuid);
+		if (!$package) {
+			return response("Package not found.", 404);
 		}
+	
+		// find the lateset package version
+		//
+		$packageVersion = $package->getLatestVersion(null);
 
 		// fetch github link for database
 		//
@@ -1249,8 +1393,8 @@ class PackageVersionsController extends BaseController
 			if ($packageVersion) {
 				$attributes = $packageVersion->getAttributes();
 				$attributes['package_version_uuid'] = Guid::create();
-				$attributes['version_string'] = self::incrementVersion($attributes['version_string']).' (Update from Github)';	
-				$attributes['notes'] = 'Cloned commit {'.$commitHash.'} from branch {'.$branchName.'} at '.$timeStamp.' by '.$authorName;
+				$attributes['version_string'] = self::incrementVersion($attributes['version_string']) . ' (Update from Github)';	
+				$attributes['notes'] = 'Cloned commit {' . $commitHash . '} from branch {' . $branchName . '} at ' . $timeStamp . ' by ' . $authorName;
 				$attributes['version_no']++;	
 				$newPackageVersion = new PackageVersion($attributes);
 				
@@ -1260,7 +1404,7 @@ class PackageVersionsController extends BaseController
 					
 				// move to permanant location
 				//
-				$fullPath = $uploaded['destination_path'].'/'.$uploaded['filename'];
+				$fullPath = $uploaded['destination_path'] . '/' . $uploaded['filename'];
 				$newPackageVersion->add($fullPath);		
 
 				// duplicate package version sharing
@@ -1276,10 +1420,10 @@ class PackageVersionsController extends BaseController
 					$newPackageVersionSharing->save();
 				}
 			} else {
-				return response('Cannot find the package version', 400);
+				return response("Cannot find the package version.", 400);
 			}
 		} else {
-			return response('Error updating file.', 400);
+			return response("Error updating file.", 400);
 		}
 	
 		// find 'on push' and 'one-time' run requests
@@ -1325,14 +1469,18 @@ class PackageVersionsController extends BaseController
 				}
 			}		
 		} else {
-			return response('Cannot find on Update run request', 400);
+			return response("Cannot find on Update run request.", 400);
 		}	
 
 	   return $packageVersion;
 	}
 
-	private static function uploadFromGitUrl($external_url, $checkout_argument = null) {
+	private static function uploadFromGitUrl(string $external_url, ?string $checkout_argument = null) {
 		$workdir = '/tmp/' . uniqid();
+
+		// escape any characters in a string that might be used to
+		// trick a shell command into executing arbitrary commands.
+		//
 		$external_url = escapeshellcmd($external_url);	
 
 		// find name of directory to create
@@ -1361,10 +1509,11 @@ class PackageVersionsController extends BaseController
 				cd ..; cd ..`;
 		}
 
-		$files = scandir($workdir);
-		if (sizeof($files) !== 3) {
-			`rm -rf $workdir;`;
-			return response('Not a single directory.', 404);
+		// check for empty contents (an empty directory will contain only . and ..)
+		//
+		$files = scandir($workdir . '/' . $dirname);
+		if (sizeof($files) < 3) {
+			return response("Package download failed.  Could not clone repository.", 404);
 		}
 
 		// zip the directory into a tar.gz
@@ -1376,7 +1525,7 @@ class PackageVersionsController extends BaseController
 		}
 
 		if (!file_exists("$workdir/$dirname.tar.gz")) {
-			return response('Unable to tar project directory', 404);
+			return response("Unable to tar project directory.", 404);
 		}
 
 		$filename = Filename::sanitize($dirname).'.tar.gz';
@@ -1388,7 +1537,7 @@ class PackageVersionsController extends BaseController
 		// move file to destination
 		//
 		$destinationFolder = Guid::create();
-		$destinationPath = config('app.incoming').$destinationFolder;
+		$destinationPath = rtrim(config('app.incoming'), '/') . '/' . $destinationFolder;
 		`mkdir -p $destinationPath`;
 		`mv $workdir/$dirname.tar.gz $destinationPath/$filename`;
 		$uploadSuccess = file_exists("$destinationPath/$filename");
@@ -1409,31 +1558,35 @@ class PackageVersionsController extends BaseController
 				'file_path' => $filePath
 			];
 		} else {
-			return response("Could not upload file.", 500);
+			return response("Could not upload package.", 400);
 		}
 	}
 
-	private static function uploadFromArchiveUrl($external_url = false) {
+	private static function uploadFromArchiveUrl(string $externalUrl = null) {
 		$workdir = '/tmp/' . uniqid();
-		$external_url = escapeshellcmd($external_url);
+
+		// escape any characters in a string that might be used to
+		// trick a shell command into executing arbitrary commands.
+		//
+		$externalUrl = escapeshellcmd($externalUrl);
 
 		// create destination folder
 		//
 		$destinationFolder = Guid::create();
-		$destinationPath = config('app.incoming').$destinationFolder;
+		$destinationPath = rtrim(config('app.incoming'), '/') . '/' . $destinationFolder;
 		`mkdir $destinationPath`;
 
 		// replace spaces in filename with dashes
 		//
-		$filename = pathinfo($external_url, PATHINFO_FILENAME);
-		$extension = pathinfo($external_url, PATHINFO_EXTENSION);
-		$filename = Filename::sanitize($filename).'.'.$extension;
+		$filename = pathinfo($externalUrl, PATHINFO_FILENAME);
+		$extension = pathinfo($externalUrl, PATHINFO_EXTENSION);
+		$filename = Filename::sanitize($filename) . '.' . $extension;
 
 		// download file
 		//
 		/*
 		$curl = curl_init();
-		curl_setopt($curl, CURLOPT_URL, $external_url);
+		curl_setopt($curl, CURLOPT_URL, $externalUrl);
 		curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
 		$data = curl_exec($curl);
@@ -1442,14 +1595,26 @@ class PackageVersionsController extends BaseController
 		file_put_contents("$destinationPath/$filename", $data);
 		*/
 
-		$size = file_put_contents($destinationPath.'/'.$filename, fopen($external_url, 'r'));
-		$path = $destinationPath;
-		$uploadSuccess = ($size != 0);
+		try {
+			$stream = fopen($externalUrl, 'r');
+		} catch (Exception $e) {
+			return response("Package upload failed.  Could not open external url.", 400);
+		}
+	
+		// read file from stream
+		//
+		if ($stream) {
+			$size = file_put_contents($destinationPath . '/' . $filename, $stream);
+			$path = $destinationPath;
+			$uploadSuccess = ($size != 0);
+		} else {
+			$uploadSuccess = false;
+		}
 
 		// query uploaded file
 		//
-		$extension = pathinfo($external_url, PATHINFO_EXTENSION);
-		$mime = mime_content_type($destinationPath.'/'.$filename);
+		$extension = pathinfo($externalUrl, PATHINFO_EXTENSION);
+		$mime = mime_content_type($destinationPath . '/' . $filename);
 		$filePath = "$destinationPath/$filename";
 
 		if ($workdir) {
@@ -1467,23 +1632,21 @@ class PackageVersionsController extends BaseController
 				'file_path' => $filePath
 			];
 		} else {
-			return response("Could not upload file.", 500);
-		}
-
-	}
-
-	private static function uploadFromUrl($external_url = false, $checkout_argument = false) {
-		$external_url = escapeshellcmd($external_url);
-		$extension = pathinfo($external_url, PATHINFO_EXTENSION);
-
-		if ($extension == 'git' || !$extension || $extension == '') {
-			return self::uploadFromGitUrl($external_url, $checkout_argument);
-		} else {
-			return self::uploadFromArchiveUrl($external_url);
+			return response("Could not upload package.", 400);
 		}
 	}
 
-	private static function store($attributes) {
+	private static function uploadFromUrl(string $externalUrl = null, string $externalUrlType = "download", string $checkoutArgument = null) {
+
+		switch ($externalUrlType) {
+			case 'download':
+				return self::uploadFromArchiveUrl($externalUrl);
+			case 'git':
+				return self::uploadFromGitUrl($externalUrl, $checkoutArgument);
+		}
+	}
+
+	private static function store(array $attributes) {
 		$packagePath = $attributes['package_path'];
 		$packageUuid = $attributes['package_uuid'];
 
@@ -1520,8 +1683,8 @@ class PackageVersionsController extends BaseController
 
 		// remove file and directory
 		//
-		// unlink(config('app.incoming').$packagePath);
-		// rmdir(dirname(config('app.incoming').$packagePath));
+		// unlink(rtrim(config('app.incoming'), '/') . '/' . $packagePath);
+		// rmdir(dirname(rtrim(config('app.incoming'), '/') . '/' . $packagePath));
 
 		// create new package version if successful
 		//
@@ -1541,7 +1704,7 @@ class PackageVersionsController extends BaseController
 
 			// share package version with current user's trial project
 			//
-			$currentUser = User::getIndex(session('user_uid'));
+			$currentUser = User::current();
 			if ($currentUser) {
 				$packageVersion->shareWith($currentUser->getTrialProject());
 			}

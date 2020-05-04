@@ -13,13 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use App\Models\Admin\RestrictedDomain;
 use App\Http\Controllers\BaseController;
 
@@ -27,12 +27,12 @@ class RestrictedDomainsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): RestrictedDomain {
 
 		// parse parameters
 		//
-		$domainName = Input::get('domain_name');
-		$description = Input::get('description');
+		$domainName = $request->input('domain_name');
+		$description = $request->input('description');
 
 		// create new restricted domain
 		//
@@ -47,23 +47,31 @@ class RestrictedDomainsController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($restrictedDomainId) {
-		$restrictedDomain = RestrictedDomain::where('restricted_domain_id', '=', $restrictedDomainId)->first();
-		return $restrictedDomain;
+	public function getIndex(string $restrictedDomainId): ?RestrictedDomain {
+		return RestrictedDomain::find($restrictedDomainId);
 	}
 
+	// get all
+	//
+	public function getAll(): Collection {
+		return RestrictedDomain::all();
+	}
+	
 	// update by index
 	//
-	public function updateIndex($restrictedDomainId) {
+	public function updateIndex(Request $request, string $restrictedDomainId) {
 
 		// parse parameters
 		//
-		$domainName = Input::get('domain_name');
-		$description = Input::get('description');
+		$domainName = $request->input('domain_name');
+		$description = $request->input('description');
 
-		// get model
+		// find model
 		//
-		$restrictedDomain = $this->getIndex($restrictedDomainId);
+		$restrictedDomain = RestrictedDomain::find($restrictedDomainId);
+		if (!$restrictedDomain) {
+			return response("Restricted domain not found.", 404);
+		}
 
 		// update attributes
 		//
@@ -79,59 +87,16 @@ class RestrictedDomainsController extends BaseController
 
 	// delete by index
 	//
-	public function deleteIndex($restrictedDomainId) {
-		$restrictedDomain = RestrictedDomain::where('restricted_domain_id', '=', $restrictedDomainId)->first();
+	public function deleteIndex(string $restrictedDomainId) {
+
+		// find model
+		//
+		$restrictedDomain = RestrictedDomain::find($restrictedDomainId);
+		if (!$restrictedDomain) {
+			return response("Restricted domain not found.", 404);
+		}
+
 		$restrictedDomain->delete();
 		return $restrictedDomain;
-	}
-
-	// get all
-	//
-	public function getAll() {
-		$restrictedDomains = RestrictedDomain::all();
-		return $restrictedDomains;
-	}
-	
-	// update multiple
-	//
-	public function updateMultiple() {
-
-		// parse parameters
-		//
-		$inputs = Input::all();
-
-		// update
-		//
-		$collection = new Collection;
-		for ($i = 0; $i < sizeOf($inputs); $i++) {
-
-			// get input item
-			//
-			$input = $inputs[$i];
-			if (array_key_exists('restricted_domain_id', $input)) {
-				
-				// find existing model
-				//
-				$restrictedDomainId = $input['restricted_domain_id'];
-				$restrictedDomain = RestrictedDomain::where('restricted_domain_id', '=', $restrictedDomainId)->first();
-				$collection->push($restrictedDomain);
-			} else {
-				
-				// create new model
-				//
-				$restrictedDomain = new RestrictedDomain();
-			}
-			
-			// update model
-			//
-			$restrictedDomain->domain_name = $input['domain_name'];
-			$restrictedDomain->description = $input['description'];
-			
-			// save model
-			//
-			$restrictedDomain->save();
-		}
-		
-		return $collection;
 	}
 }

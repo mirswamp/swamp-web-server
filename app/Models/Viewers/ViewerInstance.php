@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Viewers;
@@ -26,6 +26,63 @@ use App\Models\BaseModel;
 
 class ViewerInstance extends BaseModel
 {
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
+	protected $connection = 'viewer_store';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
+	protected $table = 'viewer_instance';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
+	protected $primaryKey = 'viewer_instance_uuid';
+
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
+	public $incrementing = false;
+
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
+	protected $fillable = [
+		'viewer_instance_uuid',
+		'viewer_version_uuid',
+		'project_uuid',
+		'reference_count',
+		'viewer_db_path',
+		'viewer_db_checksum',
+		'api_key',
+		'vm_ip_address',
+		'proxy_url',
+
+		// timestamp attributes
+		//
+		'create_date',
+		'update_date'
+	];
+
     // viewer status codes
     // reconcile with VIEWER_STATE* values in vmu_ViewerSupport.pm
 	//
@@ -38,31 +95,6 @@ class ViewerInstance extends BaseModel
     const VIEWER_STATE_TERMINATING      = -6; 
     const VIEWER_STATE_TERMINATED       = -7; 
     const VIEWER_STATE_TERMINATE_FAILED = -8; 
-
-	// database attributes
-	//
-	protected $connection = 'viewer_store';
-	protected $table = 'viewer_instance';
-	protected $primaryKey = 'viewer_instance_uuid';
-	public $incrementing = false;
-
-	// mass assignment policy
-	//
-	protected $fillable = [
-		'viewer_instance_uuid',
-		'viewer_version_uuid',
-		'project_uuid',
-		'reference_count',
-		'viewer_db_path',
-		'viewer_db_checksum',
-		'api_key',
-		'vm_ip_address',
-		'proxy_url',
-		'create_user',
-		'create_date',
-		'update_user',
-		'update_date'
-	];
 
 	// static function for use in SWAMPStatus.php
 	//

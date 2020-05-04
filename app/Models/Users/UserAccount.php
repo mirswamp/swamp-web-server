@@ -13,24 +13,49 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
 
 use Illuminate\Support\Facades\Mail;
-use App\Models\TimeStamps\UserStamped;
+use App\Models\TimeStamps\TimeStamped;
 
-class UserAccount extends UserStamped
+class UserAccount extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'user_account';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'user_uid';
+
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
 	public $incrementing = false;
 
-	// mass assignment policy
-	//
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+	
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'user_uid',
 		'enabled_flag',
@@ -45,8 +70,11 @@ class UserAccount extends UserStamped
 		'promo_code_id'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'user_uid',
 		'enabled_flag',
@@ -61,8 +89,11 @@ class UserAccount extends UserStamped
 		'promo_code_id'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'enabled_flag' => 'boolean',
 		'admin_flag' => 'boolean',
@@ -78,16 +109,26 @@ class UserAccount extends UserStamped
 	// querying methods
 	//
 
-	public function isPasswordResetRequired() {
+	public function isPasswordResetRequired(): bool {
 		return $this->forcepwreset_flag;
 	}
 
-	public function isEnabled() {
+	public function isEnabled(): bool {
 		return $this->enabled_flag;
 	}
 
-	public function isHibernating() {
+	public function isHibernating(): bool {
 		return $this->hibernate_flag;
+	}
+
+	//
+	// updating methods
+	//
+
+	public function updateDates() {
+		$this->penultimate_login_date = $this->ultimate_login_date;
+		$this->ultimate_login_date = gmdate('Y-m-d H:i:s');
+		$this->save();
 	}
 
 	/**
@@ -99,7 +140,7 @@ class UserAccount extends UserStamped
 	 *        Defaults to false.
 	 */
 
-	public function setAttributes($attributes, $user, $currentuser = false) {
+	public function setAttributes(array $attributes, User $user, bool $currentuser = false) {
 
 		// send email notification of changes in account status
 		//
@@ -153,14 +194,7 @@ class UserAccount extends UserStamped
 					// send welcome email
 					//
 					if ($user && $user->email && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-						Mail::send('emails.welcome', [
-							'user' => $user,
-							'logo' => config('app.cors_url').'/images/logos/swamp-logo-small.png',
-							'manual' => config('app.cors_url').'https://continuousassurance.org/swamp/SWAMP-User-Manual.pdf',
-						], function($message) use ($user) {
-							$message->to($user->email, $user->getFullName());
-							$message->subject('Welcome to the Software Assurance Marketplace');
-						});
+						$user->welcome();
 					}
 				}
 			}

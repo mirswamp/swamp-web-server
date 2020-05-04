@@ -13,13 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
 
 use PDO;
-
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Auth\UserInterface;
@@ -27,8 +27,8 @@ use Illuminate\Auth\Reminders\RemindableInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Mail;
 use App\Models\BaseModel;
 use App\Models\TimeStamps\TimeStamped;
 use App\Models\Users\UserSession;
@@ -36,6 +36,7 @@ use App\Models\Users\AppPassword;
 use App\Models\Users\EmailVerification;
 use App\Models\Users\Permission;
 use App\Models\Users\UserPermission;
+use App\Models\Users\UserPolicy;
 use App\Models\Users\UserAccount;
 use App\Models\Users\UserEvent;
 use App\Models\Users\LinkedAccount;
@@ -49,13 +50,25 @@ use App\Utilities\Ldap\Ldap;
 
 class User extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'user';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'user_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'user_uid',
 
@@ -67,11 +80,18 @@ class User extends TimeStamped
 		'username', 
 		'password',
 		'email', 
-		'affiliation'
+		'affiliation',
+
+		// configuration attributes
+		//
+		'config'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'user_uid',
 
@@ -102,14 +122,21 @@ class User extends TimeStamped
 		'ultimate_login_date', 
 		'penultimate_login_date',
 
+		// configuration attributes
+		//
+		'config',
+
 		// timestamp attributes
 		//
 		'create_date',
 		'update_date'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'enabled_flag',
 		'signed_in_flag',
@@ -130,8 +157,11 @@ class User extends TimeStamped
 		'update_date'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'enabled_flag' => 'boolean',
 		'signed_in_flag' => 'boolean',
@@ -147,6 +177,13 @@ class User extends TimeStamped
 		'update_date' => 'datetime'
 	];
 
+	/**
+	 * The maximum number of usernames to try when creating new linked accounts
+	 *
+	 * @var int
+	 */
+	const MAXTRIES = 500;
+	
 	//
 	// accessor methods
 	//
@@ -244,11 +281,11 @@ class User extends TimeStamped
 	// user comparison method (can't use default because of LDAP)
 	//
 
-	public function isSameAs($user) {
+	public function isSameAs($user): bool {
 		return $user && $this['user_uid'] == $user['user_uid'];
 	}
 
-	public function isNew() {
+	public function isNew(): bool {
 		return $this['user_uid'] == null;
 	}
 
@@ -256,78 +293,70 @@ class User extends TimeStamped
 	// querying methods
 	//
 
-	public function getFullName() {
-		return $this->first_name.' '.$this->last_name;
+	public function getFullName(): string {
+		return $this->first_name . ' ' . $this->last_name;
 	}
 
-	public function isCurrent() {
+	public function isCurrent(): bool {
 		return $this->user_uid == session('user_uid');
 	}
 
-	public function isAdmin() {
+	public function isAdmin(): bool {
 		$userAccount = $this->getUserAccount();
 		return $userAccount && $userAccount->admin_flag;
 	}
 
-	public function isOwner() {
+	public function isOwner(): bool {
 		return $this->getOwnerFlagAttribute();
 	}
 
-	public function isEnabled() {
+	public function isEnabled(): bool {
 		$userAccount = $this->getUserAccount();
 		return $userAccount && $userAccount->enabled_flag;
 	}
 
-	public function isSignedIn() {
+	public function isSignedIn(): bool {
 		return UserSession::where('user_id', '=', $this->user_uid)->exists();
 	}
 
-	public function getUserAccount() {
+	public function getUserAccount(): ?UserAccount {
 		return UserAccount::where('user_uid', '=', $this->user_uid)->first();
 	}
 
-	public function getTrialProject() {
+	public function getTrialProject(): ?Project {
 		return Project::where('project_owner_uid', '=', $this->user_uid)->where('trial_project_flag', '=', 1)->first();
 	}
 
-	public function getProjects() {
-		if (config('model.database.use_stored_procedures')) {
+	public function getProjects(): Collection {
 
-			// execute stored procedure
-			//
-			return $this->PDOListProjectsByMember();
-		} else {
-
-			// execute SQL query
-			//
-			$projectMemberships = ProjectMembership::where('user_uid', '=', $this->user_uid)->
-				whereNull('delete_date')->get();
-			$projects = new Collection;
-			
-			// add projects of which user is a member
-			//
-			for ($i = 0; $i < sizeOf($projectMemberships); $i++) {
-				$projectMembership = $projectMemberships[$i];
-				$projectUid = $projectMembership['project_uid'];
-				$project = Project::where('project_uid', '=', $projectUid)->first();
-				if ($project != null && !$project->isTrialProject() && $project->isActive()) {
-					$projects->push($project);
-				}
+		// execute SQL query
+		//
+		$projectMemberships = ProjectMembership::where('user_uid', '=', $this->user_uid)->
+			whereNull('delete_date')->get();
+		$projects = collect();
+		
+		// add projects of which user is a member
+		//
+		for ($i = 0; $i < sizeOf($projectMemberships); $i++) {
+			$projectMembership = $projectMemberships[$i];
+			$projectUid = $projectMembership['project_uid'];
+			$project = Project::where('project_uid', '=', $projectUid)->first();
+			if ($project != null && !$project->isTrialProject() && $project->isActive()) {
+				$projects->push($project);
 			}
-
-			// add trial project
-			//
-			$trialProject = $this->getTrialProject();
-			if ($trialProject) {
-				$projects->push($trialProject);
-			}
-			
-			$projects = $projects->reverse();
-			return $projects;
 		}
+
+		// add trial project
+		//
+		$trialProject = $this->getTrialProject();
+		if ($trialProject) {
+			$projects->push($trialProject);
+		}
+		
+		return $projects->reverse();
 	}
 
-	public function hasProjectMembership($projectMembershipUid) {
+	public function hasProjectMembership(string $projectMembershipUid): bool {
 		$projectMembership = ProjectMembership::where('user_uid', '=', $this->user_uid)->where('membership_uid', '=', $projectMembershipUid)->first();
 		if ($projectMembership) {
 			if (!$projectMembership->delete_date) {
@@ -337,7 +366,7 @@ class User extends TimeStamped
 		return false;
 	}
 
-	public function isMemberOf($project) {
+	public function isMemberOf(Project $project): bool {
 
 		// check to see that project exists
 		//
@@ -364,7 +393,7 @@ class User extends TimeStamped
 		return false;
 	}
 
-	public function isProjectAdmin($projectUid) {
+	public function isProjectAdmin(string $projectUid): bool {
 
 		// check project membership for this user
 		//
@@ -383,7 +412,7 @@ class User extends TimeStamped
 	// user validation methods
 	//
 
-	public static function emailInUse($email) {
+	public static function emailInUse(string $email): bool {
 		$values = [];
 		if (preg_match("/(\w*)(\+.*)(@.*)/", $email, $values)) {
 			$email = $values[1] . $values[3];
@@ -398,16 +427,16 @@ class User extends TimeStamped
 				return true;
 			}
 		}
-		return false;		
+		return false;
 	}
 
-	public function isValid(&$errors, $anyEmail = false) {
+	public function isValid(Request $request, &$errors, bool $anyEmail = false): bool {
 
 		// parse parameters
 		//
-		$promoCode = Input::get('promo', null);
-		$emailVerification = Input::get('email-verification', null);
-		$userExternalId = Input::has('user_external_id', null);
+		$promoCode = $request->input('promo', null);
+		$emailVerification = $request->input('email-verification', null);
+		$userExternalId = $request->input('user_external_id', null);
 
 		// check username
 		//
@@ -500,11 +529,11 @@ class User extends TimeStamped
 	// user verification methods
 	//
 
-	public function getEmailVerification() {
+	public function getEmailVerification(): ?EmailVerification {
 		return EmailVerification::where('user_uid', '=', $this->user_uid)->first();
 	}
 
-	public function hasBeenVerified() {
+	public function hasBeenVerified(): bool {
 		return boolval($this->email_verified_flag) || $this->email_verified_flag == '-1';
 	}
 
@@ -512,15 +541,15 @@ class User extends TimeStamped
 	// permission methods
 	//
 
-	public function getPolicy($policyCode) {
+	public function getPolicy(?string $policyCode): ?UserPolicy {
 		return UserPolicy::where('user_uid', '=', $this->user_uid)->where('policy_code', '=', $policyCode)->where('accept_flag', '=', 1)->first();
 	}
 
-	public function getPermission($permissionCode) {
+	public function getPermission(?string $permissionCode): ?UserPermission {
 		return UserPermission::where('user_uid', '=', $this->user_uid)->where('permission_code', '=', $permissionCode)->first();
 	}
 
-	public function getPolicyPermission($permissionCode) {
+	public function getPolicyPermission(string $permissionCode): string {
 		$userPermission = $this->getPermission($permissionCode);
 
 		if (!$userPermission) {
@@ -540,28 +569,28 @@ class User extends TimeStamped
 		}
 	}
 
-	public function getPolicyPermissionStatus($permissionCode, $userPermission) {
+	public function getPolicyPermissionStatus(string $permissionCode, ?UserPermission $userPermission): array {
 		$permission = Permission::where('permission_code', '=', $permissionCode)->first();
 
 		// check for user policy
 		//
 		if ($this->getPolicy($permission->policy_code)) {
 			if ($userPermission) {
-				return response()->json([
+				return [
 					'status' => 'granted',
 					'user_permission_uid' => $userPermission->user_permission_uid
-				], 200);
+				];
 			} else {
-				return response()->json([
+				return [
 					'status' => 'granted'
-				], 200);
+				];
 			}
 		} else {
-			return response()->json([
+			return [
 				'status' => 'no_user_policy',
 				'policy' => $permission->policy,
 				'policy_code' => $permission->policy_code
-			], 404);
+			];
 		}
 	}
 
@@ -569,7 +598,7 @@ class User extends TimeStamped
 	// access control methods
 	//
 
-	public function isReadableBy($user) {
+	public function isReadableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isSameAs($user)) {
@@ -579,7 +608,7 @@ class User extends TimeStamped
 		}
 	}
 	
-	public function isWriteableBy($user) {
+	public function isWriteableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isSameAs($user)) {
@@ -598,7 +627,7 @@ class User extends TimeStamped
 	 *
 	 * @return mixed
 	 */
-	public function getAuthIdentifier() {
+	public function getAuthIdentifier(): string {
 		return $this->getKey();
 	}
 
@@ -607,7 +636,7 @@ class User extends TimeStamped
 	 *
 	 * @return string
 	 */
-	public function getAuthPassword() {
+	public function getAuthPassword(): string {
 		return $this->password;
 	}
 
@@ -620,17 +649,8 @@ class User extends TimeStamped
 	 *
 	 * @return string
 	 */
-	public function getReminderEmail() {
+	public function getReminderEmail(): string {
 		return $this->email;
-	}
-
-	public function getRememberToken() {
-	}
-
-	public function setRememberToken($value) {
-	}
-
-	public function getRememberTokenName() {
 	}
 
 	//
@@ -645,19 +665,19 @@ class User extends TimeStamped
 		Session::save();
 	}
 
-	static function getEmailDomain($email) {
+	static function getEmailDomain(string $email): string {
 		$domain = implode('.',
 			array_slice( preg_split("/(\.|@)/", $email), -2)
 		);
 		return strtolower($domain);
 	}
 
-	static function isValidEmailDomain($domain) {
+	static function isValidEmailDomain(string $domain): string {
 		$restrictedDomainNames = RestrictedDomain::getRestrictedDomainNames();
 		return !in_array($domain, $restrictedDomainNames);
 	}
 
-	public static function isAuthenticatable() {
+	public static function isAuthenticatable(): bool {
 		if (config('ldap.enabled') && config('ldap.password_validation')) {
 			return Ldap::checkLdapConnection();
 		} else {
@@ -665,7 +685,7 @@ class User extends TimeStamped
 		}
 	}
 
-	public function isAuthenticated($password, $checkapppass = false) {
+	public function isAuthenticated(string $password, bool $checkapppass = false): bool {
 
 		// If LDAP is enabled, and application level password encryption is disabled 
 		// then validate the password by binding to LDAP with username and password.
@@ -724,7 +744,7 @@ class User extends TimeStamped
 	// static querying methods
 	//
 
-	public static function getIndex($userUid) {
+	public static function getIndex(?string $userUid) {
 
 		// check to see if we are to use LDAP
 		//
@@ -741,7 +761,7 @@ class User extends TimeStamped
 		}
 	}
 
-	public static function getByUsername($username) {
+	public static function getByUsername(string $username) {
 
 		// check to see if we are to use LDAP
 		//
@@ -758,7 +778,7 @@ class User extends TimeStamped
 		}
 	}
 
-	public static function getByEmail($email) {
+	public static function getByEmail(string $email) {
 
 		// check to see if we are to use LDAP
 		//
@@ -796,13 +816,13 @@ class User extends TimeStamped
 	// overridden LDAP model methods
 	//
 
-	public function add() {
+	public function add(Request $request) {
 
 		// parse parameters
 		//
-		$promoCode = Input::get('promo');
-		$userExternalId = Input::has('user_external_id')? Input::get('user_external_id') : null;
-		$linkedAccountProviderCode = Input::has('linked_account_provider_code')? Input::get('linked_account_provider_code') : null;
+		$promoCode = $request->input('promo');
+		$userExternalId = $request->input('user_external_id', null);
+		$linkedAccountProviderCode = $request->input('linked_account_provider_code', null);
 
 		// encrypt password
 		//
@@ -899,7 +919,7 @@ class User extends TimeStamped
 		}
 	}
 
-	public function modifyPassword($password) {
+	public function modifyPassword(string $password) {
 		$encryption = config('app.password_encryption_method');
 
 		// encrypt password
@@ -932,39 +952,69 @@ class User extends TimeStamped
 		}
 	}
 
+	/**
+	 * Send a welcome email to this user
+	 *
+	 * @return void
+	 */
+	public function welcome() {
+		if (config('mail.enabled')) {
+			$email = $this->email;
+			$name = $this->getFullName();
+
+			Mail::send('emails.welcome', [
+				'name' => $name,
+				'logo' => config('app.cors_url') . '/images/logos/swamp-logo-small.png',
+				'manual' => config('app.cors_url').'https://continuousassurance.org/swamp/SWAMP-User-Manual.pdf',
+			], function($message) use ($email, $name) {
+				$message->to($email, $name);
+				$message->subject('Welcome to the Software Assurance Marketplace');
+			});
+		}
+	}
+
 	//
-	// PDO methods
+	// static methods
 	//
 
-	private function PDOListProjectByMember() {
+	/**
+	 * Get the current user.
+	 *
+	 * @return User
+	 */
+	public static function current(): ?User {
+		$userUid = session('user_uid');
+		if ($userUid) {
+			return User::getIndex($userUid);
+		} else {
+			return null;
+		}
+	}
 
-		// create stored procedure call
+	/**
+	 * Get a unique username matching a particular pattern.
+	 *
+	 * @param string $username
+	 * @return string
+	 */
+	public static function getUniqueUsername(string $username) {
+
+		// check if username is taken
 		//
-		$connection = DB::connection('mysql');
-		$pdo = $connection->getPdo();
-		$userUuidIn = $this->user_uid;
-		$stmt = $pdo->prepare("CALL list_projects_by_member(:userUuidIn, @returnString);");
-		$stmt->bindParam(':userUuidIn', $userUuidIn, PDO::PARAM_STR, 45);
-		$stmt->execute();
-		$results = [];
+		if (!self::getByUsername($username)) {
+			return $username;
+		}
 
-		do {
-			foreach($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-				$results[] = $row;
-			}
-		} while ($stmt->nextRowset());
+		// attempt username permutations
+		//
+		for ($i = 1; $i <= self::MAXTRIES; $i++) {
+			$uniqueName = $username . $i;
 
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
-
-		$projects = new Collection();
-		if ($returnString == 'SUCCESS') {
-			foreach( $results as $result ) {
-				$project = Project::where('project_uid', '=', $result['project_uid'])->first();
-				$projects->push($project);
+			if (!self::getByUsername($uniqueName)) {
+				return $uniqueName;
 			}
 		}
-		return $projects;
+
+		return false;
 	}
 }

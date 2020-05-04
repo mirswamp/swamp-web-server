@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
@@ -35,7 +34,7 @@ class PythonPackageVersion extends PackageVersion
 	// querying methods
 	//
 
-	function getBuildSystem() {
+	function getBuildSystem(): string {
 
 		// check for wheels
 		//
@@ -57,12 +56,12 @@ class PythonPackageVersion extends PackageVersion
 
 				// build system not found
 				//
-				return null;
+				return 'none';
 			}
 		}
 	}
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 
 		// initialize build info
 		//
@@ -163,11 +162,11 @@ class PythonPackageVersion extends PackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
+	function checkBuildSystem(): string {
 		switch ($this->build_system) {
 
 			case 'wheels';
-				return response("Python package ok for build with wheels.", 200);
+				return "ok";
 				break;
 
 			case 'distutils':
@@ -181,9 +180,9 @@ class PythonPackageVersion extends PackageVersion
 
 				if ($buildFile != null) {
 					if ($archive->contains($searchPath, $buildFile)) {
-						return response("Python package build system ok for build with ". $this->build_system . ".", 200);
+						return "ok";
 					} else {
-						return response("Could not find a build file called '".$buildFile."' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+						return "Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.";
 					}
 				}
 
@@ -195,14 +194,14 @@ class PythonPackageVersion extends PackageVersion
 				//
 				$sourceFiles = $archive->getListing($searchPath, self::SOURCE_FILES, true);
 				if (count($sourceFiles) > 0) {
-					return response("Python package build system ok for no-build.", 200);
+					return "ok";
 				} else {
-					return response("No assessable Python code files were found in the selected build path ($searchPath).", 404);
+					return "No assessable Python code files were found in the selected build path ($searchPath).";
 				}
 				break;
 
 			default:
-				return response("Python package build system ok for " . $this->build_system . ".", 200);
+				return "ok";
 		}
 	}
 
@@ -221,15 +220,12 @@ class PythonPackageVersion extends PackageVersion
 	}
 
 	function getWheelDirname() {
-		return $this->getWheelPackageName().'-'.$this->getWheelPackageVersion().'.dist-info/';
+		return $this->getWheelPackageName() . '-' . $this->getWheelPackageVersion() . '.dist-info/';
 	}
 
 	function getWheelInfo($dirname) {
-		//$wheelDirname = $this->getWheelDirname();
-		//$dirname = $archive->concatPaths($dirname, $wheelDirname);
-
 		$dirname = str_replace('./', '', $dirname);
-		$contents = self::getFileContents('WHEEL', $dirname);
+		$contents = $this->getFileContents('WHEEL', $dirname);
 
 		if ($contents) {
 

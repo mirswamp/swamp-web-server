@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
@@ -21,25 +21,60 @@ namespace App\Models\Packages;
 use PDO;
 use ZipArchive;
 use PharData;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
-use App\Models\TimeStamps\UserStamped;
+use App\Models\TimeStamps\TimeStamped;
 use App\Models\Users\User;
+use App\Models\Projects\Project;
 use App\Models\Packages\Package;
+use App\Models\Packages\PackageVersionSharing;
+use App\Models\Platforms\Platform;
+use App\Models\Platforms\PlatformVersion;
 
-class PackageVersion extends UserStamped
+class PackageVersion extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'package_store';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'package_version';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'package_version_uuid';
+	
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
 	public $incrementing = false;
 
-	// mass assignment policy
-	//
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 
 		// attributes
@@ -109,8 +144,11 @@ class PackageVersion extends UserStamped
 		'package_build_settings'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 
 		// attributes
@@ -180,14 +218,20 @@ class PackageVersion extends UserStamped
 		'package_build_settings'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'filename'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'use_gradle_wrapper' => 'boolean',
 		'android_redo_build' => 'boolean'
@@ -205,22 +249,23 @@ class PackageVersion extends UserStamped
 	// querying methods
 	//
 
-	function getRoot() {
+	function getRoot(): string {
 		$archive = Archive::create($this->getPackagePath());
 		return $archive->getRoot();
 	}
 
-	function getFileContents($filename, $dirname) {
+	function getFileContents(string $filename, string $dirname = ''): ?string {
 		$zip = new ZipArchive();
 		if ($zip->open($this->getPackagePath()) === true) {
 
 			// extract file contents from zip archive
 			//
-			if ($this->source_path && $this->source_path != '.') {
-				$filePath = $this->source_path.$filename;
+			if ($this->source_path && $this->source_path != '.' && $this->source_path != './') {
+				$filePath = $this->source_path . $filename;
 			} else {
-				$filePath = $dirname.$filename;
+				$filePath = $dirname . $filename;
 			}
+
 			$contents = $zip->getFromName($filePath);
 			$zip->close();
 
@@ -236,13 +281,12 @@ class PackageVersion extends UserStamped
 			// extract file from tar archive
 			//
 			if ($this->source_path) {
-				$gemFilePath = $this->source_path.$filename;
+				$gemFilePath = $this->source_path . $filename;
 			} else {
-				$gemFilePath = $dirname.$filename;
+				$gemFilePath = $dirname . $filename;
 			}
 
 			$packagePath = $this->getPackagePath();
-			//$targetDir = dirname($packagePath);
 			$targetDir = '/tmp';
 
 			// create archive
@@ -253,11 +297,11 @@ class PackageVersion extends UserStamped
 
 					// return extracted file contents
 					//
-					$contents = file_get_contents($targetDir.'/'.$gemFilePath);
+					$contents = file_get_contents($targetDir . '/' . $gemFilePath);
 
 					// clean up
 					//
-					exec('rm -rf '.dirname($targetDir.'/'.$gemFilePath));
+					exec('rm -rf ' . dirname($targetDir . '/' . $gemFilePath));
 
 					return $contents;
 				} else {
@@ -269,7 +313,7 @@ class PackageVersion extends UserStamped
 		}
 	}
 
-	function parseKeyValueInfo($lines) {
+	function parseKeyValueInfo(array $lines): array {
 		$array = [];
 		$numLines = sizeof($lines);
 		$currentLine = 0;
@@ -309,13 +353,13 @@ class PackageVersion extends UserStamped
 		return $array;
 	}
 
-	public function getPackage() {
-		return Package::where('package_uuid', '=', $this->package_uuid)->first();
+	public function getPackage(): Package {
+		return Package::find($this->package_uuid);
 	}
 
-	public function getPackagePath() {
+	public function getPackagePath(): string {
 		if ($this->isNew()) {
-			return config('app.incoming').$this->package_path;
+			return rtrim(config('app.incoming'), '/') . '/' . $this->package_path;
 		} else {
 			return $this->package_path;
 		}
@@ -325,33 +369,33 @@ class PackageVersion extends UserStamped
 	// sharing methods
 	//
 
-	public function isPublic() {
+	public function isPublic(): bool {
 		return $this->getSharingStatus() == 'public';
 	}
 
-	public function isProtected() {
+	public function isProtected(): bool {
 		return $this->getSharingStatus() == 'protected';
 	}
 
-	public function isPrivate() {
+	public function isPrivate(): bool {
 		return $this->getSharingStatus() == 'private';
 	}
 
-	public function getSharingStatus() {
+	public function getSharingStatus(): string {
 		return strtolower($this->version_sharing_status);
 	}
 
-	public function getSharedWith($project) {
+	public function getSharedWith(Project $project): PackageVersionSharing {
 		return PackageVersionSharing::where('package_version_uuid', '=', $this->package_version_uuid)
 			->where('project_uuid', '=', $project->project_uid)->first();
 	}
 
-	public function isSharedWith($project) {
+	public function isSharedWith(Project $project): bool {
 		return PackageVersionSharing::where('package_version_uuid', '=', $this->package_version_uuid)
 			->where('project_uuid', '=', $project->project_uid)->count() > 0;
 	}
 
-	public function shareWith($project) {
+	public function shareWith(Project $project) {
 		if (!$this->isSharedWith($project)) {
 			$packageVersionSharing = new PackageVersionSharing([
 				'package_version_uuid' => $this->package_version_uuid,
@@ -364,7 +408,7 @@ class PackageVersion extends UserStamped
 		}
 	}
 
-	public function isSharedBy($user) {
+	public function isSharedBy(User $user): bool {
 		$projects = $user->getProjects($user);
 		foreach ($projects as $project) {
 			if ($this->isSharedWith($project)) {
@@ -381,19 +425,19 @@ class PackageVersion extends UserStamped
 		}
 	}
 
-	public function getProjects($user = null) {
+	public function getProjects(?User $user = null): Collection {
 
 		// assume current user if not specified
 		//
 		if (!$user) {
-			$user = User::getIndex(session('user_uid'));
+			$user = User::current();
 		}
 
 		$projects = $user->getProjects($user);
-		$shared = [];
+		$shared = collect();
 		foreach ($projects as $project) {
 			if ($this->isSharedWith($project)) {
-				array_push($shared, $project);
+				$shared->push($project);
 			}
 		}
 		return $shared;
@@ -403,7 +447,7 @@ class PackageVersion extends UserStamped
 	// compatibility methods
 	//
 
-	public function getPlatformCompatibility($platform) {
+	public function getPlatformCompatibility(Platform $platform) {
 		$compatibility = PackagePlatform::where('package_version_uuid', '=', $this->package_version_uuid)->
 			where('platform_uuid', '=', $platform->platform_uuid)->
 			whereNull('platform_version_uuid')->first();
@@ -412,7 +456,7 @@ class PackageVersion extends UserStamped
 		}
 	}
 
-	public function getPlatformVersionCompatibility($platformVersion) {
+	public function getPlatformVersionCompatibility(PlatformVersion $platformVersion) {
 		$compatibility = PackagePlatform::where('package_version_uuid', '=', $this->package_version_uuid)->
 			where('platform_version_uuid', '=', $platformVersion->platform_version_uuid)->first();
 		if ($compatibility) {
@@ -424,11 +468,11 @@ class PackageVersion extends UserStamped
 	// access control methods
 	//
 
-	public function isOwnedBy($user) {
+	public function isOwnedBy(User $user): bool {
 		return $this->getPackage()->isOwnedBy($user);
 	}
 
-	public function isReadableBy($user) {
+	public function isReadableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isPublic()) {
@@ -442,7 +486,7 @@ class PackageVersion extends UserStamped
 		}
 	}
 
-	public function isWriteableBy($user) {
+	public function isWriteableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isOwnedBy($user)) {
@@ -461,8 +505,8 @@ class PackageVersion extends UserStamped
 	 * Argument: The post path of the package file.
 	 */
 	
-	public function add($postFilePath) {
-		$fullPath = config('app.incoming').$postFilePath;
+	public function add(string $postFilePath) {
+		$fullPath = rtrim(config('app.incoming'), '/') . '/' . $postFilePath;
 		$packageVersionUuid = $this->package_version_uuid;
 
 		// create stored procedure call
@@ -519,7 +563,7 @@ class PackageVersion extends UserStamped
 	// archive inspection methods
 	//
 
-	public function contains($dirname, $filename, $recursive) {
+	public function contains(?string $dirname, string $filename, bool $recursive = true): bool {
 		$archive = Archive::create($this->getPackagePath());
 		if ($recursive) {
 			return $archive->found($dirname, $filename);
@@ -528,27 +572,27 @@ class PackageVersion extends UserStamped
 		}
 	}
 
-	public function getFileTypes($dirname) {
+	public function getFileTypes(?string $dirname): array {
 		$archive = Archive::create($this->getPackagePath());
 		return $archive->getFileTypes($dirname);
 	}
 
-	public function getFileInfoList($dirname, $filter) {
+	public function getFileInfoList(?string $dirname, ?string $filter): array {
 		$archive = Archive::create($this->getPackagePath());
 		return $archive->getFileInfoList($dirname, $filter);
 	}
 
-	public function getFileInfoTree($dirname, $filter) {
+	public function getFileInfoTree(?string $dirname, ?string $filter): array {
 		$archive = Archive::create($this->getPackagePath());
 		return $archive->getFileInfoTree($dirname, $filter);
 	}
 
-	public function getDirectoryInfoList($dirname, $filter) {		
+	public function getDirectoryInfoList(?string $dirname, ?string $filter): array {		
 		$archive = Archive::create($this->getPackagePath());
 		return $archive->getDirectoryInfoList($dirname, $filter);
 	}
 
-	public function getDirectoryInfoTree($dirname, $filter) {
+	public function getDirectoryInfoTree(?string $dirname, ?string $filter): array {
 		$archive = Archive::create($this->getPackagePath());
 		return $archive->getDirectoryInfoTree($dirname, $filter);	
 	}

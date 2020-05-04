@@ -17,22 +17,23 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use App\Utilities\Filters\PackageFilter;
 use App\Utilities\Filters\ToolFilter;
 use App\Utilities\Filters\PlatformFilter;
 
 class TripletFilter
 {
-	static function apply($query, $projectUuid) {
-		$query = PackageFilter::apply($query, $projectUuid);
-		$query = ToolFilter::apply($query);
-		$query = PlatformFilter::apply($query);
+	static function apply(Request $request, Builder $query, ?string $projectUuid) {
+		$query = PackageFilter::apply($request, $query, $projectUuid);
+		$query = ToolFilter::apply($request, $query);
+		$query = PlatformFilter::apply($request, $query);
 		return $query;
 	}
 }

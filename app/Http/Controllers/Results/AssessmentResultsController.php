@@ -13,17 +13,16 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Results;
 
 use PDO;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Request;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 use App\Models\Users\User;
 use App\Models\Users\UserPolicy;
@@ -50,13 +49,13 @@ class AssessmentResultsController extends BaseController
 {
 	// get by index
 	//
-	public function getIndex($assessmentResultsUuid) {
+	public function getIndex(string $assessmentResultsUuid): ?AssessmentResult {
 		return AssessmentResult::where('assessment_result_uuid', '=', $assessmentResultsUuid)->first();
 	}
 
 	// get by project
 	//
-	public function getByProject($projectUuid) {
+	public function getByProject(Request $request, string $projectUuid): Collection {
 
 		// check for inactive or non-existant project
 		//
@@ -65,27 +64,29 @@ class AssessmentResultsController extends BaseController
 			return [];
 		}
 
-		$assessmentResultsQuery = AssessmentResult::where('project_uuid', '=', $projectUuid);
+		// create query
+		//
+		$query = AssessmentResult::where('project_uuid', '=', $projectUuid);
 
 		// add filters
 		//
-		$assessmentResultsQuery = DateFilter::apply($assessmentResultsQuery);
-		$assessmentResultsQuery = TripletFilter::apply($assessmentResultsQuery, $projectUuid);
+		$query = DateFilter::apply($request, $query);
+		$query = TripletFilter::apply($request, $query, $projectUuid);
 
 		// order results before applying filter
 		//
-		$assessmentResultsQuery = $assessmentResultsQuery->orderBy('create_date', 'DESC');
+		$query = $query->orderBy('create_date', 'DESC');
 
 		// add limit filter
 		//
-		$assessmentResultsQuery = LimitFilter::apply($assessmentResultsQuery);
+		$query = LimitFilter::apply($request, $query);
 
 		// perform query
 		//
-		return $assessmentResultsQuery->get();
+		return $query->get();
 	}
 
-	public static function launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+	public static function launchViewer(string $assessmentResultsUuid, string $viewerUuid, string $projectUuid) {
 
 		// get latest version of viewer
 		//
@@ -126,7 +127,7 @@ class AssessmentResultsController extends BaseController
 
 	// get results for viewer
 	//
-	public function getResults($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+	public function getResults(Request $request, string $assessmentResultsUuid, string $viewerUuid, string $projectUuid) {
 
 		// check project permissions
 		//
@@ -143,7 +144,7 @@ class AssessmentResultsController extends BaseController
 
 				// check permissions on result
 				//
-				$user = User::getIndex(session('user_uid'));
+				$user = User::current();
 				$result = $assessmentResult->checkPermissions($user);
 
 				// if not true, return permissions error
@@ -158,9 +159,9 @@ class AssessmentResultsController extends BaseController
 		//
 		if (config('app.sample_results')) {
 			$results = json_decode(file_get_contents(config('app.sample_results')), true);
-			$results = $this->selectResults($results);
-			$results = $this->filterResults($results);
-			$results = $this->limitResults($results);
+			$results = $this->selectResults($request, $results);
+			$results = $this->filterResults($request, $results);
+			$results = $this->limitResults($request, $results);
 			$results = $this->annotateResults($results, $assessmentResultsUuid);
 
 			// return results
@@ -192,15 +193,18 @@ class AssessmentResultsController extends BaseController
 		// check for cached results in storage directory
 		//
 		if (strtolower($viewer->name) == 'native') {
-			$resultsPath = config('app.outgoing') . '/' . $assessmentResultsUuid . '/nativereport.json';
+			$resultsPath = rtrim(config('app.outgoing'), '/') . '/' . $assessmentResultsUuid . '/nativereport.json';
 			if (file_exists($resultsPath)) {
+
+				// read results from file
+				//
 				$results = file_get_contents($resultsPath, $assessmentResultsUuid);
 
 				// return results
 				//
 				return [
 					"assessment_results_uuid" => $assessmentResultsUuid,
-					"results" => $this->getJSONResults($results, $assessmentResultsUuid),
+					"results" => $this->getJSONResults($request, $results, $assessmentResultsUuid),
 					"results_status" => 'SUCCESS'
 				];
 			}
@@ -222,9 +226,9 @@ class AssessmentResultsController extends BaseController
 				if ($instance->isBlocked()) {
 					Log::info("getResults - state: " . $instance->stateToName() . " isBlocked");
 					return [
-                		"assessment_results_uuid" => $assessmentResultsUuid,
-                		"results" => null,
-                		"results_status" => 'TRYAGAIN'
+						"assessment_results_uuid" => $assessmentResultsUuid,
+						"results" => null,
+						"results_status" => 'TRYAGAIN'
 					];
 				} else if ($instance->isLaunching()) {
 					Log::info("getResults - state: " . $instance->stateToName() . " isLaunching");
@@ -236,10 +240,10 @@ class AssessmentResultsController extends BaseController
 				} else if (!$instance->isOKToLaunch() && !$instance->isReady()) {
 					Log::info("getResults - state: " . $instance->stateToName() . " not isOKToLaunch and not isReady");
 					return [
-                		"assessment_results_uuid" => $assessmentResultsUuid,
-                		"results" => null,
-                		"results_status" => 'NOLAUNCH'
-            		];
+						"assessment_results_uuid" => $assessmentResultsUuid,
+						"results" => null,
+						"results_status" => 'NOLAUNCH'
+					];
   
 				}
 				Log::info("getResults - state: " . $instance->stateToName() . " not isBlocked and not isLaunching and not (not isOKToLaunch and not isReady) - calling launchViewer");
@@ -269,9 +273,17 @@ class AssessmentResultsController extends BaseController
 
 		if (StringUtils::endsWith($returnPath, 'index.html')) {
 
+			// get app url
+			//
+			$appUrl = config('app.url');
+			if (!$appUrl) {
+				return response("App URL is not defined.", 400);
+			}
+
 			// return a link to the results web page
 			//
-			$resultsUrl = str_replace('/swamp/outgoing', config('app.url').'/results', $returnPath);
+			$resultsUrl = str_replace('/swamp/outgoing', $appUrl . '/results', $returnPath);
+
 			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
 				"results_url" => $resultsUrl,
@@ -281,7 +293,7 @@ class AssessmentResultsController extends BaseController
 
 			// return native results
 			//
-			return $this->getNativeResults($assessmentResultsUuid, $returnPath, $returnString);
+			return $this->getNativeResults($request, $assessmentResultsUuid, $returnPath, $returnString);
 		} else {
 
 			// return viewer results
@@ -291,28 +303,44 @@ class AssessmentResultsController extends BaseController
 	}
 
 
-	public function getCatalog($assessmentResultsUuid, $viewerUuid, $projectUuid) {
-		$results = $this->getResults($assessmentResultsUuid, $viewerUuid, $projectUuid);
-		$bugInstances = $results['results']['AnalyzerReport']['BugInstances'];
+	public function getCatalog(Request $request, string $assessmentResultsUuid, string $viewerUuid, string $projectUuid): array {
 		$catalog = [];
 
-		for ($i = 0; $i < count($bugInstances); $i++) {
-			$bugInstance = $bugInstances[$i];
-			$bugCode = htmlspecialchars_decode($bugInstance['BugCode']);
-
-			if (!array_key_exists($bugCode, $catalog)) {
-				$catalog[$bugCode] = array(
-					'code' => $bugCode,
-					'count' => 1
-				);
-			} else {
-				$catalog[$bugCode]['count']++;
-			}
+		// get results
+		//
+		$results = $this->getResults($request, $assessmentResultsUuid, $viewerUuid, $projectUuid);
+		if ($results) {
+			$results = $results['results'];
 		}
 
-		// alphabetically sort list of weakness types
+		// check if report exists
 		//
-		sort($catalog);
+		if ($results && array_key_exists('AnalyzerReport', $results)) {
+
+			// check if bug instances exist
+			//
+			if (array_key_exists('BugInstances', $results['AnalyzerReport'])) {
+				$bugInstances = $results['AnalyzerReport']['BugInstances'];
+			
+				for ($i = 0; $i < count($bugInstances); $i++) {
+					$bugInstance = $bugInstances[$i];
+					$bugCode = $bugInstance['BugCode'];
+
+					if (!array_key_exists($bugCode, $catalog)) {
+						$catalog[$bugCode] = array(
+							'code' => $bugCode,
+							'count' => 1
+						);
+					} else {
+						$catalog[$bugCode]['count']++;
+					}
+				}
+
+				// alphabetically sort list of weakness types
+				//
+				sort($catalog);
+			}
+		}
 
 		return $catalog;
 	}
@@ -321,7 +349,7 @@ class AssessmentResultsController extends BaseController
 	// utility results methods
 	//
 
-	public function getNativeResults($assessmentResultsUuid, $returnPath, $returnString) {
+	public function getNativeResults(Request $request, string $assessmentResultsUuid, string $returnPath, string $returnString): array {
 
 		// return native results data
 		//
@@ -363,7 +391,7 @@ class AssessmentResultsController extends BaseController
 		// parse the success json report
 		//
 		if (StringUtils::endsWith($returnPath, 'nativereport.json')) {
-			$results = $this->getJSONResults($results, $assessmentResultsUuid);
+			$results = $this->getJSONResults($request, $results, $assessmentResultsUuid);
 		}
 
 		if ($results) {
@@ -386,7 +414,7 @@ class AssessmentResultsController extends BaseController
 		];
 	}
 
-	public function getViewerResults($assessmentResultsUuid, $viewerInstanceUuid, $returnPath, $returnString) {
+	public function getViewerResults(string $assessmentResultsUuid, string $viewerInstanceUuid, ?string $returnPath, ?string $returnString) {
 
 		// get url/status from viewer instance if present
 		// otherwise just use what database gave us.
@@ -407,13 +435,25 @@ class AssessmentResultsController extends BaseController
 				];
 			} else {
 
-				// if proxy url, return it
+				// check instance proxy url
+				//
+				if (!$instance->proxy_url || $instance->proxy_url == 'undefined') {
+					return response("Instance proxy URL is not defined.", 400);
+				}
+
+				// get CodeDX base url
 				//
 				$connection = DB::connection('assessment');
 				$pdo = $connection->getPdo();
 				$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 				$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
-				$returnUrl = $base_url.$instance->proxy_url;
+				if (!$base_url) {
+					return response("CodeDX base url is not defined.", 400);
+				}
+
+				// compose results url
+				//
+				$returnUrl = $base_url . $instance->proxy_url;
 
 				// log success
 				//
@@ -432,14 +472,21 @@ class AssessmentResultsController extends BaseController
 			}
 		}
 
+		// get app url
+		//
+		$appUrl = config('app.url');
+		if (!$appUrl) {
+			return response("App url is not defined.", 400);
+		}
+
 		return [
 			"assessment_results_uuid" => $assessmentResultsUuid,
-			"results_url" => config('app.url').'/'.$returnPath,
+			"results_url" =>  $appUrl . '/' . $returnPath,
 			"results_status" => $returnString
 		];
 	}
 
-	public static function rrmdir($dir) {
+	public static function rrmdir(string $dir) {
 		if (is_dir($dir)) {
 			$objects = scandir($dir);
 			foreach ($objects as $object) {
@@ -458,41 +505,49 @@ class AssessmentResultsController extends BaseController
 
 	// parse JSON errors
 	//
-	public function getJSONErrors($results, $assessmentResultUuid) {
-		$results = json_decode($results, true);
-		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
+	public function getJSONErrors(string $results, string $assessmentResultUuid) {
 
+		// parse results
+		//
+		$results = json_decode($results, true);
+		
 		// append error link
 		//
+		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
 		$resultsDir = '/swamp/SCAProjects/'.$assessmentResult->project_uuid.'/A-Results/';
-        $results['url'] = config('app.url').str_replace($resultsDir, '/results/', $assessmentResult->file_path);
+		$results['url'] = config('app.url').str_replace($resultsDir, '/results/', $assessmentResult->file_path);
 
 		return $results;
 	}
 
 	// select results by file
 	//
-	public function selectResults($results) {
+	public function selectResults(Request $request, array $results) {
 
 		// parse parameters
 		//
-		$filename = Input::get('file');	
+		$filename = $request->input('file');	
 		
 		if ($filename) {
-			$filtered = [];
-			$bugInstances = $results['AnalyzerReport']['BugInstances'];
-			for ($i = 0; $i < count($bugInstances); $i++) {
-				$bugInstance = $bugInstances[$i];
-				foreach ($bugInstance['BugLocations'] as $bugLocation) {
-					if ($bugLocation['primary']) {
-						if (StringUtils::startsWith($bugLocation['SourceFile'], 'pkg1/' . $filename)) {
-							array_push($filtered, $bugInstance);
+			
+			// check if bug instances exist
+			//
+			if (array_key_exists('BugInstances', $results['AnalyzerReport'])) {
+				$bugInstances = $results['AnalyzerReport']['BugInstances'];
+				$filtered = [];
+				for ($i = 0; $i < count($bugInstances); $i++) {
+					$bugInstance = $bugInstances[$i];
+					foreach ($bugInstance['BugLocations'] as $bugLocation) {
+						if ($bugLocation['primary']) {
+							if (StringUtils::startsWith($bugLocation['SourceFile'], 'pkg1/' . $filename)) {
+								array_push($filtered, $bugInstance);
+							}
 						}
 					}
 				}
-			}
 
-			$results['AnalyzerReport']['BugInstances'] = $filtered;
+				$results['AnalyzerReport']['BugInstances'] = $filtered;
+			}
 		}
 
 		return $results;
@@ -500,12 +555,12 @@ class AssessmentResultsController extends BaseController
 
 	// parse JSON results
 	//
-	public function limitResults($results) {
+	public function limitResults(Request $request, array $results): array {
 
 		// parse parameters
 		//
-		$from = filter_var(Input::get('from'), FILTER_VALIDATE_INT);
-		$to = filter_var(Input::get('to'), FILTER_VALIDATE_INT);
+		$from = filter_var($request->input('from'), FILTER_VALIDATE_INT);
+		$to = filter_var($request->input('to'), FILTER_VALIDATE_INT);
 
 		if (!$from) {
 			$from = 0;
@@ -538,58 +593,59 @@ class AssessmentResultsController extends BaseController
 		return $results;
 	}
 
-	public function includeBugInstances($bugInstances, $filter) {
+	public function includeBugInstances(array $bugInstances, array $filter = null): array {
 		$filtered = [];
 		for ($i = 0; $i < count($bugInstances); $i++) {
 			$bugInstance = $bugInstances[$i];
-			$bugCode = htmlspecialchars_decode($bugInstance['BugCode']);
-			if (in_array($bugCode, $filter)) {
+			if (in_array($bugInstance['BugCode'], $filter)) {
 				array_push($filtered, $bugInstance);
 			}
 		}
 		return $filtered;
 	}
 
-	public function excludeBugInstances($bugInstances, $filter) {
+	public function excludeBugInstances(array $bugInstances, array $filter =  null): array {
 		$filtered = [];
 		for ($i = 0; $i < count($bugInstances); $i++) {
 			$bugInstance = $bugInstances[$i];
-			$bugCode = htmlspecialchars_decode($bugInstance['BugCode']);
-			if (!in_array($bugCode, $filter)) {
+			if (!in_array($bugInstance['BugCode'], $filter)) {
 				array_push($filtered, $bugInstance);
 			}
 		}
 		return $filtered;
 	}
 
-	public function filterResults($results) {
+	public function filterResults(Request $request, array $results = null): array {
+
+		// check for no bug instances
+		//
+		if (!$results || !array_key_exists('BugInstances', $results['AnalyzerReport'])) {
+			return [];
+		}
+
+		// get bug instances from results
+		//
 		$bugInstances = $results['AnalyzerReport']['BugInstances'];
 
 		// get parameters
 		//
-		$include = Input::get('include');
-		$exclude = Input::get('exclude');	
+		$include = $request->input('include');
+		$exclude = $request->input('exclude');	
 
 		// convert filters to arrays, if necessary
 		//
 		if ($include && is_string($include)) {
 			if (StringUtils::contains($include, ',')) {
 				$include = explode(',', $include);
-				foreach ($include as &$string) {
-					$string = urldecode($string);
-				}
 			} else {
-				$include = [urldecode($include)];
+				$include = [$include];
 			}
 		}
 		if ($exclude && is_string($exclude)) {
 			if (StringUtils::contains($exclude, ',')) {
 				$exclude = explode(',', $exclude);
-				foreach ($exclude as &$string) {
-					$string = urldecode($string);
-				}
 			} else {
-				$exclude = [urldecode($exclude)];
+				$exclude = [$exclude];
 			}
 		}
 
@@ -606,7 +662,7 @@ class AssessmentResultsController extends BaseController
 		return $results;
 	}
 
-	public function annotateResults($results, $assessmentResultUuid) {
+	public function annotateResults(array $results, string $assessmentResultUuid): array {
 		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
 
 		// append triplet info to results
@@ -624,28 +680,24 @@ class AssessmentResultsController extends BaseController
 		return $results;	
 	}
 
-	public function sortResults($results) {
-		usort($results['AnalyzerReport']['BugInstances'], function($a, $b) {
-			return $a['BugLocations'][0]->StartLine < $b['BugLocations'][0]->StartLine ? 1 : -1;
-		});
-	}
-
-	public function getJSONResults($results, $assessmentResultUuid) {
+	public function getJSONResults(Request $request, string $results, string $assessmentResultUuid) {
 
 		// parse results
 		//
 		$results = json_decode($results, true);
-		$results = $this->filterResults($results);
-		$results = $this->limitResults($results);
+
+		// filter results
+		//
+		$results = $this->filterResults($request, $results);
+		$results = $this->limitResults($request, $results);
 		$results = $this->annotateResults($results, $assessmentResultUuid);
-		// $results = $this->sortResults($results);
 
 		return $results;
 	}
 
 	// Get SCARF results as XML file
 	//
-	public function getScarf($assessmentResultsUuid) {
+	public function getScarf(Request $request, string $assessmentResultsUuid) {
 		if ($assessmentResultsUuid != "none") {
 			foreach (explode( ',', $assessmentResultsUuid) as $resultUuid) {
 				try {
@@ -660,7 +712,7 @@ class AssessmentResultsController extends BaseController
 				}
 				
 				if ($assessmentRun) {
-					$user = User::getIndex(session('user_uid'));
+					$user = User::current();
 					$result = $assessmentResult->checkPermissions($user);
 
 					// if not true, return permissions error
@@ -725,7 +777,7 @@ class AssessmentResultsController extends BaseController
 						'Content-Type: text/xml',
 						'charset=UTF-8',
 					];
-					if (strcasecmp(Request::header('Accept-Encoding'),'gzip') == 0) {
+					if (strcasecmp($request->header('Accept-Encoding'),'gzip') == 0) {
 						$headers[] = 'Content-Encoding: gzip';
 					}
 					return response()->download($returnFile,'scarf.xml',$headers);
@@ -792,11 +844,11 @@ class AssessmentResultsController extends BaseController
 		}
 	}
 
-	public function getNoResultsPermission($viewerUuid, $projectUuid) {
+	public function getNoResultsPermission(string $viewerUuid, string $projectUuid) {
 		return response('approved', 200);
 	}
 
-	public function getResultsPermission($assessmentResultsUuid, $viewerUuid, $projectUuid) {
+	public function getResultsPermission(string $assessmentResultsUuid, string $viewerUuid, string $projectUuid) {
 		
 		// check for no results
 		//
@@ -808,7 +860,7 @@ class AssessmentResultsController extends BaseController
 		//
 		foreach (explode( ',',$assessmentResultsUuid ) as $resultUuid) {
 			$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$resultUuid)->first();
-			$user = User::getIndex(session('user_uid'));
+			$user = User::current();
 			$result = $assessmentResult->checkPermissions($user);
 
 			// if not true, return permissions error
@@ -819,8 +871,8 @@ class AssessmentResultsController extends BaseController
 		}
 	}
 
-	private function checkProject($projectUuid) {
-		$currentUser = User::getIndex(session('user_uid'));
+	private function checkProject(string $projectUuid) {
+		$currentUser = User::current();
 		$project = Project::where('project_uid', '=', $projectUuid)->first();
 		if ($project && !$project->isReadableBy($currentUser)) {
 			return response('Insufficient priveleges to access project.', 403);
@@ -831,21 +883,27 @@ class AssessmentResultsController extends BaseController
 
 	// get status of launching viewer, and then return results
 	//
-	public function getInstanceStatus($viewerInstanceUuid) {
+	public function getInstanceStatus(string $viewerInstanceUuid): array {
 		$connection = DB::connection('assessment');
 		$pdo = $connection->getPdo();
 
 		$instance = HTCondorCollector::getViewerInstance($viewerInstanceUuid);
-		Log::info("getInstanceStatus - state: " . $instance->stateToName());
-		// TODO what is return value of status when returns immediately
 
 		// if proxy url, return it
 		//
 		if ($instance->isReady()) {
-			Log::info("getInstanceStatus - state: " . $instance->stateToName() . " isReady");
+
+			// get CodeDX base url
+			//
 			$pdo->query("CALL select_system_setting ('CODEDX_BASE_URL',@rtn);");
 			$base_url  = $pdo->query("SELECT @rtn")->fetchAll()[0]["@rtn"];
-			$returnUrl = $base_url.$instance->proxy_url;
+			if (!$base_url) {
+				return response("CodeDX base URL is not defined.", 400);
+			}
+
+			// compose results url
+			//
+			$returnUrl = $base_url . $instance->proxy_url;
 
 			// log success
 			//

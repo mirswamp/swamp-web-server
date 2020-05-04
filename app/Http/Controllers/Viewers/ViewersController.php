@@ -13,14 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Viewers;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Models\Viewers\Viewer;
 use App\Models\Viewers\ProjectDefaultViewer;
@@ -35,18 +34,18 @@ class ViewersController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($viewerUuid) {
-		return Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
+	public function getIndex($viewerUuid): ?Viewer {
+		return Viewer::find($viewerUuid);
 	}
 
 	// get all
 	//
-	public function getAll() {
+	public function getAll(): Collection {
 		$defaultViewer = config('app.default_viewer');
 		if ($defaultViewer && Viewer::where('name', '=', $defaultViewer)->exists()) {
 			$first = Viewer::where('name', '=', $defaultViewer)->first();
-			$list = Viewer::where('name', '!=', $defaultViewer)->get();
-			return $list->prepend($first);
+			$collection = Viewer::where('name', '!=', $defaultViewer)->get();
+			return $collection->prepend($first);
 		} else {
 			return Viewer::all();
 		}
@@ -54,31 +53,10 @@ class ViewersController extends BaseController
 
 	// get default
 	//
-	public function getDefaultViewer($projectUid) {
+	public function getDefaultViewer($projectUid): ?Viewer {
 		$default = ProjectDefaultViewer::where('project_uuid', '=', $projectUid)->first();
 		return $default ?
 			Viewer::where('viewer_uuid', '=', $default->viewer_uuid)->first() :
 			Viewer::where('name', '=', 'Native')->first();
-	}
-
-	//
-	// setting methods
-	//
-
-	public function setDefaultViewer($projectUuid, $viewerUuid) {
-		$default = ProjectDefaultViewer::where('project_uuid', '=', $projectUuid)->first();
-		if ($default) {
-			$default->viewer_uuid = $viewerUuid;
-			$default->save();
-		} else {
-			$default = ProjectDefaultViewer::create([
-				'project_uuid' => $projectUuid,
-				'viewer_uuid'  => $viewerUuid
-			]);
-		}
-		return $default;
-	}
-
-	public function setDefault($projectUuid, $viewerUuid) {
 	}
 }

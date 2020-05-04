@@ -13,19 +13,20 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Tools;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Response;
-use App\Models\TimeStamps\UserStamped;
+use App\Models\TimeStamps\TimeStamped;
 use App\Models\Users\User;
 use App\Models\Users\UserPolicy;
 use App\Models\Users\Permission;
 use App\Models\Users\UserPermission;
 use App\Models\Users\Owner;
+use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Tools\ToolVersion;
 use App\Models\Tools\ToolLanguage;
@@ -35,19 +36,48 @@ use App\Models\Tools\ToolViewerIncompatibility;
 use App\Models\Policies\Policy;
 use App\Models\Viewers\Viewer;
 
-class Tool extends UserStamped
+class Tool extends TimeStamped
 {
-	const ALLOW_PROJECT_OWNER_PERMISSION = false;
-
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'tool_shed';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'tool';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'tool_uuid';
+
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
 	public $incrementing = false;
 
-	// mass assignment policy
-	//
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'tool_uuid',
 		'tool_owner_uuid',
@@ -57,8 +87,11 @@ class Tool extends UserStamped
 		'tool_sharing_status'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'tool_uuid',
 		'name',
@@ -75,8 +108,11 @@ class Tool extends UserStamped
 		'policy'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'package_type_names',
 		'version_strings',
@@ -86,20 +122,33 @@ class Tool extends UserStamped
 		'is_restricted'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'is_build_needed' => 'boolean',
 		'is_owned' => 'boolean',
 		'is_restricted' => 'boolean'
 	];
 
-	// list of tool names that are restricted
-	//
+	/**
+	 * The tool names that are restricted (commercial).
+	 *
+	 * @var array
+	 */
 	protected $restrictedTools = [
 		'parasoft',
 		'codesonar'
 	];
+
+	/**
+	 * Which permissions model to use.
+	 *
+	 * @const bool
+	 */
+	const ALLOW_PROJECT_OWNER_PERMISSION = false;
 
 	//
 	// accessor methods
@@ -162,7 +211,7 @@ class Tool extends UserStamped
 
 		// check to see if user is logged in
 		//
-		$user = User::getIndex(session('user_uid'));
+		$user = User::current();
 		if ($user) {
 
 			// fetch owner information
@@ -186,54 +235,54 @@ class Tool extends UserStamped
 	// querying methods
 	//
 
-	public function getVersions() {
+	public function getVersions(): Collection {
 		return ToolVersion::where('tool_uuid', '=', $this->tool_uuid)->get();
 	}
 
-	public function getLatestVersion() {
+	public function getLatestVersion(): ?ToolVersion {
 		return ToolVersion::where('tool_uuid', '=', $this->tool_uuid)->
 			orderBy('version_no', 'DESC')->first();
 	}
 
-	public function getPolicy() {
+	public function getPolicy(): ?string {
 		return Policy::where('policy_code', '=', $this->policy_code)->first()->policy;
 	}
 
-	public function supports($packageType) {
+	public function supports(string $packageType): bool {
 		return in_array($packageType, $this->package_type_names);
 	}
 
-	public function isCompatibleWith($viewer) {
+	public function isCompatibleWith(Viewer $viewer): bool {
 		return !ToolViewerIncompatibility::where('tool_uuid', '=', $this->tool_uuid)
 			->where('viewer_uuid', '=', $viewer->viewer_uuid)->exists();
 	}
 
 	//
-	// sharing methods
+	// sharing querying methods
 	//
 
-	public function isPublic() {
+	public function isPublic(): bool {
 		return strcasecmp($this->getSharingStatus(), 'public') == 0;
 	}
 
-	public function isProtected() {
+	public function isProtected(): bool {
 		return strcasecmp($this->getSharingStatus(), 'protected') == 0;
 	}
 
-	public function isPrivate() {
+	public function isPrivate(): bool {
 		return strcasecmp($this->getSharingStatus(), 'private') == 0;
 	}
 
-	public function getSharingStatus() {
+	public function getSharingStatus(): string {
 		return strtolower($this->tool_sharing_status);
 	}
 
-	public function isSharedWith($project) {
+	public function isSharedWith(Project $project): bool {
 		return ToolSharing::where('project_uuid', '=', $project->project_uid)
 			->where('tool_uuid', '=', $this->tool_uuid)->count() != 0;
 	}
 
-	public function isSharedBy($user) {
+	public function isSharedBy(User $user): bool {
 		foreach ($user->getProjects() as $project) {
 			if ($this->isSharedWith($project)) {
 				return true;
@@ -243,14 +292,35 @@ class Tool extends UserStamped
 	}
 
 	//
+	// sharing methods
+	//
+
+	public function unshare() {
+		ToolSharing::where('tool_uuid', '=', $this->tool_uuid)->delete();
+	}
+
+	public function shareWith($project): ToolSharing {
+		if (!$this->isSharedWith($project)) {
+			$sharing = new ToolSharing([
+				'platform_uuid' => $this->platform_uuid,
+				'project_uuid' => $project->project_uid
+			]);
+			$sharing->save();
+			return $sharing;
+		} else {
+			return $this->getSharedWith($project);
+		}
+	}
+
+	//
 	// access control methods
 	//
 
-	public function isOwnedBy($user) {
+	public function isOwnedBy(User $user): bool {
 		return ($this->tool_owner_uuid == $user->user_uid);
 	}
 
-	public function isReadableBy($user) {
+	public function isReadableBy(User $user): bool {
 		if ($this->isPublic() || ($this->isProtected() && $this->isRestricted())) {
 			return true;
 		} else if ($user && $user->isAdmin()) {
@@ -264,7 +334,7 @@ class Tool extends UserStamped
 		}
 	}
 
-	public function isWriteableBy($user) {
+	public function isWriteableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isOwnedBy($user)) {
@@ -278,11 +348,11 @@ class Tool extends UserStamped
 	// restricted tool methods
 	//
 
-	public function isRestricted() {
+	public function isRestricted(): bool {
 		return $this->policy_code != null;		
 	}
 
-	public function isRestrictedByProject() {
+	public function isRestrictedByProject(): bool {
 
 		// check for tool's name in list of restricted tool names
 		//
@@ -295,7 +365,7 @@ class Tool extends UserStamped
 		return false;
 	}
 
-	public function isRestrictedByProjectOwner() {
+	public function isRestrictedByProjectOwner(): bool {
 
 		// check for tool's name in list of restricted tool names
 		//
@@ -308,14 +378,16 @@ class Tool extends UserStamped
 		return false;
 	}
 
-	public function getPermissionCode() {
+	public function getPermissionCode(): ?string {
 		$permission = Permission::where('policy_code', '=', $this->policy_code)->first();
 		if ($permission) {
 			return $permission->permission_code;
+		} else {
+			return null;
 		}
 	}
 
-	public function getProjectOwnerPermission($project, $user) {
+	public function getProjectOwnerPermission(Project $project, User $user): string {
 		$permissionCode = $this->getPermissionCode();
 		$userPermission = $user->getPermission($permissionCode);
 
@@ -338,7 +410,7 @@ class Tool extends UserStamped
 		return $user->getPolicyPermission($permissionCode, $userPermission);
 	}
 
-	public function getProjectMemberPermission($project, $user) {
+	public function getProjectMemberPermission(Project $project, User $user): string {
 		$permissionCode = $this->getPermissionCode();
 		$ownerPermission = $project->getOwnerPermission($permissionCode);
 
@@ -369,7 +441,7 @@ class Tool extends UserStamped
 		return $user->getPolicyPermission($permissionCode, $ownerPermission);
 	}
 
-	public function getPermission($project, $user) {
+	public function getPermission(Project $project, User $user): string {
 		if (self::ALLOW_PROJECT_OWNER_PERMISSION) {
 
 			// no project provided
@@ -394,20 +466,20 @@ class Tool extends UserStamped
 		}
 	}
 
-	public function getUserPolicy($user) {
+	public function getUserPolicy(User $user): ?UserPolicy {
 		if ($user) {
 			return $user->getPolicy($this->policy_code);
 		}
 		return null;
 	}
 
-	public function getPolicyPermission($user) {
+	public function getPolicyPermission(User $user): string {
 		$permissionCode = $this->getPermissionCode();
 		$ownerPermission = null;
 		return $user->getPolicyPermission($permissionCode, $ownerPermission);
 	}
 
-	public function getProjectOwnerPermissionStatus($project, $user) {
+	public function getProjectOwnerPermissionStatus(Project $project, User $user) {
 		$permissionCode = $this->getPermissionCode();
 		if (!$permissionCode) {
 			return response('Error - no permission code.', 500);
@@ -441,7 +513,7 @@ class Tool extends UserStamped
 		return $user->getPolicyPermissionStatus($permissionCode, $userPermission);
 	}
 
-	public function getProjectMemberPermissionStatus($project, $user) {
+	public function getProjectMemberPermissionStatus(Project $project, User $user) {
 		$permissionCode = $this->getPermissionCode();
 		$ownerPermission = $project->getOwnerPermission($permissionCode);
 
@@ -479,7 +551,7 @@ class Tool extends UserStamped
 		return $user->getPolicyPermissionStatus($permissionCode, $ownerPermission);
 	}
 
-	public function getPermissionStatus($project, $user) {
+	public function getPermissionStatus(Project $project, User $user) {
 		if (self::ALLOW_PROJECT_OWNER_PERMISSION) {
 
 			// no project provided
@@ -522,5 +594,17 @@ class Tool extends UserStamped
 			$ownerPermission = null;
 			return $user->getPolicyPermissionStatus($permissionCode, $ownerPermission);
 		}
+	}
+
+	//
+	// deleting methods
+	//
+
+	public function deleteVersions() {
+		$versions = $this->getVersions();
+		for ($i = 0; $i < count($versions); $i++) {
+			$versions[$i]->delete();
+		}
+		return $versions;
 	}
 }

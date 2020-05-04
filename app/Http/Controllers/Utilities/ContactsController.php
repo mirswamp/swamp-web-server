@@ -13,14 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Utilities;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\User;
 use App\Models\Utilities\Contact;
@@ -30,18 +29,18 @@ class ContactsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request) {
 
 		// parse parameters
 		//
 		$data = [
-			'first_name' => Input::get('first_name'),
-			'last_name' => Input::get('last_name'),
-			'email' => Input::get('email'),
-			'subject' => Input::get('subject'),
-			'question' => Input::get('question')
+			'first_name' => $request->input('first_name'),
+			'last_name' => $request->input('last_name'),
+			'email' => $request->input('email'),
+			'subject' => $request->input('subject'),
+			'question' => $request->input('question')
 		];
-		$topic = Input::get('topic');
+		$topic = $request->input('topic');
 
 		// send contact email
 		//

@@ -38,13 +38,25 @@ use App\Models\TimeStamps\TimeStamped;
 
 class AppPassword extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'app_passwords';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'app_password_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'app_password_uuid',
 		'user_uid',
@@ -52,8 +64,11 @@ class AppPassword extends TimeStamped
 		'label'
 	];
 
-	// array / json conversion whitelist - note no 'password' field
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'app_password_uuid',
 		'user_uid',
@@ -72,7 +87,7 @@ class AppPassword extends TimeStamped
 	 * @return True if $password validates against one of the user's
 	 *         app password hashes. False otherwise.
 	 */
-	public static function validatePassword($user_uid, $password) {
+	public static function validatePassword(string $user_uid, string $password): bool {
 		$retval = false; // Assume app password is not valid
 
 		// Get all of the user's app passwords

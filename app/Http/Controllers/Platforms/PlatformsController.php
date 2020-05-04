@@ -13,18 +13,18 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Platforms;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use App\Utilities\Uuids\Guid;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\LimitFilter;
+use App\Models\Projects\Project;
 use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 use App\Models\Platforms\PlatformSharing;
@@ -35,13 +35,13 @@ class PlatformsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): Platform {
 
 		// parse parameters
 		//
-		$name = Input::get('name');
-		$platformOwnerUuid = Input::get('platform_owner_uuid');
-		$platformSharingStatus = Input::get('platform_sharing_status');
+		$name = $request->input('name');
+		$platformOwnerUuid = $request->input('platform_owner_uuid');
+		$platformSharingStatus = $request->input('platform_sharing_status');
 
 		// create new platform
 		//
@@ -58,80 +58,92 @@ class PlatformsController extends BaseController
 	
 	// get by index
 	//
-	public function getIndex($platformUuid) {
-		$platform = Platform::where('platform_uuid', '=', $platformUuid)->first();
-		return $platform;
+	public function getIndex(string $platformUuid): ?Platform {
+		return Platform::find($platformUuid);
 	}
 
 	// get by user
 	//
-	public function getByUser($userUuid) {
-		$platforms = Platform::where('platform_owner_uuid', '=', $userUuid)->orderBy('name', 'ASC')->get();
-		return $platforms;
+	public function getByUser(string $userUuid): Collection {
+		return Platform::where('platform_owner_uuid', '=', $userUuid)->orderBy('name', 'ASC')->get();
 	}
 
 	// get all for admin user
 	//
-	public function getAll() {
-		$user = User::getIndex(session('user_uid'));
+	public function getAll(Request $request): Collection {
+		$user = User::current();
 		if ($user && $user->isAdmin()) {
-			$platformsQuery = Platform::orderBy('create_date', 'DESC');
+
+			// create query
+			//
+			$query = Platform::orderBy('create_date', 'DESC');
 
 			// add filters
 			//
-			$platformsQuery = DateFilter::apply($platformsQuery);
-			$platformsQuery = LimitFilter::apply($platformsQuery);
+			$query = DateFilter::apply($request, $query);
+			$query = LimitFilter::apply($request, $query);
 
-			return $platformsQuery->get();
+			// perform query
+			//
+			return $query->get();
+		} else {
+			return collect();
 		}
-		return '';
 	}
 
 	// get by public scoping
 	//
-	public function getPublic() {
-		$platformsQuery = Platform::where('platform_sharing_status', '=', 'public')->orderBy('name', 'ASC');
+	public function getPublic(Request $request) {
+
+		// create query
+		//
+		$query = Platform::where('platform_sharing_status', '=', 'public')->orderBy('name', 'ASC');
 
 		// add filters
 		//
-		$platformsQuery = DateFilter::apply($platformsQuery);
-		$platformsQuery = LimitFilter::apply($platformsQuery);
+		$query = DateFilter::apply($request, $query);
+		$query = LimitFilter::apply($request, $query);
 
-		return $platformsQuery->get();
+		// perform query
+		//
+		return $query->get();
 	}
 
 	// get by protected scoping
 	//
-	public function getProtected($projectUuid) {
+	public function getProtected(Request $request, string $projectUuid) {
 		$platformTable = with(new Platform)->getTable();
 		$platformSharingTable = with(new PlatformSharing)->getTable();
-		$platformsQuery = PlatformSharing::where('project_uuid', '=', $projectUuid)
+
+		// create query
+		//
+		$query = PlatformSharing::where('project_uuid', '=', $projectUuid)
 			->join($platformTable, $platformSharingTable.'.platform_uuid', '=', $platformTable.'.platform_uuid')
 			->orderBy('name', 'ASC');
 
 		// add filters
 		//
-		$platformsQuery = DateFilter::apply($platformsQuery);
-		$platformsQuery = LimitFilter::apply($platformsQuery);
+		$query = DateFilter::apply($request, $query);
+		$query = LimitFilter::apply($request, $query);
 
-		return $platformsQuery->get();
+		// perform query
+		//
+		return $query->get();
 	}
 
 	// get by project
 	//
-	public function getByProject($projectUuid) {
-		$publicPlatforms = $this->getPublic();
-		$protectedPlatforms = $this->getProtected($projectUuid);
+	public function getByProject(Request $request, string $projectUuid) {
+		$publicPlatforms = $this->getPublic($request);
+		$protectedPlatforms = $this->getProtected($request, $projectUuid);
 		return $publicPlatforms->merge($protectedPlatforms);
 	}
 
 	// get versions
 	//
-	public function getVersions($platformUuid) {
+	public function getVersions(string $platformUuid) {
 		$platformVersions = PlatformVersion::where('platform_uuid', '=', $platformUuid)->get();
 		foreach( $platformVersions as $p ){
-			unset( $p->create_user );
-			unset( $p->update_user );
 			unset( $p->create_date );
 			unset( $p->update_date );
 			unset( $p->release_date );
@@ -147,7 +159,7 @@ class PlatformsController extends BaseController
 
 	// get sharing
 	//
-	public function getSharing($platformUuid) {
+	public function getSharing(string $platformUuid) {
 		$platformSharing = PlatformSharing::where('platform_uuid', '=', $platformUuid)->get();
 		$projectUuids = [];
 		for ($i = 0; $i < sizeof($platformSharing); $i++) {
@@ -158,13 +170,13 @@ class PlatformsController extends BaseController
 
 	// update by index
 	//
-	public function updateIndex($platformUuid) {
+	public function updateIndex(Request $request, string $platformUuid) {
 
 		// parse parameters
 		//
-		$name = Input::get('name');
-		$platformOwnerUuid = Input::get('platform_owner_uuid');
-		$platformSharingStatus = Input::get('platform_sharing_status');
+		$name = $request->input('name');
+		$platformOwnerUuid = $request->input('platform_owner_uuid');
+		$platformSharingStatus = $request->input('platform_sharing_status');
 
 		// get model
 		//
@@ -185,36 +197,72 @@ class PlatformsController extends BaseController
 
 	// update sharing by index
 	//
-	public function updateSharing($platformUuid) {
+	public function updateSharing(Request $request, string $platformUuid) {
+
+		// parse input
+		//
+		$projects = $request->input('projects');
+		$projectUuids = $request->input('project_uuids');
+
+		// find platform
+		//
+		$platform = Platform::find($platformUuid);
+		if (!$platform) {
+			return response('Platform not found.', 404);
+		}
 
 		// remove previous sharing
 		//
-		$platformSharings = PlatformSharing::where('platform_uuid', '=', $platformUuid)->get();
-		for ($i = 0; $i < sizeof($platformSharings); $i++) {
-			$platformSharing = $platformSharings[$i];
-			$platformSharing->delete();
-		}
+		$platform->unshare();
 
 		// create new sharing
 		//
-		$input = Input::get('projects');
-		$platformSharings = new Collection;
-		for ($i = 0; $i < sizeOf($input); $i++) {
-			$project = $input[$i];
-			$projectUid = $project['project_uid'];
-			$platformSharing = new PlatformSharing([
-				'platform_uuid' => $platformUuid,
-				'project_uuid' => $projectUid
-			]);
-			$platformSharing->save();
-			$platformSharings->push($platformSharing);
+		$sharing = [];
+
+		// create sharing from array of objects
+		//
+		// Note: this is support for the old way of specifying sharing
+		// which is needed for backwards compatibility with API plugins).
+		//
+		if ($projects) {
+			foreach ($projects as $project) {
+				$projectUid = $project['project_uid'];
+
+				// find project
+				//
+				$project = Project::where('project_uid', '=', $projectUid)->first();
+
+				// add sharing
+				//
+				if ($project) {
+					$sharing[] = $platform->shareWith($project);
+				}
+			}
+		} 
+
+		// create sharing from array of project uuids
+		//
+		if ($projectUuids) {
+			foreach ($projectUuids as $projectUuid) {
+
+				// find project
+				//
+				$project = Project::where('project_uid', '=', $projectUuid)->first();
+
+				// add sharing
+				//
+				if ($project) {
+					$sharing[] = $platform->shareWith($project);
+				}
+			}
 		}
-		return $platformSharings;
+
+		return $sharing;
 	}
 
 	// delete by index
 	//
-	public function deleteIndex($platformUuid) {
+	public function deleteIndex(string $platformUuid) {
 		$platform = Platform::where('platform_uuid', '=', $platformUuid)->first();
 		$platform->delete();
 		return $platform;
@@ -222,7 +270,7 @@ class PlatformsController extends BaseController
 
 	// delete versions
 	//
-	public function deleteVersions($platformUuid) {
+	public function deleteVersions(string $platformUuid) {
 		$platformVersions = $this->getVersions($platformUuid);
 		for ($i = 0; $i < sizeof($platformVersions); $i++) {
 			$platformVersions[$i]->delete();

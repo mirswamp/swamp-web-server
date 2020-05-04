@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\JavaBytecodePackageVersion;
 
@@ -28,11 +27,11 @@ class AndroidBytecodePackageVersion extends JavaBytecodePackageVersion
 	// querying methods
 	//
 
-	function getBuildSystem() {
+	function getBuildSystem(): string {
 		return 'android-apk';
 	}
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 		return [
 			'build_system' => $this->getBuildSystem(),
 			'config_dir' => null,
@@ -42,7 +41,7 @@ class AndroidBytecodePackageVersion extends JavaBytecodePackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
-		response("Android bytecode package version is ok for APK.", 200);
+	function checkBuildSystem(): string {
+		return "ok";
 	}
 }

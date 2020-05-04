@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Users;
@@ -23,14 +23,39 @@ use App\Models\Users\Policy;
 
 class Permission extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'permission';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'permission_code';
+	
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
 	public $incrementing = false;
 
-	// mass assignment policy
-	//
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'permission_code',
 		'title',
@@ -43,8 +68,11 @@ class Permission extends CreateStamped
 		'user_info_policy_text'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'permission_code',
 		'title',
@@ -61,14 +89,20 @@ class Permission extends CreateStamped
 		'create_date'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'policy'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'admin_only_flag' => 'boolean',
 		'auto_approve_flag' => 'boolean'
@@ -87,11 +121,11 @@ class Permission extends CreateStamped
 	// querying methods
 	//
 
-	public function isAdminOnly() {
+	public function isAdminOnly(): bool {
 		return $this->admin_only_flag;
 	}
 
-	public function isAutoApprove() {
+	public function isAutoApprove(): bool {
 		return $this->auto_approve_flag;
 	}
 }

@@ -13,14 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Models\Admin\AdminInvitation;
 use App\Models\Users\User;
@@ -31,14 +31,14 @@ class AdminInvitationsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request) {
 
 		// parse parameters
 		//
-		$inviterUid = Input::get('inviter_uid');
-		$inviteeUid = Input::get('invitee_uid');
-		$inviteeName = Input::get('invitee_name');
-		$confirmRoute = Input::get('confirm_route');
+		$inviterUid = $request->input('inviter_uid');
+		$inviteeUid = $request->input('invitee_uid');
+		$inviteeName = $request->input('invitee_name');
+		$confirmRoute = $request->input('confirm_route');
 
 		// create invitation(s)
 		//
@@ -56,10 +56,10 @@ class AdminInvitationsController extends BaseController
 			return $adminInvitation;
 		} else {
 
-			// create an array of admin invitations
+			// create a collection of admin invitations
 			//
-			$invitations = Input::all();
-			$adminInvitations = new Collection;
+			$invitations = $request->all();
+			$adminInvitations = collect();
 			for ($i = 0; $i < sizeOf($invitations); $i++) {
 				$invitation = $invitations[$i];
 				$adminInvitation = new AdminInvitation([
@@ -78,13 +78,15 @@ class AdminInvitationsController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($invitationKey) {
-		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function getIndex(string $invitationKey): ?AdminInvitation {
+		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->first();
 
 		if (!$adminInvitation) {
-			return response('Could not load invitation.', 404);
+			return null;
 		}
 
+		// add inviter
+		//
 		$inviter = User::getIndex($adminInvitation->inviter_uid);
 		$inviter = (!$inviter || !$inviter->isEnabled()) ? false : $inviter;
 		if ($inviter) {
@@ -92,6 +94,8 @@ class AdminInvitationsController extends BaseController
 		}
 		$adminInvitation->inviter = $inviter;
 
+		// add invitee
+		//
 		$invitee = User::getIndex($adminInvitation->invitee_uid);
 		$invitee = (!$invitee || !$invitee->isEnabled()) ? false : $invitee;
 		if ($invitee) {
@@ -104,14 +108,14 @@ class AdminInvitationsController extends BaseController
 
 	// get pending by user
 	//
-	public function getPendingByUser($userUid) {
+	public function getPendingByUser(string $userUid): Collection {
 		return AdminInvitation::where('invitee_uid', '=', $userUid)
 			->whereNull('accept_date')
 			->whereNull('decline_date')
 			->get();
 	}
 
-	public function getNumPendingByUser($userUid) {
+	public function getNumPendingByUser(string $userUid): int {
 		return AdminInvitation::where('invitee_uid', '=', $userUid)
 			->whereNull('accept_date')
 			->whereNull('decline_date')
@@ -120,65 +124,14 @@ class AdminInvitationsController extends BaseController
 
 	// get all
 	//
-	public function getAll() {
-		$adminInvitations = AdminInvitation::all();
-		return $adminInvitations;
-	}
-
-	// get invitees associated with invitations
-	//
-	public function getInvitees() {
-		$adminInvitations = AdminInvitation::all();
-		$users = new Collection;
-		for ($i = 0; $i < sizeOf($adminInvitations); $i++) {
-			$adminInvitation = $adminInvitations[$i];
-			$user = User::getIndex($adminInvitation['invitee_uid']);
-		}
-		return $users;
-	}
-
-	// get inviters associated with invitations
-	//
-	public function getInviters() {
-		$adminInvitations = AdminInvitation::all();
-		$users = new Collection;
-		for ($i = 0; $i < sizeOf($adminInvitations); $i++) {
-			$adminInvitation = $adminInvitations[$i];
-			$user = User::getIndex($adminInvitation['inviter_uid']);
-		}
-		return $users;
-	}
-
-	// update by key
-	//
-	public function updateIndex($invitationKey) {
-
-		// parse parameters
-		//
-		$inviterUid = Input::get('inviter_uid');
-		$inviteeUid = Input::get('invitee_uid');
-
-		// get model
-		//
-		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
-
-		// update attributes
-		//
-		$adminInvitation->invitation_key = $invitationKey;
-		$adminInvitation->inviter_uid = $inviterUid;
-		$adminInvitation->invitee_uid = $inviteeUid;
-
-		// save and return changes
-		//
-		$changes = $adminInvitation->getDirty();
-		$adminInvitation->save();
-		return $changes;
+	public function getAll(): Collection {
+		return AdminInvitation::all();
 	}
 
 	// accept by key
 	//
-	public function acceptIndex($invitationKey) {
-		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function acceptIndex(string $invitationKey) {
+		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->first();
 		if ($adminInvitation) {
 
 			// accept invitation
@@ -202,8 +155,8 @@ class AdminInvitationsController extends BaseController
 
 	// decline by key
 	//
-	public function declineIndex($invitationKey) {
-		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->get()->first();
+	public function declineIndex(string $invitationKey) {
+		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->first();
 		if ($adminInvitation) {
 
 			// decline invitation
@@ -221,7 +174,7 @@ class AdminInvitationsController extends BaseController
 
 	// delete by key
 	//
-	public function deleteIndex($invitationKey) {
+	public function deleteIndex(string $invitationKey) {
 		$adminInvitation = AdminInvitation::where('invitation_key', '=', $invitationKey)->first();
 		$adminInvitation->delete();
 		return $adminInvitation;

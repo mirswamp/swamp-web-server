@@ -13,15 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
-use PDO;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -42,8 +40,8 @@ class PermissionsController extends BaseController
 {
 	// get projects by id
 	//
-	public function getPermissions($userUid) {
-		$currentUser = User::getIndex(session('user_uid'));
+	public function getPermissions(Request $request, $userUid) {
+		$currentUser = User::current();
 		$user = User::getIndex($userUid);
 		$permissions = Permission::orderBy('title', 'ASC')->get();
 		$userPermissions = UserPermission::where('user_uid', '=', $userUid)->get();
@@ -101,15 +99,15 @@ class PermissionsController extends BaseController
 		return $results;
 	}
 
-	public function lookupPermission($userUid, $permissionCode) {
+	public function lookupPermission(Request $request, string $userUid, string $permissionCode): ?UserPermission {
 		return UserPermission::where('user_uid', '=', $userUid)->where('permission_code', '=', $permissionCode)->first();
 	}
 
-	public function requestPermission($userUid, $permissionCode) {
+	public function requestPermission(Request $request, string $userUid, string $permissionCode): UserPermission {
 
 		// Lookup relevant data
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		$user = User::getIndex($userUid);
 		$permissions = Permission::all();
 		$permission = Permission::where('permission_code', '=', $permissionCode)->first();
@@ -178,17 +176,17 @@ class PermissionsController extends BaseController
 		return $userPermission;
 	}
 
-	public function requestPermissions($userUid) {
+	public function requestPermissions(Request $request, string $userUid) {
 
 		// parse parameters
 		//
-		$permissionCode = Input::get('permission_code');
-		$title = Input::get('title');
-		$comment = Input::get('comment');
+		$permissionCode = $request->input('permission_code');
+		$title = $request->input('title');
+		$comment = $request->input('comment');
 
 		// Lookup relevant data
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		$user = User::getIndex($userUid);
 		$permissions = Permission::all();
 		$userPermissions = UserPermission::where('user_uid', '=', $userUid)->get();
@@ -247,7 +245,7 @@ class PermissionsController extends BaseController
 				$userPermission->setStatus('granted');
 			}
 
-			if ($meta = $this->getMetaFields()) {
+			if ($meta = $this->getMetaFields($request)) {
 				$userPermission->meta_information = $meta;
 			}
 
@@ -261,7 +259,7 @@ class PermissionsController extends BaseController
 			if ($userPermission->status == 'denied') {
 				return response('You may not request denied permissions.  Please contact SWAMP support staff if you feel permissions have been denied in error.', 400);
 			}
-			if ($meta = $this->getMetaFields()) {
+			if ($meta = $this->getMetaFields($request)) {
 				$userPermission->meta_information = $meta;
 			}
 
@@ -348,19 +346,7 @@ class PermissionsController extends BaseController
 		}
 	}
 
-	private function getMetaFields() {
-		$meta_fields = ['user_type', 'name', 'email', 'organization', 'project_url'];
-		$input_has_meta = false;
-		$found = [];
-		foreach ($meta_fields as $field) {
-			if (Input::has($field)) {
-				$found[$field] = Input::get($field);
-			}
-		}
-		return sizeof($found) > 0 ? json_encode($found) : false;
-	}
-
-	public function getPending() {
+	public function getPending(Request $request): Collection {
 		return UserPermission::whereNull('grant_date')
 			->whereNull('denial_date')
 			->whereNull('delete_date')
@@ -368,7 +354,7 @@ class PermissionsController extends BaseController
 			->get();
 	}
 
-	public function getNumPending() {
+	public function getNumPending(Request $request): int {
 		return UserPermission::whereNull('grant_date')
 			->whereNull('denial_date')
 			->whereNull('delete_date')
@@ -376,17 +362,17 @@ class PermissionsController extends BaseController
 			->count();
 	}
 
-	public function setPermissions($userUid) {
+	public function setPermissions(Request $request, string $userUid) {
 
 		// parse parameters
 		//
-		$permissionCode = Input::get('permission_code', null);
-		$comment = Input::get('comment', null);
-		$status = Input::get('status', null);
+		$permissionCode = $request->input('permission_code', null);
+		$comment = $request->input('comment', null);
+		$status = $request->input('status', null);
 
 		// lookup relevant data
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		if (!$currentUser->isAdmin()) {
 			return response('Non administrators may not alter permissions!', 401);
 		}
@@ -467,11 +453,11 @@ class PermissionsController extends BaseController
 		]);
 	}
 
-	public function deletePermission($userPermissionUid) {
+	public function deletePermission(Request $request, string $userPermissionUid) {
 
 		// get models
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		$userPermission = UserPermission::where('user_permission_uid', '=', $userPermissionUid)->first();
 		$user = User::getIndex($userPermission->user_uid);
 
@@ -492,13 +478,13 @@ class PermissionsController extends BaseController
 		}
 	}
 
-	public function designateProject($userPermissionUid, $projectUid) {
+	public function designateProject(Request $request, string $userPermissionUid, string $projectUid) {
 
 		// get models
 		//
 		$userPermission = UserPermission::where('user_permission_uid','=',$userPermissionUid)->first();
 		$project = Project::where('project_uid','=',$projectUid)->first();
-		$user = User::getIndex(session('user_uid'));
+		$user = User::current();
 
 		// check for valid permissions
 		//
@@ -528,6 +514,19 @@ class PermissionsController extends BaseController
 		return $userPermissionProject;
 	}
 
-	public function designatePackage($userPermissionUid, $packageUid) {
+	//
+	// private utility methods
+	//
+
+	private function getMetaFields(Request $request) {
+		$meta_fields = ['user_type', 'name', 'email', 'organization', 'project_url'];
+		$input_has_meta = false;
+		$found = [];
+		foreach ($meta_fields as $field) {
+			if ($request->has($field)) {
+				$found[$field] = $request->input($field);
+			}
+		}
+		return sizeof($found) > 0 ? json_encode($found) : false;
 	}
 }

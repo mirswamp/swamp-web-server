@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
  * This file is part of PHPUnit.
  *
@@ -7,18 +7,20 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace PHPUnit\Util;
 
 use PHPUnit\Framework\Exception;
 use PHPUnit\Framework\TestCase;
 
-class XmlTest extends TestCase
+/**
+ * @small
+ */
+final class XmlTest extends TestCase
 {
     /**
      * @dataProvider charProvider
      */
-    public function testPrepareString($char)
+    public function testPrepareString(string $char): void
     {
         $e = null;
 
@@ -31,13 +33,16 @@ class XmlTest extends TestCase
         } catch (Exception $e) {
         }
 
-        $this->assertNull($e, \sprintf(
-            'PHPUnit_Util_XML::prepareString("\x%02x") should not crash DomDocument',
-            \ord($char)
-        ));
+        $this->assertNull(
+            $e,
+            \sprintf(
+                '\PHPUnit\Util\Xml::prepareString("\x%02x") should not crash DomDocument',
+                \ord($char)
+            )
+        );
     }
 
-    public function charProvider()
+    public function charProvider(): array
     {
         $data = [];
 
@@ -48,7 +53,7 @@ class XmlTest extends TestCase
         return $data;
     }
 
-    public function testLoadEmptyString()
+    public function testLoadEmptyString(): void
     {
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('Could not load XML from empty string');
@@ -56,7 +61,7 @@ class XmlTest extends TestCase
         Xml::load('');
     }
 
-    public function testLoadArray()
+    public function testLoadArray(): void
     {
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('Could not load XML from array');
@@ -64,7 +69,7 @@ class XmlTest extends TestCase
         Xml::load([1, 2, 3]);
     }
 
-    public function testLoadBoolean()
+    public function testLoadBoolean(): void
     {
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('Could not load XML from boolean');
@@ -72,7 +77,10 @@ class XmlTest extends TestCase
         Xml::load(false);
     }
 
-    public function testNestedXmlToVariable()
+    /**
+     * @testdox Nested xmlToVariable()
+     */
+    public function testNestedXmlToVariable(): void
     {
         $xml = '<array><element key="a"><array><element key="b"><string>foo</string></element></array></element><element key="c"><string>bar</string></element></array>';
         $dom = new \DOMDocument;
@@ -90,10 +98,13 @@ class XmlTest extends TestCase
         $this->assertSame($expected, $actual);
     }
 
-    public function testXmlToVariableCanHandleMultipleOfTheSameArgumentType()
+    /**
+     * @testdox xmlToVariable() can handle multiple of the same argument type
+     */
+    public function testXmlToVariableCanHandleMultipleOfTheSameArgumentType(): void
     {
         $xml = '<object class="SampleClass"><arguments><string>a</string><string>b</string><string>c</string></arguments></object>';
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
         $dom->loadXML($xml);
 
         $expected = ['a' => 'a', 'b' => 'b', 'c' => 'c'];
@@ -103,10 +114,13 @@ class XmlTest extends TestCase
         $this->assertSame($expected, (array) $actual);
     }
 
-    public function testXmlToVariableCanConstructObjectsWithConstructorArgumentsRecursively()
+    /**
+     * @testdox xmlToVariable() can construct objects with constructor arguments recursively
+     */
+    public function testXmlToVariableCanConstructObjectsWithConstructorArgumentsRecursively(): void
     {
         $xml = '<object class="Exception"><arguments><string>one</string><integer>0</integer><object class="Exception"><arguments><string>two</string></arguments></object></arguments></object>';
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
         $dom->loadXML($xml);
 
         $actual = Xml::xmlToVariable($dom->documentElement);

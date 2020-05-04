@@ -13,15 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
-use PDO;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -30,8 +28,10 @@ use Illuminate\Support\Facades\DB;
 use App\Utilities\Uuids\Guid;
 use App\Models\Users\User;
 use App\Models\Users\UserAccount;
+use App\Models\Users\UserInfo;
 use App\Models\Users\EmailVerification;
 use App\Models\Users\PasswordReset;
+use App\Models\Users\LinkedAccount;
 use App\Models\Projects\Project;
 use App\Models\Projects\ProjectMembership;
 use App\Models\Projects\ProjectInvitation;
@@ -40,16 +40,16 @@ use App\Models\Users\UserClassMembership;
 use App\Http\Controllers\BaseController;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\LimitFilter;
+use App\Utilities\Filters\UserFilters;
 use App\Utilities\Filters\NameFilter;
 use App\Utilities\Filters\UsernameFilter;
 use App\Models\Utilities\Configuration;
-use App\Utilities\Strings\StringUtils;
 
 class UsersController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request) {
 
 		// return if user account registration is not enabled
 		//
@@ -59,14 +59,14 @@ class UsersController extends BaseController
 
 		// parse parameters
 		//
-		$firstName = Input::get('first_name');
-		$lastName = Input::get('last_name');
-		$preferredName = Input::get('preferred_name');
-		$username = Input::get('username');
-		$password = Input::get('password');
-		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
-		$affiliation = Input::get('affiliation');
-		$classCode = Input::get('class_code');
+		$firstName = $request->input('first_name');
+		$lastName = $request->input('last_name');
+		$preferredName = $request->input('preferred_name');
+		$username = $request->input('username');
+		$password = $request->input('password');
+		$email = filter_var($request->input('email'), FILTER_VALIDATE_EMAIL);
+		$affiliation = $request->input('affiliation');
+		$classCode = $request->input('class_code');
 
 		// create new user
 		//
@@ -87,7 +87,7 @@ class UsersController extends BaseController
 		// encoded LDAP extended error message.
 		//
 		try {
-			$user->add();
+			$user->add($request);
 			$user->isNew = true;
 		} catch (\ErrorException $exception) {
 			if (preg_match('/^Constraint violation:/',$exception->getMessage())) {
@@ -117,18 +117,18 @@ class UsersController extends BaseController
 
 	// check validity
 	//
-	public function postValidate() {
+	public function postValidate(Request $request) {
 
 		// parse parameters
 		//
-		$userUid = Input::get('user_uid');
-		$firstName = Input::get('first_name');
-		$lastName = Input::get('last_name');
-		$preferredName = Input::get('preferred_name');
-		$username = Input::get('username');
-		$password = Input::get('password');
-		$email = filter_var(Input::get('email'), FILTER_VALIDATE_EMAIL);
-		$affiliation =  Input::get('affiliation');
+		$userUid = $request->input('user_uid');
+		$firstName = $request->input('first_name');
+		$lastName = $request->input('last_name');
+		$preferredName = $request->input('preferred_name');
+		$username = $request->input('username');
+		$password = $request->input('password');
+		$email = filter_var($request->input('email'), FILTER_VALIDATE_EMAIL);
+		$affiliation =  $request->input('affiliation');
 
 		// create new (temporary) user
 		//
@@ -146,7 +146,7 @@ class UsersController extends BaseController
 
 		// return response
 		//
-		if ($user->isValid($errors)) {
+		if ($user->isValid($request, $errors)) {
 			return response()->json([
 				'success' => true
 			]);
@@ -157,7 +157,7 @@ class UsersController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($userUid) {
+	public function getIndex(string $userUid): ?User {
 
 		// get current user
 		//
@@ -171,76 +171,57 @@ class UsersController extends BaseController
 		if ($userUid) {
 			$user = User::getIndex($userUid);
 
-			// return response
+			// append application configuration info to user info
 			//
-			if ($user != null) {
+			if ($user && $current) {
+				$user->config = new Configuration();
+			} 
 
-				// append application configuration info to user info
-				//
-				if ($current) {
-					$array = $user->toArray();
-					$array['config'] = new Configuration();
-					return $array;
-				} else {
-					return $user;
-				}
-			} else {
-				return response('User not found.', 404);
-			}
+			return $user;
 		} else {
-			return response('No current user.', 404);
+			return null;
 		}
+	}
+
+	public function getInfo(string $userUid): UserInfo {
+		return new UserInfo([
+			'user_uid' => $userUid
+		]);
 	}
 
 	// get by username
 	//
-	public function getUserByUsername() {
+	public function getUserByUsername(Request $request): ?User {
 
 		// parse parameters
 		//
-		$username = Input::get('username');
+		$username = $request->input('username');
 
 		// query database
 		//
-		$user = User::getByUsername($username);
-
-		// return response
-		//
-		if ($user != null) {
-			return $user;
-		} else {
-			return response('Could not find a user associated with the username: '.$username, 404);
-		}
+		return User::getByUsername($username);
 	}
 
 	// get by email address
 	//
-	public function getUserByEmail() {
+	public function getUserByEmail(Request $request): ?User {
 
 		// parse parameters
 		//
-		$email = Input::get('email');
+		$email = $request->input('email');
 
 		// query database
 		//
-		$user = User::getByEmail($email);
-
-		// return response
-		//
-		if ($user != null) {
-			return $user;
-		} else {
-			return response('Could not find a user associated with the email address: '.$email, 404);
-		}
+		return User::getByEmail($email);
 	}
 
 	// request an email containing the username for a given email address
 	//
-	public function requestUsername() {
+	public function requestUsername(Request $request) {
 
 		// parse parameters
 		//
-		$email = Input::get('email');
+		$email = $request->input('email');
 
 		// query database
 		//
@@ -275,15 +256,18 @@ class UsersController extends BaseController
 
 	// get all
 	//
-	public function getAll() {
-		$currentUser = User::getIndex(session('user_uid'));
+	public function getAll(Request $request): Collection {
+		
+		// get current user
+		//
+		$currentUser = User::current();
 		if (!$currentUser || !$currentUser->isAdmin()) {
 			return response('Administrator authorization is required.', 400);
 		}
 
 		// parse parameters
 		//
-		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+		$limit = filter_var($request->input('limit'), FILTER_VALIDATE_INT);
 
 		// check to see if we are to use LDAP
 		//
@@ -299,31 +283,38 @@ class UsersController extends BaseController
 
 			// add filters
 			//
-			$users = self::filterByName($users);
-			$users = self::filterByUsername($users);
-			$users = self::filterByUserType($users);
-			$users = self::filterByDate($users);
-			$users = self::filterByLastLoginDate($users);
+			$users = UserFilters::filterByName($request, $users);
+			$users = UserFilters::filterByUsername($request, $users);
+			$users = UserFilters::filterByUserType($request, $users);
+			$users = UserFilters::filterByDate($request, $users);
+			$users = UserFilters::filterByLastLoginDate($request, $users);
+
+			// add limit filter
+			//
+			if ($limit != null) {
+				$users = $users->slice(0, $limit);
+			}
 		} else {
 
 			// use SQL
 			//
-			$usersQuery = User::orderBy('create_date', 'DESC');
+			$query = User::orderBy('create_date', 'DESC');
 
 			// add filters
 			//
-			$usersQuery = DateFilter::apply($usersQuery);
-			$usersQuery = NameFilter::apply($usersQuery);
-			$usersQuery = UsernameFilter::apply($usersQuery);
-			$users = $usersQuery->get();
-			$users = self::filterByUserType($users);
-			$users = self::filterByLastLoginDate($users);
-		}
+			$query = NameFilter::apply($request, $query);
+			$query = UsernameFilter::apply($request, $query);
+			$query = DateFilter::apply($request, $query);
+			$query = LimitFilter::apply($request, $query);
 
-		// add limit filter last
-		//
-		if ($limit != null) {
-			$users = $users->slice(0, $limit);
+			// perform query
+			//
+			$users = $query->get();
+
+			// filter results
+			//
+			$users = UserFilters::filterByLastLoginDate($request, $users);
+			$users = UserFilters::filterByUserType($request, $users);
 		}
 
 		return $users;
@@ -331,15 +322,18 @@ class UsersController extends BaseController
 
 	// get all signed in users
 	//
-	public function getSignedIn() {
-		$currentUser = User::getIndex(session('user_uid'));
+	public function getSignedIn(Request $request): Collection {
+
+		// check if current user is an admin
+		//
+		$currentUser = User::current();
 		if (!$currentUser || !$currentUser->isAdmin()) {
-			return response('Administrator authorization is required.', 400);
+			return collect();
 		}
 
 		// parse parameters
 		//
-		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+		$limit = filter_var($request->input('limit'), FILTER_VALIDATE_INT);
 
 		// check to see if we are to use LDAP
 		//
@@ -355,33 +349,40 @@ class UsersController extends BaseController
 
 			// add filters
 			//
-			$users = self::filterByName($users);
-			$users = self::filterByUsername($users);
-			$users = self::filterByUserType($users);
-			$users = self::filterByDate($users);
-			$users = self::filterByLastLoginDate($users);
-			$users = self::filterBySignedIn($users);
+			$users = UserFilters::filterByName($request, $users);
+			$users = UserFilters::filterByUsername($request, $users);
+			$users = UserFilters::filterByUserType($request, $users);
+			$users = UserFilters::filterByDate($request, $users);
+			$users = UserFilters::filterByLastLoginDate($request, $users);
+			$users = UserFilters::filterBySignedIn($users);
+
+			// add limit filter
+			//
+			if ($limit != null) {
+				$users = $users->slice(0, $limit);
+			}
 		} else {
 
-			// use SQL
+			// create query
 			//
-			$usersQuery = User::orderBy('create_date', 'DESC');
+			$query = User::orderBy('create_date', 'DESC');
 
 			// add filters
 			//
-			$usersQuery = DateFilter::apply($usersQuery);
-			$usersQuery = NameFilter::apply($usersQuery);
-			$usersQuery = UsernameFilter::apply($usersQuery);
-			$users = $usersQuery->get();
-			$users = self::filterByLastLoginDate($users);
-			$users = self::filterByUserType($users);
-			$users = self::filterBySignedIn($users);
-		}
+			$query = NameFilter::apply($request, $query);
+			$query = UsernameFilter::apply($request, $query);
+			$query = DateFilter::apply($request, $query);
+			$query = LimitFilter::apply($request, $query);
 
-		// add limit filter last
-		//
-		if ($limit != null) {
-			$users = $users->slice(0, $limit);
+			// perform query
+			//
+			$users = $query->get();
+
+			// filter results
+			//
+			$users = UserFilters::filterByLastLoginDate($request, $users);
+			$users = UserFilters::filterByUserType($request, $users);
+			$users = UserFilters::filterBySignedIn($users);
 		}
 
 		return $users;
@@ -389,15 +390,19 @@ class UsersController extends BaseController
 
 	// get all enabled users
 	//
-	public function getEnabled() {
-		$currentUser = User::getIndex(session('user_uid'));
+	public function getEnabled(Request $request): Collection {
+
+		// check if current user is an admin
+		//
+		$currentUser = User::current();
 		if (!$currentUser || !$currentUser->isAdmin()) {
-			return response('Administrator authorization is required.', 400);
+			return collect();
 		}
 
 		// parse parameters
 		//
-		$limit = filter_var(Input::get('limit'), FILTER_VALIDATE_INT);
+		$limit = filter_var($request->input('limit'), FILTER_VALIDATE_INT);
+		$userType = $request->input('type');
 
 		// check to see if we are to use LDAP
 		//
@@ -413,33 +418,40 @@ class UsersController extends BaseController
 
 			// add filters
 			//
-			$users = self::filterByName($users);
-			$users = self::filterByUsername($users);
-			$users = self::filterByUserType($users);
-			$users = self::filterByDate($users);
-			$users = self::filterByLastLoginDate($users);
-			$users = self::filterByEnabled($users);
+			$users = UserFilters::filterByName($request, $users);
+			$users = UserFilters::filterByUsername($request, $users);
+			$users = UserFilters::filterByUserType($request, $users);
+			$users = UserFilters::filterByDate($request, $users);
+			$users = UserFilters::filterByLastLoginDate($request, $users);
+			$users = UserFilters::filterByEnabled($users);
+
+			// add limit filter
+			//
+			if ($limit != null) {
+				$users = $users->slice(0, $limit);
+			}
 		} else {
 
-			// use SQL
+			// create query
 			//
-			$usersQuery = User::orderBy('create_date', 'DESC');
+			$query = User::orderBy('create_date', 'DESC');
 
 			// add filters
 			//
-			$usersQuery = DateFilter::apply($usersQuery);
-			$usersQuery = NameFilter::apply($usersQuery);
-			$usersQuery = UsernameFilter::apply($usersQuery);
-			$users = $usersQuery->get();
-			$users = self::filterByLastLoginDate($users);
-			$users = self::filterByUserType($users);
-			$users = self::filterByEnabled($users);
-		}
+			$query = NameFilter::apply($request, $query);
+			$query = UsernameFilter::apply($request, $query);
+			$query = DateFilter::apply($request, $query);
+			$query = LimitFilter::apply($request, $query);
 
-		// add limit filter last
-		//
-		if ($limit != null) {
-			$users = $users->slice(0, $limit);
+			// perform query
+			//
+			$users = $query->get();
+
+			// filter results
+			//
+			$users = UserFilters::filterByLastLoginDate($request, $users);
+			$users = UserFilters::filterByUserType($request, $users);
+			$users = UserFilters::filterByEnabled($users);
 		}
 
 		return $users;
@@ -447,22 +459,22 @@ class UsersController extends BaseController
 
 	// update by index
 	//
-	public function updateIndex($userUid) {
+	public function updateIndex(Request $request, string $userUid) {
 
 		// parse parameters
 		//
-		$firstName = Input::get('first_name');
-		$lastName = Input::get('last_name');
-		$preferredName = Input::get('preferred_name');
-		$username = Input::get('username');
-		$email = filter_var(trim(Input::get('email')), FILTER_VALIDATE_EMAIL);
-		$affiliation = Input::get('affiliation');
+		$firstName = $request->input('first_name');
+		$lastName = $request->input('last_name');
+		$preferredName = $request->input('preferred_name');
+		$username = $request->input('username');
+		$email = filter_var(trim($request->input('email')), FILTER_VALIDATE_EMAIL);
+		$affiliation = $request->input('affiliation');
 
 		// get model
 		//
 		$user = User::getIndex($userUid);
 		if (!$user) {
-			return Response('Could not find user.', 400);
+			return response('Could not find user.', 400);
 		}
 
 		// send verification email if email address has changed
@@ -497,18 +509,18 @@ class UsersController extends BaseController
 
 		// update user's meta attributes (admin only)
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		if ($currentUser && $currentUser->isAdmin()) {
 
 			// parse meta attributes
 			//
 			$attributes = [
-				'enabled_flag' => filter_var(Input::get('enabled_flag'), FILTER_VALIDATE_BOOLEAN),
-				'admin_flag' => filter_var(Input::get('admin_flag'), FILTER_VALIDATE_BOOLEAN),
-				'email_verified_flag' => filter_var(Input::get('email_verified_flag'), FILTER_VALIDATE_BOOLEAN),
-				'forcepwreset_flag' => filter_var(Input::get('forcepwreset_flag'), FILTER_VALIDATE_BOOLEAN),
-				'hibernate_flag' => filter_var(Input::get('hibernate_flag'), FILTER_VALIDATE_BOOLEAN),
-				'user_type' => Input::get('user_type')
+				'enabled_flag' => filter_var($request->input('enabled_flag'), FILTER_VALIDATE_BOOLEAN),
+				'admin_flag' => filter_var($request->input('admin_flag'), FILTER_VALIDATE_BOOLEAN),
+				'email_verified_flag' => filter_var($request->input('email_verified_flag'), FILTER_VALIDATE_BOOLEAN),
+				'forcepwreset_flag' => filter_var($request->input('forcepwreset_flag'), FILTER_VALIDATE_BOOLEAN),
+				'hibernate_flag' => filter_var($request->input('hibernate_flag'), FILTER_VALIDATE_BOOLEAN),
+				'user_type' => $request->input('user_type')
 			];
 
 			// update user account
@@ -547,16 +559,16 @@ class UsersController extends BaseController
 
 	// change password
 	//
-	public function changePassword($userUid) {
+	public function changePassword(Request $request, string $userUid) {
 
 		// parse parameters
 		//
-		$oldPassword = Input::get('old_password');
-		$newPassword = Input::get('new_password');
+		$oldPassword = $request->input('old_password');
+		$newPassword = $request->input('new_password');
 
 		// get user
 		//
-		$currentUser = User::getIndex(session('user_uid'));
+		$currentUser = User::current();
 		$user = User::getIndex($userUid);
 
 		// The target password being changed is the current user's password
@@ -668,32 +680,18 @@ class UsersController extends BaseController
 		}
 	}
 
-	// update multiple
-	//
-	public function updateAll() {
-
-		// parse parameters
-		//
-		$input = Input::all();
-
-		// update users
-		//
-		$collection = new Collection;
-		for ($i = 0; $i < sizeOf($input); $i++) {
-			UsersController::updateIndex($item[$i]['user_uid']);	
-		}
-
-		return $collection;
-	}
-
 	// delete by index
 	//
-	public function deleteIndex($userUid) {
+	public function deleteIndex(string $userUid) {
 		$user = User::getIndex($userUid);
 
 		// delete project memberships
 		//
 		ProjectMembership::deleteByUser($user);
+
+		// delete linked accounts
+		//
+		LinkedAccount::where('user_uid', '=', $userUid)->delete();
 
 		// update user account
 		//
@@ -719,10 +717,10 @@ class UsersController extends BaseController
 
 	// get projects by id
 	//
-	public function getProjects($userUid) {
+	public function getProjects(string $userUid): Collection {
 		$user = User::getIndex($userUid);
 		$projects = null;
-		$results = new Collection();
+		$results = collect();
 		if ($user != null) {
 			$projects = $user->getProjects();
 			foreach ($projects as $project) {
@@ -734,186 +732,13 @@ class UsersController extends BaseController
 		return $results;
 	}
 
-	public function getNumProjects($userUid) {
+	public function getNumProjects(Request $request, string $userUid): int {
 		return sizeof($this->getProjects($userUid));
 	}
 
 	// get memberships by id
 	//
-	public function getProjectMemberships($userUid) {
+	public function getProjectMemberships(string $userUid): Collection {
 		return ProjectMembership::where('user_uid', '=', $userUid)->get();
-	}
-
-	//
-	// private filtering utilities
-	//
-
-	private static function filterByUserType($items) {
-
-		// parse parameters
-		//
-		$userType = Input::get('type');
-		if ($userType == null || $userType == '') {
-			return $items;
-		}
-
-		// filter users
-		//
-		$collection = new Collection();
-		foreach ($items as $item) {
-			$userAccount = UserAccount::where('user_uid', '=', $item->user_uid)->first();
-			if ($userAccount && $userAccount->user_type == $userType) {
-				$collection->push($item);
-			}
-		}
-
-		return $collection;
-	}
-
-	private static function filterByName($items) {
-		$collection = new Collection();
-
-		// parse parameters
-		//
-		$name = Input::get('name');
-		if ($name == null || $name == '') {
-			return $items;
-		}
-
-		foreach ($items as $item) {
-			if (StringUtils::contains($item->first_name, $name, false) ||
-				StringUtils::contains($item->last_name, $name, false) ||
-				StringUtils::contains($item->preferred_name, $name, false)) {
-				$collection->push($item);
-			}
-		}
-
-		return $collection;
-	}
-
-	private static function filterByUsername($items) {
-		$collection = new Collection();
-
-		// parse parameters
-		//
-		$username = Input::get('username');
-		if ($username == null || $username == '') {
-			return $items;
-		}
-
-		foreach ($items as $item) {
-			if (StringUtils::contains($item->username, $username, false)) {
-				$collection->push($item);
-			}
-		}
-
-		return $collection;
-	}
-
-	private static function filterBySignedIn($items) {
-		$collection = new Collection();
-
-		foreach ($items as $item) {
-			if ($item->isSignedIn()) {
-				$collection->push($item);
-			}
-		}
-
-		return $collection;
-	}
-
-	private static function filterByEnabled($items) {
-		$collection = new Collection();
-
-		foreach ($items as $item) {
-			$userAccount = UserAccount::where('user_uid', '=', $item->user_uid)->first();
-			if ($userAccount && $userAccount->isEnabled()) {
-				$collection->push($item);
-			}
-		}
-
-		return $collection;
-	}
-
-	//
-	// create date filtering utilities
-	//
-
-	private static function filterByAfterDate($items, $after, $attributeName) {
-
-		// check filter parameter
-		//
-		if ($after == null|| $after == '') {
-			return $items;
-		}
-
-		// filter items
-		//
-		$collection = new Collection();
-		$afterDate = new \DateTime($after);
-		$afterDate->setTime(0, 0);
-		foreach ($items as $item) {
-			if ($item[$attributeName] != null) {
-				$date = new \DateTime($item[$attributeName]);
-				if ($date->getTimestamp() >= $afterDate->getTimestamp()) {
-					$collection->push($item);
-				}
-			}
-		}
-
-		return $collection;
-	}
-
-	private static function filterByBeforeDate($items, $before, $attributeName) {
-
-		// check filter parameter
-		//
-		if ($before == null || $before == '') {
-			return $items;
-		}
-
-		// filter items
-		//
-		$collection = new Collection();
-		$beforeDate = new \DateTime($before);
-		$beforeDate->setTime(0, 0);
-		foreach ($items as $item) {
-			if ($item[$attributeName] != null) {
-				$date = new \DateTime($item[$attributeName]);
-				if ($date->getTimestamp() <= $beforeDate->getTimestamp()) {
-					$collection->push($item);
-				}
-			}
-		}
-
-		return $collection;
-	}
-
-	private static function filterByDate($items) {
-
-		// parse parameters
-		//
-		$after = Input::get('after');
-		$before = Input::get('before');
-
-		// perform filtering
-		//
-		$items = self::filterByAfterDate($items, $after, 'create_date');
-		$items = self::filterByBeforeDate($items, $before, 'create_date');
-		return $items;
-	}
-
-	private static function filterByLastLoginDate($items) {
-
-		// parse parameters
-		//
-		$after = Input::get('login-after');
-		$before = Input::get('login-before');
-
-		// perform filtering
-		//
-		$items = self::filterByAfterDate($items, $after, 'ultimate_login_date');
-		$items = self::filterByBeforeDate($items, $before, 'ultimate_login_date');
-		return $items;
 	}
 }

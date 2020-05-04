@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Files;
@@ -30,7 +30,7 @@ class JarArchive extends BaseArchive
 	// jar specific archive methods
 	//
 
-	function getFileTypes($dirname) {
+	function getFileTypes(string $dirname = null): array {
 
 		// get file names
 		//
@@ -53,19 +53,19 @@ class JarArchive extends BaseArchive
 		return $this->getFileTypesFromNames($names);
 	}
 
-	function getFileInfoList($dirname = null, $filter = null, $recursive = false) {
+	function getFileInfoList(string $dirname = null, string $filter = null, bool $recursive = false, bool $trim = true): array {
 
 		// get file names
 		//
 		$script = 'jar -tf '.$this->path;
 		$names = [];
 		exec($script, $names);
-		$names = $this->getFileAndDirectoryNames($names);
+		$names = $this->getFileAndDirectoryNames($names, $trim);
 
 		// get names that are part of directory
 		//
 		if ($dirname) {
-			$names = $this->getNamesInDirectory($names, $dirname, $recursive);
+			$names = $this->getNamesInDirectory($names, $dirname, $recursive, $trim);
 		}
 
 		// apply filter
@@ -79,7 +79,7 @@ class JarArchive extends BaseArchive
 		return $this->namesToInfoArray($names);
 	}
 
-	function getDirectoryInfoList($dirname = null, $filter = null, $recursive = false) {
+	function getDirectoryInfoList(string $dirname = null, string $filter = null, bool $recursive = false): array {
 
 		// get file and directory names
 		//
@@ -102,15 +102,39 @@ class JarArchive extends BaseArchive
 		return $this->namesToInfoArray($names);
 	}
 
-	public function extractTo($destination, $filenames = null) {
+	public function extractTo(string $destination, array $filenames = null) {
 		$tarArchive = new \PharData($this->path);
+		$tarArchive->extractTo($destination, $filenames);
+	}
 
-		// remove destination file / directory if already exists
+	public function extractContents(string $filePath): ?string {
+
+		// extract file contents
 		//
-		if (file_exists($destination)) {
-			$this->rmdir($destination);
+		$zip = zip_open($this->path);
+		$contents = null;
+
+		if (is_resource($zip)) {
+
+			// find entry
+			//
+			do {
+				$entry = zip_read($zip);
+			} while ($entry && zip_entry_name($entry) != $filePath);
+
+			// open entry
+			//
+			if ($entry) {
+				zip_entry_open($zip, $entry, "r");
+
+				// read entry
+				//
+				$contents = zip_entry_read($entry, zip_entry_filesize($entry));
+			}
+
+			zip_close($zip);
 		}
 
-		$tarArchive->extractTo($destination, $filenames);
+		return $contents;
 	}
 }

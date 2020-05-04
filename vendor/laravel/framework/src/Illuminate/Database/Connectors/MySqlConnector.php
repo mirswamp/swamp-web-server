@@ -87,7 +87,7 @@ class MySqlConnector extends Connector implements ConnectorInterface
      *
      * Chooses socket or host/port based on the 'unix_socket' config value.
      *
-     * @param  array   $config
+     * @param  array  $config
      * @return string
      */
     protected function getDsn(array $config)
@@ -172,7 +172,6 @@ class MySqlConnector extends Connector implements ConnectorInterface
      * Get the query to enable strict mode.
      *
      * @param  \PDO  $connection
-     *
      * @return string
      */
     protected function strictMode(PDO $connection)

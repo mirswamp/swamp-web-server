@@ -16,21 +16,22 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Filters;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use App\Models\Packages\PackageType;
 
 class PackageTypeFilter
 {
-	static function apply($query) {
+	static function apply(Request $request, Builder $query) {
 
 		// parse parameters
 		//
-		$type = Input::get('type', null);
+		$type = $request->input('type', null);
 
 		// add to query
 		//

@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\PackageVersion;
 use App\Utilities\Strings\StringUtils;
@@ -40,7 +39,7 @@ class DotNetPackageVersion extends PackageVersion
 	// querying methods
 	//
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 
 		// extract package to temp directory
 		//
@@ -88,7 +87,7 @@ class DotNetPackageVersion extends PackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
-		return response(".NET package build system ok.", 200);
+	function checkBuildSystem(): string {
+		return "ok";
 	}
 }

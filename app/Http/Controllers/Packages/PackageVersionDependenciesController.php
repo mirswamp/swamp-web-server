@@ -13,12 +13,12 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use App\Models\Packages\Package;
 use App\Models\Packages\PackageVersion;
@@ -29,13 +29,13 @@ class PackageVersionDependenciesController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): PackageVersionDependency {
 
 		// parse parameters
 		//
-		$packageVersionUuid = Input::get('package_version_uuid');
-		$platformVersionUuid = Input::get('platform_version_uuid');
-		$dependencyList = Input::get('dependency_list');
+		$packageVersionUuid = $request->input('package_version_uuid');
+		$platformVersionUuid = $request->input('platform_version_uuid');
+		$dependencyList = $request->input('dependency_list');
 
 		// create new model
 		//
@@ -56,24 +56,24 @@ class PackageVersionDependenciesController extends BaseController
 	// get
 	//
 
-	public function getByPackageVersion($packageVersionUuid) {
+	public function getByPackageVersion(Request $request, string $packageVersionUuid) {
 		return PackageVersionDependency::where('package_version_uuid','=', $packageVersionUuid)->get() ?: [];
 	}
 
-	public function getMostRecent($packageUuid) {
+	public function getMostRecent(Request $request, string $packageUuid) {
 		$packageVersion = PackageVersion::where('package_uuid','=',$packageUuid)->orderBy('create_date','desc')->first();
 		return $packageVersion? PackageVersionDependency::where('package_version_uuid','=', $packageVersion->package_version_uuid)->get() : [];
 	}
 
 	// update
 	//
-	public function update($packageVersionDependencyId) {
+	public function update(Request $request, string $packageVersionDependencyId) {
 
 		// parse parameters
 		//
-		$packageVersionUuid = Input::get('package_version_uuid');
-		$platformVersionUuid = Input::get('platform_version_uuid');
-		$dependencyList = Input::get('dependency_list');
+		$packageVersionUuid = $request->input('package_version_uuid');
+		$platformVersionUuid = $request->input('platform_version_uuid');
+		$dependencyList = $request->input('dependency_list');
 
 		// find model
 		//
@@ -92,33 +92,9 @@ class PackageVersionDependenciesController extends BaseController
 		return $changes;
 	}
 
-	public function updateAll() {
-
-		// parse parameters
-		//
-		$dependencies = Input::get('data')? : [];
-
-		// update dependencies
-		//
-		$results = new Collection();
-		foreach ($dependencies as $dependency) {
-			$packageVersionDependency = null;
-			if (array_key_exists('package_version_dependency_id', $dependency)) {
-				$packageVersionDependency = PackageVersionDependency::where('package_version_dependency_id', '=', $dependency['package_version_dependency_id'])->first();
-				$packageVersionDependency->dependency_list = $dependency['dependency_list'];
-			} else {
-				$packageVersionDependency = new PackageVersionDependency($dependency);
-			}
-			$packageVersionDependency->save();
-			$results->push($packageVersionDependency);
-		}
-
-		return $results;
-	}
-
 	// delete
 	//
-	public function delete($packageVersionUuid, $platformVersionUuid) {
+	public function delete(Request $request, string $packageVersionUuid, string $platformVersionUuid) {
 		return $packageVersionDependencies = PackageVersionDependency::where('package_version_uuid', '=', $packageVersionUuid)
 			->where('platform_version_uuid', '=', $platformVersionUuid)->delete();
 	}

@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Files;
@@ -30,12 +30,12 @@ class TarArchive extends BaseArchive
 	// tar specific archive methods
 	//
 
-	function isZipped() {
+	function isZipped(): bool {
 		return $this->getExtension() == 'zip' || 
 			$this->getExtension() == 'Z' || $this->getExtension() == 'gz';
 	}
 
-	function getFileTypes($dirname) {
+	function getFileTypes(string $dirname = null): array {
 
 		// get file names
 		//
@@ -62,23 +62,23 @@ class TarArchive extends BaseArchive
 		return $this->getFileTypesFromNames($names);
 	}
 	
-	function getFileInfoList($dirname = null, $filter = null, $recursive = false) {
+	function getFileInfoList(string $dirname = null, string $filter = null, bool $recursive = false, bool $trim = true): array {
 
 		// get file names
 		//
 		if ($this->isZipped()) {
-			$script = 'tar -ztf '.$this->path;
+			$script = 'tar -ztf ' . $this->path;
 		} else {
-			$script = 'tar -tf '.$this->path;
+			$script = 'tar -tf ' . $this->path;
 		}
 		$names = [];
 		exec($script, $names);
-		$names = $this->getFileAndDirectoryNames($names);
+		$names = $this->getFileAndDirectoryNames($names, $trim);
 
 		// get names that are part of directory
 		//
 		if ($dirname) {
-			$names = $this->getNamesInDirectory($names, $dirname, $recursive);
+			$names = $this->getNamesInDirectory($names, $dirname, $recursive, $trim);
 		}
 
 		// apply filter
@@ -92,14 +92,14 @@ class TarArchive extends BaseArchive
 		return $this->namesToInfoArray($names);
 	}
 
-	function getDirectoryInfoList($dirname = null, $filter = null, $recursive = false) {
+	function getDirectoryInfoList($dirname = null, $filter = null, $recursive = false): array {
 
 		// get file and directory names
 		//
 		if ($this->isZipped()) {
-			$script = 'tar -ztf '.$this->path;
+			$script = 'tar -ztf ' . $this->path;
 		} else {
-			$script = 'tar -tf '.$this->path;
+			$script = 'tar -tf ' . $this->path;
 		}
 		$names = [];
 		exec($script, $names);
@@ -119,19 +119,12 @@ class TarArchive extends BaseArchive
 		return $this->namesToInfoArray($names);
 	}
 
-	public function extractTo($destination, $filenames = null) {
+	public function extractTo(string $destination, array $filenames = null) {
 		$tarArchive = new \PharData($this->path);
-
-		// remove destination file / directory if already exists
-		//
-		if (file_exists($destination)) {
-			$this->rmdir($destination);
-		}
-
 		$tarArchive->extractTo($destination, $filenames);
 	}
 
-	public function extractContents($filePath) {
+	public function extractContents(string $filePath): ?string {
 		$destination = '/tmp';
 		$fullPath = $destination . '/' . $filePath;
 		$contents = null;
@@ -140,10 +133,11 @@ class TarArchive extends BaseArchive
 		//
 		if (!file_exists($fullPath)) {
 			if ($this->isZipped()) {
-				exec('tar -z -C ' . $destination . ' --extract --file=' . $this->path . ' ' . $filePath);
+				$command = 'tar -z -C ' . $destination . ' --extract --file=' . $this->path . ' ' . $filePath;
 			} else {
-				exec('tar -C ' . $destination . ' --extract --file=' . $this->path . ' ' . $filePath);
+				$command = 'tar -C ' . $destination . ' --extract --file=' . $this->path . ' ' . $filePath;
 			}
+			exec($command);
 		}
 
 		// get file contents
@@ -154,10 +148,10 @@ class TarArchive extends BaseArchive
 
 		// remove destination directory
 		//
-		$paths = explode('/', $filePath);
+		$paths = explode('/', str_replace('./', '', $filePath));
 		$destDir = $destination . '/' . $paths[0];
 		if (file_exists($destDir)) {
-			$this->rmdir($destDir);
+			BaseArchive::rmdir($destDir);
 		}
 
 		return $contents;

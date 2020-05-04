@@ -13,23 +13,55 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Assessments;
 
-use App\Models\TimeStamps\UserStamped;
+use App\Models\TimeStamps\TimeStamped;
 
-class AssessmentRunRequest extends UserStamped
+class AssessmentRunRequest extends TimeStamped
 {
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'assessment';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'assessment_run_request';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'assessment_run_request_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
+	public $incrementing = false;
+
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'assessment_run_id',
 		'run_request_id',
@@ -37,8 +69,11 @@ class AssessmentRunRequest extends UserStamped
 		'notify_when_complete_flag'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'assessment_run_id',
 		'run_request_id',
@@ -46,8 +81,11 @@ class AssessmentRunRequest extends UserStamped
 		'notify_when_complete_flag'
 	];
 
-	// attribute types
-	//
+    /**
+     * The attributes that should be cast to native types.
+     *
+     * @var array
+     */
 	protected $casts = [
 		'notify_when_complete_flag' => 'boolean'
 	];

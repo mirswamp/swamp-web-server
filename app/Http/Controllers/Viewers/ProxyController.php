@@ -13,12 +13,12 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Viewers;
 
-use Illuminate\Support\Facades\Request;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Viewers\ViewerInstance;
@@ -34,86 +34,10 @@ use GuzzleHttp\Handler\CurlHandler;
 class ProxyController extends BaseController
 {
 	//
-	// private data access methods
-	//
-
-	private function getViewerData($proxy) {
-		$data = [];
-
-		if (config('cache.viewer_proxy_caching') && Cache::has($proxy)) {
-
-			// get viewer data from cache
-			//
-			$data = Cache::get($proxy);
-		} else {
-
-			// get viewer data from HTCondor
-			//
-			list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
-			$iterations = 0;
-			$maxIterations = 1000;
-			while (!$vm_ip && $iterations < $maxIterations) {
-				$iterations++;
-				usleep(10000);
-				list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
-			}
-
-			$data = [
-				'vm_ip' => $vm_ip,
-				'project_uid' => $projectUid
-			];
-
-			// add viewer data to cache
-			//
-			if (config('cache.viewer_proxy_caching')) {
-				Cache::add($proxy, $data, config('cache.viewer_proxy_caching_duration'));
-			}
-		}
-
-		return $data;
-	}
-
-	private function getUser($userUid) {
-		$user = null;
-
-		if (config('cache.viewer_proxy_caching') && Cache::has($userUid)) {
-			$user = new User(Cache::get($userUid));
-		} else {
-			$user = User::getIndex($userUid);
-
-			// add user data to cache
-			//
-			if (config('cache.viewer_proxy_caching')) {
-				Cache::add($userUid, $user->toArray(), config('cache.viewer_proxy_caching_duration'));
-			}
-		}
-
-		return $user;
-	}
-
-	private function getProject($projectUid) {
-		$project = null;
-
-		if (config('cache.viewer_proxy_caching') && Cache::has($projectUid)) {
-			$project = new Project(Cache::get($projectUid));
-		} else {
-			$project = Project::where('project_uid', '=', $projectUid)->first();
-
-			// add project data to cache
-			//
-			if (config('cache.viewer_proxy_caching')) {
-				Cache::add($projectUid, $project->toArray(), config('cache.viewer_proxy_caching_duration'));
-			}
-		}
-
-		return $project;
-	}
-
-	//
 	// public methods
 	//
 
-	public function proxyCodeDxRequest() {
+	public function proxyCodeDxRequest(Request $request) {
 
 		// find request info
 		//
@@ -122,7 +46,7 @@ class ProxyController extends BaseController
 
 		// get viewer data
 		//
-		$proxy = Request::segment(1);
+		$proxy = $request->segment(1);
 		$data = $this->getViewerData($proxy);
 		$vm_ip = $data['vm_ip'];
 		$projectUid = $data['project_uid'];
@@ -137,6 +61,9 @@ class ProxyController extends BaseController
 		// check whether current user is a member of this project
 		//
 		$user = $this->getUser(session('user_uid'));
+		if (!$user) {
+			return response('No current user.', 400);
+		}
 		if (!$project->isOwnedBy($user) && !$user->isMemberOf($project)) {
 			return response('The current user is not a member of this project', 400);
 		}
@@ -163,7 +90,7 @@ class ProxyController extends BaseController
 				// get request data
 				//
 				$headers = $this->getCodeDxHeaders($user, $vm_ip);
-				$content = Request::instance()->getContent();
+				$content = $request->getContent();
 
 				// create and send request
 				//
@@ -234,6 +161,88 @@ class ProxyController extends BaseController
 				return "Error - viewer is no longer available.  Please try again.";
 			}
 		}
+	}
+
+	//
+	// private data access methods
+	//
+
+	private function getViewerData($proxy) {
+		$data = [];
+
+		if (config('cache.viewer_proxy_caching') && Cache::has($proxy)) {
+
+			// get viewer data from cache
+			//
+			$data = Cache::get($proxy);
+		} else {
+
+			// get viewer data from HTCondor
+			//
+			list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
+			$iterations = 0;
+			$maxIterations = 1000;
+			while (!$vm_ip && $iterations < $maxIterations) {
+				$iterations++;
+				usleep(10000);
+				list($vm_ip, $projectUid) = HTCondorCollector::getViewerData($proxy);
+			}
+
+			$data = [
+				'vm_ip' => $vm_ip,
+				'project_uid' => $projectUid
+			];
+
+			// add viewer data to cache
+			//
+			if (config('cache.viewer_proxy_caching')) {
+				Cache::add($proxy, $data, config('cache.viewer_proxy_caching_duration'));
+			}
+		}
+
+		return $data;
+	}
+
+	private function getUser($userUid) {
+		$user = null;
+
+		if (config('cache.viewer_proxy_caching') && Cache::has($userUid)) {
+
+			// get user from cache
+			//
+			$user = new User(Cache::get($userUid));
+		} else {
+
+			// get user from database / LDAP
+			//
+			$user = User::getIndex($userUid);
+
+			// add user data to cache
+			//
+			if (config('cache.viewer_proxy_caching')) {
+				Cache::add($userUid, $user->toArray(), config('cache.viewer_proxy_caching_duration'));
+			}
+		}
+
+		return $user;
+	}
+
+	private function getProject($projectUid) {
+		$project = null;
+
+		if (config('cache.viewer_proxy_caching') && Cache::has($projectUid)) {
+			$project = new Project(Cache::get($projectUid));
+		} else {
+			$project = Project::where('project_uid', '=', $projectUid)->first();
+
+			// add project data to cache
+			//
+			if (config('cache.viewer_proxy_caching')) {
+				Cache::add($projectUid, $project->toArray(), config('cache.viewer_proxy_caching_duration'));
+			}
+		}
+
+		return $project;
 	}
 
 	//

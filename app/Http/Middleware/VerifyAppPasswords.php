@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
@@ -39,7 +39,7 @@ class VerifyAppPasswords
 		// get current user
 		//
 		if (Session::has('user_uid')) {
-			$currentUser = User::getIndex(session('user_uid'));
+			$currentUser = User::current();
 		} else {
 			return response([
 				'status' => 'NO_SESSION',
@@ -50,7 +50,7 @@ class VerifyAppPasswords
 		// get user
 		//
 		$userUid = $request->route('user_uid');
-		if ($userUid != 'current') {
+		if ($userUid && $userUid != 'current') {
 			$user = User::getIndex($userUid);
 		} else {
 			$user = $currentUser;

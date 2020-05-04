@@ -13,12 +13,11 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Files\Archive;
 use App\Models\Packages\JavaSourcePackageVersion;
 use App\Utilities\Strings\StringUtils;
@@ -36,7 +35,7 @@ class AndroidSourcePackageVersion extends JavaSourcePackageVersion
 	// querying methods
 	//
 
-	function getBuildSystem() {
+	function getBuildSystem(): string {
 		
 		// search archive for build files
 		//
@@ -65,11 +64,11 @@ class AndroidSourcePackageVersion extends JavaSourcePackageVersion
 				}
 
 			default:
-				return null;
+				return 'none';
 		}
 	}
 
-	function getBuildInfo() {
+	function getBuildInfo(): array {
 
 		// initialize build info
 		//
@@ -152,7 +151,7 @@ class AndroidSourcePackageVersion extends JavaSourcePackageVersion
 		];
 	}
 
-	function checkBuildSystem() {
+	function checkBuildSystem(): string {
 
 		// find build file
 		//
@@ -186,9 +185,9 @@ class AndroidSourcePackageVersion extends JavaSourcePackageVersion
 				$searchPath = $archive->concatPaths($this->source_path, $this->build_dir);
 
 				if ($archive->contains($searchPath, $buildFile)) {
-					return response("Android source package version is ok for " . $this->build_system . ".", 200);
+					return "ok";
 				} else {
-					return response("Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.", 404);
+					return "Could not find a build file called '" . $buildFile . "' within the '" . $searchPath . "' directory. You may need to set your build path or the path to your build file.";
 				}
 				break;
 
@@ -205,13 +204,13 @@ class AndroidSourcePackageVersion extends JavaSourcePackageVersion
 				//
 				$sourceFiles = $archive->getListing($noBuildDir, self::SOURCE_FILES, false);
 				if (count($sourceFiles) > 0) {
-					return response("Android source package build system ok for no-build.", 200);
+					return "ok";
 				} else {
-					return response("No assessable Android source code files were found directly in the selected build path ($searchPath).", 404);
+					return "No assessable Android source code files were found directly in the selected build path ($searchPath).";
 				}
 
 			default:
-				return response("Android package build system ok for " . $this->build_system . ".", 200);
+				return "ok";
 		}
 	}
 }

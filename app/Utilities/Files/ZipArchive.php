@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Utilities\Files;
@@ -30,7 +30,7 @@ class ZipArchive extends BaseArchive
 	// zip specific archive methods
 	//
 
-	function getFileTypes($dirname) {
+	function getFileTypes(string $dirname): array {
 
 		// open zip archive
 		//
@@ -82,7 +82,7 @@ class ZipArchive extends BaseArchive
 		return $fileTypes;
 	}
 	
-	function getArchiveFilenames($zipArchive) {
+	function getArchiveFilenames($zipArchive): array {
 		$names = [];
 		for ($i = 0; $i < $zipArchive->numFiles; $i++) {
 			$stat = $zipArchive->statIndex($i);
@@ -102,7 +102,7 @@ class ZipArchive extends BaseArchive
 		return $names;
 	}
 
-	function getFileInfoList($dirname = null, $filter = null, $recursive = false) {
+	function getFileInfoList(string $dirname = null, string $filter = null, bool $recursive = false, bool $trim = true): array {
 
 		// check for root directory
 		//
@@ -130,7 +130,7 @@ class ZipArchive extends BaseArchive
 		// filter for directory names
 		//
 		if ($dirname || !$recursive) {
-			$names = $this->getNamesInDirectory($names, $root, $recursive);
+			$names = $this->getNamesInDirectory($names, $root, $recursive, $trim);
 		}
 
 		// apply filter
@@ -144,7 +144,7 @@ class ZipArchive extends BaseArchive
 		return $this->namesToInfoArray($names);
 	}
 
-	function getDirectoryInfoList($dirname = null, $filter = null, $recursive = false) {
+	function getDirectoryInfoList(string $dirname = null, string $filter = null, bool $recursive = false): array {
 
 		// open zip archive
 		//
@@ -193,20 +193,13 @@ class ZipArchive extends BaseArchive
 		return $directories;
 	}
 
-	public function extractTo($destination, $filenames = null) {
+	public function extractTo(string $destination, array $filenames = null) {
 		$zipArchive = new \ZipArchive();
 		$zipArchive->open($this->path);
-
-		// remove destination file / directory if already exists
-		//
-		if (file_exists($destination)) {
-			$this->rmdir($destination);
-		}
-
 		$zipArchive->extractTo($destination, $filenames);
 	}
 
-	public function extractContents($filePath) {
+	public function extractContents(string $filePath): ?string {
 
 		// extract file contents
 		//

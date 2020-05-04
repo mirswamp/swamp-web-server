@@ -13,13 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Projects;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Utilities\Uuids\Guid;
@@ -32,13 +32,13 @@ class ProjectMembershipsController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): ProjectMembership {
 
 		// parse params
 		//
-		$projectUid = Input::get('project_uid');
-		$userUid = Input::get('user_uid');
-		$adminFlag = filter_var(Input::get('admin_flag'), FILTER_VALIDATE_BOOLEAN);
+		$projectUid = $request->input('project_uid');
+		$userUid = $request->input('user_uid');
+		$adminFlag = filter_var($request->input('admin_flag'), FILTER_VALIDATE_BOOLEAN);
 
 		// create new project membership
 		//
@@ -59,29 +59,27 @@ class ProjectMembershipsController extends BaseController
 
 	// get by index
 	//
-	public function getIndex($membershipUid) {
-		$projectMembership = ProjectMembership::where('membership_uid', '=', $membershipUid)->get()->first();
-		return $projectMembership;
+	public function getIndex(string $membershipUid): ?ProjectMembership {
+		return ProjectMembership::find($membershipUid);
 	}
 
 	// get by project and user index
 	//
-	public function getMembership($projectUid, $userUid) {
-		$projectMembership = ProjectMembership::where('project_uid', '=', $projectUid)->where('user_uid', '=', $userUid)->first();
-		return $projectMembership;
+	public function getMembership(string $projectUid, string $userUid): ?ProjectMembership {
+		return ProjectMembership::where('project_uid', '=', $projectUid)->where('user_uid', '=', $userUid)->first();
 	}
 
 	// update by index
 	//
-	public function updateIndex($membershipUid) {
+	public function updateIndex(Request $request, string $membershipUid) {
 
 		// parse parameters
 		//
-		$adminFlag = filter_var(Input::get('admin_flag'), FILTER_VALIDATE_BOOLEAN);
+		$adminFlag = filter_var($request->input('admin_flag'), FILTER_VALIDATE_BOOLEAN);
 
 		// get model
 		//
-		$projectMembership = ProjectMembership::where('membership_uid', '=', $membershipUid)->get()->first();
+		$projectMembership = ProjectMembership::where('membership_uid', '=', $membershipUid)->first();
 		
 		// update attributes
 		//
@@ -99,47 +97,9 @@ class ProjectMembershipsController extends BaseController
 		return $changes;
 	}
 
-	// update multiple
-	//
-	public function updateAll() {
-
-		// parse parameters
-		//
-		$input = Input::all();
-		$adminFlag = filter_var($item['admin_flag'], FILTER_VALIDATE_BOOLEAN);
-
-		// update project memberships
-		//
-		$collection = new Collection;
-		for ($i = 0; $i < sizeOf($input); $i++) {
-
-			// get project membership
-			//
-			$item = $input[$i];
-			$projectMembership = ProjectMembership::where('membership_uid', '=', $item['membership_uid'])->first();
-			$collection->push($projectMembership);
-
-			// update project membership fields
-			//
-			$projectMembership->project_uid = $item['project_uid'];
-			$projectMembership->user_uid = $item['user_uid'];
-			$projectMembership->admin_flag = $adminFlag;
-			
-			// save updated project membership
-			//
-			$projectMembership->save();
-		}
-
-		// log the project membership event
-		//
-		Log::info("Project membership update all.");
-
-		return $collection;
-	}
-
 	// delete by index
 	//
-	public function deleteIndex($membershipUid) {
+	public function deleteIndex(string $membershipUid) {
 		$projectMembership = ProjectMembership::where('membership_uid', '=', $membershipUid)->first();
 
 		// get user and project associated with this email
@@ -175,7 +135,7 @@ class ProjectMembershipsController extends BaseController
 	
 	// delete by project and user id
 	//
-	public function deleteMembership($projectUid, $userUid) {
+	public function deleteMembership(string $projectUid, string $userUid) {
 		$projectMembership = ProjectMembership::where('project_uid', '=', $projectUid)->where('user_uid', '=', $userUid)->first();
 		$projectMembership->delete();
 		return $projectMembership;

@@ -13,14 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Results;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Projects\Project;
 use App\Models\Results\ExecutionRecord;
@@ -39,15 +39,17 @@ class ExecutionRecordsController extends BaseController
 {
 	// get by index
 	//
-	public function getIndex($executionRecordUuid) {
+	public function getIndex(string $executionRecordUuid): ?ExecutionRecord {
+
 		// Use HTCondor Collector
+		//
 		$result = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
 		return HTCondorCollector::insertStatus($result, $executionRecordUuid);
 	}
 
 	// get ssh access
 	//
-	public function getSshAccess($executionRecordUuid){
+	public function getSshAccess(string $executionRecordUuid) {
 		$permission = UserPermission::where('user_uid','=',session('user_uid'))->where('permission_code','=','ssh-access')->first();
 		if (!$permission) {
 			return response('You do not have permission to access SSH information.', 401);
@@ -139,7 +141,7 @@ class ExecutionRecordsController extends BaseController
 
 	// get by project
 	//
-	public function getByProject($projectUuid) {
+	public function getByProject(Request $request, string $projectUuid): Collection {
 		if (!strpos($projectUuid, '+')) {
 
 			// check for inactive or non-existant project
@@ -151,17 +153,17 @@ class ExecutionRecordsController extends BaseController
 
 			// get by a single project
 			//
-			$executionRecordsQuery = ExecutionRecord::where('project_uuid', '=', $projectUuid);
+			$query = ExecutionRecord::where('project_uuid', '=', $projectUuid);
 		
 			// add triplet filter
 			//
-			$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, $projectUuid);
+			$query = TripletFilter2::apply($request, $query, $projectUuid);
 		} else {
 
 			// get by multiple projects
 			//
 			$projectUuids = explode('+', $projectUuid);
-			$executionRecordsQuery =ExecutionRecord::where(function($query) use ($projectUuids) {
+			$query = ExecutionRecord::where(function($query) use ($request, $projectUuids) {
 				foreach ($projectUuids as $projectUuid) {
 
 					// check for inactive or non-existant project
@@ -179,48 +181,50 @@ class ExecutionRecordsController extends BaseController
 
 					// add triplet filter
 					//
-					$query = TripletFilter2::apply($query, $projectUuid);
+					$query = TripletFilter2::apply($request, $query, $projectUuid);
 				}
 			});
 		}
 
 		// add date filter
 		//
-		$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
+		$query = DateFilter::apply($request, $query);
 
 		// order results before applying filter
 		//
-		$executionRecordsQuery = $executionRecordsQuery->orderBy('create_date', 'DESC');
+		$query = $query->orderBy('create_date', 'DESC');
 
 		// add limit filter
 		//
-		$executionRecordsQuery = LimitFilter::apply($executionRecordsQuery);
+		$query = LimitFilter::apply($request, $query);
 
-		// execute query
+		// perform query
 		//
-		// Use HTCondor Collector
-		$result = $executionRecordsQuery->get();
+		$result = $query->get();
+
+		// append statuses to results
+		//
 		return HTCondorCollector::insertStatuses($result);
 	}
 
 	// get number by project
 	//
-	public function getNumByProject($projectUuid) {
+	public function getNumByProject(Request $request, string $projectUuid): int {
 		if (!strpos($projectUuid, '+')) {
 
 			// get by a single project
 			//
-			$executionRecordsQuery = ExecutionRecord::where('project_uuid', '=', $projectUuid);
+			$query = ExecutionRecord::where('project_uuid', '=', $projectUuid);
 		
 			// add triplet filter
 			//
-			$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, $projectUuid);
+			$query = TripletFilter2::apply($request, $query, $projectUuid);
 		} else {
 
 			// get by multiple projects
 			//
 			$projectUuids = explode('+', $projectUuid);
-			$executionRecordsQuery =ExecutionRecord::where(function($query) use ($projectUuids) {
+			$query = ExecutionRecord::where(function($query) use ($projectUuids, $request) {
 				foreach ($projectUuids as $projectUuid) {
 
 					// check for inactive or non-existant project
@@ -238,48 +242,70 @@ class ExecutionRecordsController extends BaseController
 
 					// add triplet filter
 					//
-					$query = TripletFilter2::apply($query, $projectUuid);
+					$query = TripletFilter2::apply($request, $query, $projectUuid);
 				}
 			});
 		}
 
 		// add date filter
 		//
-		$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
+		$query = DateFilter::apply($request, $query);
 
-		// execute query
+		// perform query
 		//
-		return $executionRecordsQuery->count();
+		return $query->count();
 	}
 
 	// get all
 	//
-	public function getAll() {
-		$user = User::getIndex(session('user_uid'));
+	public function getAll(Request $request): Collection {
+		$user = User::current();
 		if ($user && $user->isAdmin()) {
-			$executionRecordsQuery = ExecutionRecord::orderBy('create_date', 'DESC');
+
+			// create query
+			//
+			$query = ExecutionRecord::orderBy('create_date', 'DESC');
 
 			// add filters
 			//
-			$executionRecordsQuery = DateFilter::apply($executionRecordsQuery);
-			$executionRecordsQuery = TripletFilter2::apply($executionRecordsQuery, null);
-			$executionRecordsQuery = LimitFilter::apply($executionRecordsQuery);
+			$query = DateFilter::apply($request, $query);
+			$query = TripletFilter2::apply($request, $query, null);
+			$query = LimitFilter::apply($request, $query);
 			
-			// Use HTCondor Collector
-			$result = $executionRecordsQuery->get();
+			// perform query
+			//
+			$result = $query->get();
+
+			// append statuses
+			//
 			return HTCondorCollector::insertStatuses($result);
+		} else {
+			return collect();
 		}
 	}
 
 	// kill by index
 	//
-	public function killIndex($executionRecordUuid) {
-		$user = User::getIndex(session('user_uid'));
-
+	public function killIndex(Request $request, string $executionRecordUuid) {
+		
 		// parse parameters
 		//
-		$type = Input::get('type'); 
-		$hard = Input::get('hard'); 
+		$type = $request->input('type'); 
+		$hard = $request->input('hard') == true; 
+
+		// check for current session
+		//
+		$userUid = session('user_uid');
+		if (!$userUid) {
+			return response("No current session.", 400);
+		}
+
+		// check for current user
+		//
+		$user = User::getIndex($userUid);
+		if (!$user) {
+			return response("No current user.", 400);
+		}
 
 		// check permissions
 		//
@@ -328,7 +354,7 @@ class ExecutionRecordsController extends BaseController
 
 	// notify by index
 	//
-	public function notifyIndex($executionRecordUuid) {
+	public function notifyIndex(string $executionRecordUuid) {
 		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
 
 		// look up execution record user
@@ -353,7 +379,7 @@ class ExecutionRecordsController extends BaseController
 
 	// delete by index
 	//
-	public function deleteIndex($executionRecordUuid) {
+	public function deleteIndex(string $executionRecordUuid) {
 		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $executionRecordUuid)->first();
 		$executionRecord->delete();
 		return $executionRecord;

@@ -13,13 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Events;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use App\Models\Users\User;
 use App\Models\Projects\Project;
 use App\Http\Controllers\BaseController;
@@ -30,12 +30,12 @@ class ProjectEventsController extends BaseController
 {
 	// get by user id
 	//
-	public static function getByUser($userUid) {
-		$projectEvents = new Collection;
+	public static function getByUser(Request $request, string $userUid): Collection {
+		$projectEvents = collect();
 
 		// parse parameters
 		//
-		$projectUid = Input::get('project_uuid');
+		$projectUid = $request->input('project_uuid');
 
 		// get user
 		//
@@ -45,19 +45,21 @@ class ProjectEventsController extends BaseController
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
 
-					// get events for a specific project
+					// create query
 					//
-					$projectEventsQuery = $project->getEventsQuery();
+					$query = $project->getEventsQuery();
 
 					// add filters
 					//
-					$projectEventsQuery = EventDateFilter::apply($projectEventsQuery);
-					$projectEventsQuery = LimitFilter::apply($projectEventsQuery);
+					$query = EventDateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
 
-					$projectEvents = $projectEventsQuery->get();
+					// perform query
+					//
+					$query = $query->get();
 				} 
 			} else {
-				$projectEvents = new Collection;
+				$projectEvents = collect();
 
 				// collect events of user's projects
 				//
@@ -67,14 +69,22 @@ class ProjectEventsController extends BaseController
 					for ($i = 0; $i < sizeOf($projects); $i++) {
 						$project = $projects[$i];
 						if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
-							$projectEventsQuery = $project->getEventsQuery();
+
+							// create query
+							//
+							$query = $project->getEventsQuery();
 
 							// apply filters
 							//
-							$projectEventsQuery = EventDateFilter::apply($projectEventsQuery);
-							$projectEventsQuery = LimitFilter::apply($projectEventsQuery);
+							$query = EventDateFilter::apply($request, $query);
+							$query = LimitFilter::apply($request, $query);
 
-							$events = $projectEventsQuery->get();
+							// perform query
+							//
+							$events = $query->get();
+
+							// add events to project events
+							//
 							if ($events) {
 								$projectEvents = $projectEvents->merge($events);
 							}
@@ -89,12 +99,12 @@ class ProjectEventsController extends BaseController
 
 	// get number by user id
 	//
-	public static function getNumByUser($userUid) {
+	public static function getNumByUser(Request $request, string $userUid): int {
 		$num = 0;
 
 		// parse parameters
 		//
-		$projectUid = Input::get('project_uuid');
+		$projectUid = $request->input('project_uuid');
 
 		// get user
 		//
@@ -104,19 +114,21 @@ class ProjectEventsController extends BaseController
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project->isReadableBy($user)) {
 
-					// get events for a specific project
+					// create query
 					//
-					$projectEventsQuery = $project->getEventsQuery();
+					$query = $project->getEventsQuery();
 
 					// add filters
 					//
-					$projectEventsQuery = EventDateFilter::apply($projectEventsQuery);
-					$projectEventsQuery = LimitFilter::apply($projectEventsQuery);
+					$query = EventDateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
 
-					$num = $projectEventsQuery->count();
+					// perform query
+					//
+					$num = $query->count();
 				}
 			} else {
-				$projectEvents = new Collection;
+				$projectEvents = collect();
 
 				// collect events of user's projects
 				//
@@ -125,14 +137,19 @@ class ProjectEventsController extends BaseController
 					$projects = $user->getProjects();
 					for ($i = 0; $i < sizeOf($projects); $i++) {
 						if ($projects[$i] != null && $projects[$i]->isReadableBy($user)) {
-							$projectEventsQuery = $projects[$i]->getEventsQuery();
+
+							// create query
+							//
+							$query = $projects[$i]->getEventsQuery();
 
 							// apply filters
 							//
-							$projectEventsQuery = EventDateFilter::apply($projectEventsQuery);
-							$projectEventsQuery = LimitFilter::apply($projectEventsQuery);
+							$query = EventDateFilter::apply($request, $query);
+							$query = LimitFilter::apply($request, $query);
 
-							$num += $projectEventsQuery->count();
+							// peform query
+							//
+							$num += $query->count();
 						}
 					}
 				}
@@ -144,12 +161,12 @@ class ProjectEventsController extends BaseController
 
 	// get user project events by id
 	//
-	public static function getUserProjectEvents($userUid) {
-		$userProjectEvents = new Collection;
+	public static function getUserProjectEvents(Request $request, string $userUid): Collection {
+		$userProjectEvents = collect();
 
 		// parse parameters
 		//
-		$projectUid = Input::get('project_uuid');
+		$projectUid = $request->input('project_uuid');
 
 		// get user
 		//
@@ -159,19 +176,21 @@ class ProjectEventsController extends BaseController
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
 
-					// get events for a specific project
+					// create query
 					//
-					$userProjectEventsQuery = $project->getUserEventsQuery();
+					$query = $project->getUserEventsQuery();
 
 					// apply filters
 					//
-					$userProjectEventsQuery = EventDateFilter::apply($userProjectEventsQuery);
-					$userProjectEventsQuery = LimitFilter::apply($userProjectEventsQuery);
+					$query = EventDateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
 
-					$userProjectEvents = $userProjectEventsQuery->get();
+					// perform query
+					//
+					$userProjectEvents = $query->get();
 				}
 			} else {
-				$userProjectEvents = new Collection;
+				$userProjectEvents = collect();
 
 				// collect events of user's projects
 				//
@@ -181,14 +200,22 @@ class ProjectEventsController extends BaseController
 					for ($i = 0; $i < sizeOf($projects); $i++) {
 						$project = $projects[$i];
 						if ($projects && $project->isReadableBy($user) && !$project->isTrialProject()) {
-							$userProjectEventsQuery = $project->getUserEventsQuery();
+
+							// create query
+							//
+							$query = $project->getUserEventsQuery();
 
 							// apply filters
 							//
-							$userProjectEventsQuery = EventDateFilter::apply($userProjectEventsQuery);
-							$userProjectEventsQuery = LimitFilter::apply($userProjectEventsQuery);
+							$query = EventDateFilter::apply($request, $query);
+							$query = LimitFilter::apply($request, $query);
 
-							$events = $userProjectEventsQuery->get();				
+							// perform query
+							//
+							$events = $query->get();
+
+							// add events to user project events
+							//			
 							if ($events) {
 								$userProjectEvents = $userProjectEvents->merge($events);
 							}
@@ -203,12 +230,12 @@ class ProjectEventsController extends BaseController
 
 	// get number of user project events by id
 	//
-	public static function getNumUserProjectEvents($userUid) {
+	public static function getNumUserProjectEvents(Request $request, string $userUid): int {
 		$num = 0;
 
 		// parse parameters
 		//
-		$projectUid = Input::get('project_uuid');
+		$projectUid = $request->input('project_uuid');
 
 		// get user
 		//
@@ -218,19 +245,21 @@ class ProjectEventsController extends BaseController
 				$project = Project::where('project_uid', '=', $projectUid)->first();
 				if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
 
-					// get events for a specific project
+					// create query
 					//
-					$userProjectEventsQuery = $project->getUserEventsQuery();
+					$query = $project->getUserEventsQuery();
 
 					// apply filters
 					//
-					$userProjectEventsQuery = EventDateFilter::apply($userProjectEventsQuery);
-					$userProjectEventsQuery = LimitFilter::apply($userProjectEventsQuery);
+					$query = EventDateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
 
-					$num = $userProjectEventsQuery->count();
+					// perform query
+					//
+					$num = $query->count();
 				}
 			} else {
-				$userProjectEvents = new Collection;
+				$userProjectEvents = collect();
 
 				// collect events of user's projects
 				//
@@ -240,14 +269,19 @@ class ProjectEventsController extends BaseController
 					for ($i = 0; $i < sizeOf($projects); $i++) {
 						$project = $projects[$i];
 						if ($project && $project->isReadableBy($user) && !$project->isTrialProject()) {
-							$userProjectEventsQuery = $project->getUserEventsQuery();
+
+							// create query
+							//
+							$query = $project->getUserEventsQuery();
 
 							// apply filters
 							//
-							$userProjectEventsQuery = EventDateFilter::apply($userProjectEventsQuery);
-							$userProjectEventsQuery = LimitFilter::apply($userProjectEventsQuery);
+							$query = EventDateFilter::apply($request, $query);
+							$query = LimitFilter::apply($request, $query);
 
-							$num += $userProjectEventsQuery->count();
+							// perform query
+							//
+							$num += $query->count();
 						}
 					}
 				}

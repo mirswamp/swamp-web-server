@@ -16,7 +16,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models;
@@ -34,11 +34,11 @@ abstract class BaseModel extends Model
 	// querying methods
 	//
 
-	public function isNew() {
+	public function isNew(): bool {
 		return $this[$this->primaryKey] == null;
 	}
 	
-	public function isSameAs($object) {
+	public function isSameAs($object): bool {
 		return $object && $this[$this->getKeyName()] == $object[$object->getKeyName()];
 	}
 
@@ -57,7 +57,7 @@ abstract class BaseModel extends Model
 	// attribute visibility methods
 	//
 
-	public function getVisible() {
+	public function getVisible(): array {
 
 		// compose list of visible items hierarchically
 		//

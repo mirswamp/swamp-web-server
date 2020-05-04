@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
  * This file is part of PHPUnit.
  *
@@ -7,17 +7,19 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
 namespace PHPUnit\Framework\Constraint;
 
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\TestFailure;
 
-class IsEmptyTest extends ConstraintTestCase
+/**
+ * @small
+ */
+final class IsEmptyTest extends ConstraintTestCase
 {
-    public function testConstraintIsEmpty()
+    public function testConstraintIsEmpty(): void
     {
-        $constraint = new IsEmpty();
+        $constraint = new IsEmpty;
 
         $this->assertFalse($constraint->evaluate(['foo'], '', true));
         $this->assertTrue($constraint->evaluate([], '', true));
@@ -44,9 +46,9 @@ EOF
         $this->fail();
     }
 
-    public function testConstraintIsEmpty2()
+    public function testConstraintIsEmpty2(): void
     {
-        $constraint = new IsEmpty();
+        $constraint = new IsEmpty;
 
         try {
             $constraint->evaluate(['foo'], 'custom message');
@@ -64,5 +66,15 @@ EOF
         }
 
         $this->fail();
+    }
+
+    /**
+     * @ticket https://github.com/sebastianbergmann/phpunit/issues/3743
+     */
+    public function test_EmptyIterator_is_handled_correctly(): void
+    {
+        $constraint = new IsEmpty;
+
+        $this->assertTrue($constraint->evaluate(new \EmptyIterator, '', true));
     }
 }

@@ -13,12 +13,12 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Middleware;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use App\Utilities\Sanitization\Sanitize;
 use Closure;
@@ -28,16 +28,16 @@ class BeforeMiddleware
 	/**
 	 * Handle an incoming request.
 	 *
-	 * @param  \Illuminate\Http\Request  $request
+	 * @param  \Illuminate\Http\Request $request
 	 * @param  \Closure  $next
 	 * @return mixed
 	 */
-	public function handle($request, Closure $next)
+	public function handle(Request $request, Closure $next)
 	{
 		// sanitize input
 		//
 		$impure = false;
-		$input = Input::all();
+		$input = $request->all();
 		$bannedInput = [];
 		$keys = array_keys($input);
 		for ($i = 0; $i < sizeof($keys); $i++) {
@@ -84,7 +84,7 @@ class BeforeMiddleware
 
 		// return sanitized input
 		//
-		Input::replace($input);
+		$request->replace($input);
 
 		return $next($request);
 	}

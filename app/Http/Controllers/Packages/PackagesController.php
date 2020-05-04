@@ -13,18 +13,15 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Packages;
 
-use PDO;
-
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Response;
 use App\Utilities\Uuids\Guid;
 use App\Utilities\Filters\DateFilter;
 use App\Utilities\Filters\LimitFilter;
@@ -32,7 +29,6 @@ use App\Utilities\Filters\PackageTypeFilter;
 use App\Models\Projects\Project;
 use App\Models\Packages\Package;
 use App\Models\Packages\PackageType;
-use App\Models\Packages\PackageSharing;
 use App\Models\Packages\PackageVersion;
 use App\Models\Packages\PackageVersionSharing;
 use App\Models\Packages\PackagePlatform;
@@ -45,17 +41,18 @@ class PackagesController extends BaseController
 
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request): Package {
 
 		// parse parameters
 		//
-		$name = Input::get('name');
-		$description = Input::get('description');
-		$externalUrl = Input::get('external_url');
-		$secretToken = Input::get('secret_token');
-		$packageTypeId = Input::get('package_type_id');
-		$packageLanguage = Input::get('package_language');
-		$packageSharingStatus = Input::get('package_sharing_status');
+		$name = $request->input('name');
+		$description = $request->input('description');
+		$externalUrl = $request->input('external_url');
+		$externalUrlType = $request->input('external_url_type');
+		$secretToken = $request->input('secret_token');
+		$packageTypeId = $request->input('package_type_id');
+		$packageLanguage = $request->input('package_language');
+		$packageSharingStatus = $request->input('package_sharing_status');
 
 		// check for existing package name
 		//
@@ -76,14 +73,21 @@ class PackagesController extends BaseController
 		//
 		$package = new Package([
 			'package_uuid' => Guid::create(),
+
+			// package attributes
+			//
 			'name' => $name,
 			'description' => $description,
-			'external_url' => $externalUrl,
-			'secret_token' => $secretToken,
 			'package_type_id' => $packageTypeId,
 			'package_language' => $packageLanguage,
 			'package_owner_uuid' => session('user_uid'),
-			'package_sharing_status' => $packageSharingStatus
+			'package_sharing_status' => $packageSharingStatus,
+
+			// external url attributes
+			//
+			'external_url' => $externalUrl,
+			'external_url_type' => $externalUrlType,
+			'secret_token' => $secretToken
 		]);
 		$package->save();
 
@@ -92,176 +96,199 @@ class PackagesController extends BaseController
 
 	// get all for admin user
 	//
-	public function getAll() {
-		$user = User::getIndex(session('user_uid'));
+	public function getAll(Request $request): Collection {
+		$user = User::current();
 		if ($user && $user->isAdmin()) {
 
 			// create SQL query
 			//
-			$packagesQuery = Package::orderBy('create_date', 'DESC');
+			$query = Package::orderBy('create_date', 'DESC');
 
 			// add filters
 			//
-			$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-			$packagesQuery = DateFilter::apply($packagesQuery);
-			$packagesQuery = LimitFilter::apply($packagesQuery);
+			$query = PackageTypeFilter::apply($request, $query);
+			$query = DateFilter::apply($request, $query);
+			$query = LimitFilter::apply($request, $query);
 
 			// perform query
 			//
-			return $packagesQuery->get();
+			return $query->get();
+		} else {
+			return collect();
 		}
-		return '';
 	}
 
 	// get types for filtering
 	//
-	public function getTypes() {
+	public function getTypes(): Collection {
 		return PackageType::all();
 	}
 
 	// get by index
 	//
-	public function getIndex($packageUuid) {
-		return Package::where('package_uuid', '=', $packageUuid)->first();
+	public function getIndex(string $packageUuid): ?Package {
+		return Package::find($packageUuid);
 	}
 
 	// get by user
 	//
-	public function getByOwner($userUuid) {
-		if (config('database.use_stored_procedures')) {
+	public function getByOwner(Request $request, string $userUuid): Collection {
 
-			// execute stored procedure
-			//
-			return self::PDOListPackagesByOwner($userUuid);
-		} else {
+		// create SQL query
+		//
+		$query = Package::where('package_owner_uuid', '=', $userUuid)->orderBy('create_date', 'DESC');
 
-			// create SQL query
-			//
-			$packagesQuery = Package::where('package_owner_uuid', '=', $userUuid)->orderBy('create_date', 'DESC');
+		// add filters
+		//
+		$query = PackageTypeFilter::apply($request, $query);
+		$query = DateFilter::apply($request, $query);
+		$query = LimitFilter::apply($request, $query);
 
-			// add filters
-			//
-			$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-			$packagesQuery = DateFilter::apply($packagesQuery);
-			$packagesQuery = LimitFilter::apply($packagesQuery);
-
-			// perform query
-			//
-			return $packagesQuery->get();
-		}
+		// perform query
+		//
+		return $query->get();
 	}
 
-	public function getByUser($userUuid) {
-		if (config('database.use_stored_procedures')) {
-
-			// execute stored procedure
-			//
-			return self::PDOListPackagesByUser($userUuid);
-		} else {
+	public function getByUser(Request $request, string $userUuid): Collection {
 			
-			// get user's projects
-			//
-			$user = User::getIndex($userUuid);
-			$projects = $user->getProjects();
+		// get user's projects
+		//
+		$user = User::getIndex($userUuid);
+		$projects = $user->getProjects();
 
-			// add packages of each project
-			//
-			$packages = new Collection;
-			foreach ($projects as $project) {
-				$projectPackages = $this->getProtected($project->project_uid);
-				foreach ($projectPackages as $package) {
-					if (!$packages->contains($package)) {
-						$packages->push($package);
+		// add packages of each project
+		//
+		$packages = collect();
+		foreach ($projects as $project) {
+			$projectPackages = $this->getProtected($request, $project->project_uid);
+			foreach ($projectPackages as $package) {
+				if (!$packages->contains($package)) {
+					$packages->push($package);
 
-						// add to packages query
-						//
-						if (!isset($packagesQuery)) {
-							$packagesQuery = Package::where('package_uuid', '=', $package->package_uuid);
-						} else {
-							$packagesQuery = $packagesQuery->orWhere('package_uuid', '=', $package->package_uuid);
-						}
-
-						// add filters
-						//
-						$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-						$packagesQuery = DateFilter::apply($packagesQuery);
+					// add to packages query
+					//
+					if (!isset($query)) {
+						$query = Package::where('package_uuid', '=', $package->package_uuid);
+					} else {
+						$query = $query->orWhere('package_uuid', '=', $package->package_uuid);
 					}
+
+					// add filters
+					//
+					$query = PackageTypeFilter::apply($request, $query);
+					$query = DateFilter::apply($request, $query);
 				}
 			}
+		}
 
-			// perform query
-			//
-			if (isset($packagesQuery)) {
-				return $packagesQuery->get();
-			} else {
-				return [];
-			}
+		// perform query
+		//
+		if (isset($query)) {
+			return $query->get();
+		} else {
+			return collect();
 		}
 	}
 
 	// get number by user
 	//
-	public function getNumByUser($userUuidIn) {
+	public function getNumByUser(Request $request, string $userUuidIn): int {
 
 		// create SQL query
 		//
-		$packagesQuery = Package::where('package_owner_uuid', '=', $userUuidIn);
+		$query = Package::where('package_owner_uuid', '=', $userUuidIn);
 
 		// add filters
 		//
-		$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-		$packagesQuery = DateFilter::apply($packagesQuery);
+		$query = PackageTypeFilter::apply($request, $query);
+		$query = DateFilter::apply($request, $query);
 
 		// perform query
 		//
-		return $packagesQuery->count();
+		return $query->count();
 	}
 
 	// get by current user
 	//
-	public function getAvailable() {
+	public function getAvailable(): Collection {
 		return $this->getByUser(session('user_uid'));
 	}
 
 	// get by public scoping
 	//
-	public function getPublic() {
+	public function getPublic(Request $request): Collection {
 
 		// create SQL query
 		//
-		$packagesQuery = Package::where('package_sharing_status', '=', 'public')->orderBy('name', 'ASC');
+		$query = Package::where('package_sharing_status', '=', 'public')->orderBy('name', 'ASC');
 
 		// add filters
 		//
-		$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-		$packagesQuery = DateFilter::apply($packagesQuery);
-		$packagesQuery = LimitFilter::apply($packagesQuery);
+		$query = PackageTypeFilter::apply($request, $query);
+		$query = DateFilter::apply($request, $query);
+		$query = LimitFilter::apply($request, $query);
 
 		// perform query
 		//
-		$packages = $packagesQuery->get();
-
-		return $packages;
+		return $query->get();
 	}
 
 	// get by protected scoping
 	//
-	public function getProtected($projectUuid) {
-		$user = User::getIndex(session('user_uid'));
+	public function getProtected(Request $request, string $projectUuid): Collection {
+		$user = User::current();
 		$projects = $user->getProjects();
 
-		if (config('database.use_stored_procedures')) {
+		// execute SQL query
+		//
+		$packages = collect();
 
-			// execute stored procedure
-			// 
-			self::PDOListProtectedPkgsByProjectUser($projectUuid);
+		if (!strpos($projectUuid, '+')) {
+
+			// check to see if project is in list of user's projects
+			//
+			if (!$user->isAdmin()) {
+				$found = false;
+		 		foreach ($projects as $project) {
+		 			if ($project->project_uid == $projectUuid) {
+		 				$found = true;
+		 			}
+		 		}
+		 		if (!$found) {
+					return response('User does not have permission to access given project.', 400);
+		 		}
+		 	}
+
+			// collect packages shared with a single project
+			//
+			$packageVersionSharings = PackageVersionSharing::where('project_uuid', '=', $projectUuid)->get();
+			for ($i = 0; $i < sizeof($packageVersionSharings); $i++) {
+				$packageVersion = PackageVersion::find($packageVersionSharings[$i]->package_version_uuid);
+				$package = Package::find($packageVersion->package_uuid);
+				if ($package && !$packages->contains($package)) {
+					$packages->push($package);
+
+					// add to packages query
+					//
+					if (!isset($query)) {
+						$query = Package::where('package_uuid', '=', $package->package_uuid);
+					} else {
+						$query = $query->orWhere('package_uuid', '=', $package->package_uuid);
+					}
+
+					// add filters
+					//
+					$query = PackageTypeFilter::apply($request, $query);
+					$query = DateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
+				}
+			}
 		} else {
 
-			// execute SQL query
+			// collect packages shared with multiple projects
 			//
-			$packages = new Collection;
-
-			if (!strpos($projectUuid, '+')) {
+			$projectUuids = explode('+', $projectUuid);
+			foreach ($projectUuids as $projectUuid) {
 
 				// check to see if project is in list of user's projects
 				//
@@ -277,88 +304,42 @@ class PackagesController extends BaseController
 			 		}
 			 	}
 
-				// collect packages shared with a single project
-				//
 				$packageVersionSharings = PackageVersionSharing::where('project_uuid', '=', $projectUuid)->get();
 				for ($i = 0; $i < sizeof($packageVersionSharings); $i++) {
-					$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionSharings[$i]->package_version_uuid)->first();
-					$package = Package::where('package_uuid', '=', $packageVersion->package_uuid)->first();
+					$packageVersion = PackageVersion::find($packageVersionSharings[$i]->package_version_uuid);
+					$package = Package::find($packageVersion->package_uuid);
 					if ($package && !$packages->contains($package)) {
 						$packages->push($package);
 
 						// add to packages query
 						//
-						if (!isset($packagesQuery)) {
-							$packagesQuery = Package::where('package_uuid', '=', $package->package_uuid);
+						if (!isset($query)) {
+							$query = Package::where('package_uuid', '=', $package->package_uuid);
 						} else {
-							$packagesQuery = $packagesQuery->orWhere('package_uuid', '=', $package->package_uuid);
+							$query = $query->orWhere('package_uuid', '=', $package->package_uuid);
 						}
 
 						// add filters
 						//
-						$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-						$packagesQuery = DateFilter::apply($packagesQuery);
-						$packagesQuery = LimitFilter::apply($packagesQuery);
+						$query = PackageTypeFilter::apply($request, $query);
+						$query = DateFilter::apply($request, $query);
+						$query = LimitFilter::apply($request, $query);
 					}
 				}
-			} else {
+			}			
+		}
 
-				// collect packages shared with multiple projects
-				//
-				$projectUuids = explode('+', $projectUuid);
-				foreach ($projectUuids as $projectUuid) {
-
-					// check to see if project is in list of user's projects
-					//
-					if (!$user->isAdmin()) {
-						$found = false;
-				 		foreach ($projects as $project) {
-				 			if ($project->project_uid == $projectUuid) {
-				 				$found = true;
-				 			}
-				 		}
-				 		if (!$found) {
-							return response('User does not have permission to access given project.', 400);
-				 		}
-				 	}
-
-					$packageVersionSharings = PackageVersionSharing::where('project_uuid', '=', $projectUuid)->get();
-					for ($i = 0; $i < sizeof($packageVersionSharings); $i++) {
-						$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionSharings[$i]->package_version_uuid)->first();
-						$package = Package::where('package_uuid', '=', $packageVersion->package_uuid)->first();
-						if ($package && !$packages->contains($package)) {
-							$packages->push($package);
-
-							// add to packages query
-							//
-							if (!isset($packagesQuery)) {
-								$packagesQuery = Package::where('package_uuid', '=', $package->package_uuid);
-							} else {
-								$packagesQuery = $packagesQuery->orWhere('package_uuid', '=', $package->package_uuid);
-							}
-
-							// add filters
-							//
-							$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-							$packagesQuery = DateFilter::apply($packagesQuery);
-							$packagesQuery = LimitFilter::apply($packagesQuery);
-						}
-					}
-				}			
-			}
-
-			// perform query
-			//
-			if (isset($packagesQuery)) {
-				return $packagesQuery->get();
-			} else {
-				return [];
-			}
+		// perform query
+		//
+		if (isset($query)) {
+			return $query->get();
+		} else {
+			return collect();
 		}
 	}
 
-	public function getNumProtected($projectUuid) {
-		$packages = new Collection;
+	public function getNumProtected(Request $request, string $projectUuid): int {
+		$packages = collect();
 		
 		if (!strpos($projectUuid, '+')) {
 
@@ -366,24 +347,24 @@ class PackagesController extends BaseController
 			//
 			$packageVersionSharings = PackageVersionSharing::where('project_uuid', '=', $projectUuid)->get();
 			for ($i = 0; $i < sizeof($packageVersionSharings); $i++) {
-				$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionSharings[$i]->package_version_uuid)->first();
-				$package = Package::where('package_uuid', '=', $packageVersion->package_uuid)->first();
+				$packageVersion = PackageVersion::find($packageVersionSharings[$i]->package_version_uuid);
+				$package = $packageVersion? $packageVersion->getPackage() : null;
 				if ($package && !$packages->contains($package)) {
 					$packages->push($package);
 
 					// add to packages query
 					//
-					if (!isset($packagesQuery)) {
-						$packagesQuery = Package::where('package_uuid', '=', $package->package_uuid);
+					if (!isset($query)) {
+						$query = Package::where('package_uuid', '=', $package->package_uuid);
 					} else {
-						$packagesQuery = $packagesQuery->orWhere('package_uuid', '=', $package->package_uuid);
+						$query = $query->orWhere('package_uuid', '=', $package->package_uuid);
 					}
 
 					// add filters
 					//
-					$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-					$packagesQuery = DateFilter::apply($packagesQuery);
-					$packagesQuery = LimitFilter::apply($packagesQuery);
+					$query = PackageTypeFilter::apply($request, $query);
+					$query = DateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
 				}
 			}
 		} else {
@@ -394,24 +375,24 @@ class PackagesController extends BaseController
 			foreach ($projectUuids as $projectUuid) {
 				$packageVersionSharings = PackageVersionSharing::where('project_uuid', '=', $projectUuid)->get();
 				for ($i = 0; $i < sizeof($packageVersionSharings); $i++) {
-					$packageVersion = PackageVersion::where('package_version_uuid', '=', $packageVersionSharings[$i]->package_version_uuid)->first();
-					$package = Package::where('package_uuid', '=', $packageVersion->package_uuid)->first();
+					$packageVersion = PackageVersion::find($packageVersionSharings[$i]->package_version_uuid);
+					$package = $packageVersion? $packageVersion->getPackage() : null;
 					if ($package && !$packages->contains($package)) {
 						$packages->push($package);
 
 						// add to packages query
 						//
-						if (!isset($packagesQuery)) {
-							$packagesQuery = Package::where('package_uuid', '=', $package->package_uuid);
+						if (!isset($query)) {
+							$query = Package::where('package_uuid', '=', $package->package_uuid);
 						} else {
-							$packagesQuery = $packagesQuery->orWhere('package_uuid', '=', $package->package_uuid);
+							$query = $query->orWhere('package_uuid', '=', $package->package_uuid);
 						}
 
 						// add filters
 						//
-						$packagesQuery = PackageTypeFilter::apply($packagesQuery);
-						$packagesQuery = DateFilter::apply($packagesQuery);
-						$packagesQuery = LimitFilter::apply($packagesQuery);
+						$query = PackageTypeFilter::apply($request, $query);
+						$query = DateFilter::apply($request, $query);
+						$query = LimitFilter::apply($request, $query);
 					}
 				}
 			}			
@@ -419,8 +400,8 @@ class PackagesController extends BaseController
 
 		// perform query
 		//
-		if (isset($packagesQuery)) {
-			return $packagesQuery->count();
+		if (isset($query)) {
+			return $query->count();
 		} else {
 			return 0;
 		}
@@ -428,32 +409,20 @@ class PackagesController extends BaseController
 
 	// get by project
 	//
-	public function getByProject($projectUuid) {
-		if (config('database.use_stored_procedures')) {
-
-			// execute stored procedure
-			//
-			return self::PDOListPackagesByProjectUser($projectUuid);
-		} else {
-
-			// use SQL
-			//
-			$packages = $this->getPublic();
-			$packages = $packages->merge($this->getProtected());
-			return $packages;
-		}
+	public function getByProject(Request $request, string $projectUuid): Collection {
+		return $this->getPublic($request)->merge($this->getProtected($request, $projectUuid));
 	}
 
 	// get versions
 	//
-	public function getVersions($packageUuid) {
+	public function getVersions(string $packageUuid): Collection {
 		return PackageVersion::where('package_uuid', '=', $packageUuid)->get();
 	}
 
 	// get versions a user can access
 	//
-	public function getAvailableVersions($packageUuid) {
-		$user = User::getIndex(session('user_uid'));
+	public function getAvailableVersions(Request $request, string $packageUuid): Collection {
+		$user = User::current();
 		$packageVersions = PackageVersion::where('package_uuid', '=', $packageUuid)->get();
 
 		// get available versions
@@ -463,29 +432,29 @@ class PackagesController extends BaseController
 
 				// add to package versions query
 				//
-				if (!isset($packageVersionsQuery)) {
-					$packageVersionsQuery = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
+				if (!isset($query)) {
+					$query = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
 				} else {
-					$packageVersionsQuery = $packageVersionsQuery->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
+					$query = $query->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
 				}
 
 				// add filters
 				//
-				$packageVersionsQuery = DateFilter::apply($packageVersionsQuery);
-				$packageVersionsQuery = LimitFilter::apply($packageVersionsQuery);
+				$query = DateFilter::apply($request, $query);
+				$query = LimitFilter::apply($request, $query);
 			}
 		}
 
 		// perform query
 		//
-		if (isset($packageVersionsQuery)) {
-			return $packageVersionsQuery->get();
+		if (isset($query)) {
+			return $query->get();
 		} else {
-			return [];
+			return collect();
 		}
 	}
 
-	public function getSharedVersions($packageUuid, $projectUuid) {
+	public function getSharedVersions(Request $request, string $packageUuid, string $projectUuid) {
 		$packageVersions = PackageVersion::where('package_uuid', '=', $packageUuid)->get();
 
 		if (!strpos($projectUuid, '+')) {
@@ -497,32 +466,32 @@ class PackagesController extends BaseController
 
 					// add to package versions query
 					//
-					if (!isset($packageVersionsQuery)) {
-						$packageVersionsQuery = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
+					if (!isset($query)) {
+						$query = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
 					} else {
-						$packageVersionsQuery = $packageVersionsQuery->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
+						$query = $query->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
 					}
 
 					// add filters
 					//
-					$packageVersionsQuery = DateFilter::apply($packageVersionsQuery);
-					$packageVersionsQuery = LimitFilter::apply($packageVersionsQuery);
+					$query = DateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
 				} elseif ($packageVersion->isProtected()) {
 					foreach (PackageVersionSharing::where('package_version_uuid', '=', $packageVersion->package_version_uuid)->get() as $packageVersionSharing) {
 						if ($packageVersionSharing->project_uuid == $projectUuid) {
 
 							// add to package versions query
 							//
-							if (!isset($packageVersionsQuery)) {
-								$packageVersionsQuery = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
+							if (!isset($query)) {
+								$query = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
 							} else {
-								$packageVersionsQuery = $packageVersionsQuery->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
+								$query = $query->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
 							}
 
 							// add filters
 							//
-							$packageVersionsQuery = DateFilter::apply($packageVersionsQuery);
-							$packageVersionsQuery = LimitFilter::apply($packageVersionsQuery);
+							$query = DateFilter::apply($request, $query);
+							$query = LimitFilter::apply($request, $query);
 							break;
 						}
 					}
@@ -539,16 +508,16 @@ class PackagesController extends BaseController
 
 					// add to package versions query
 					//
-					if (!isset($packageVersionsQuery)) {
-						$packageVersionsQuery = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
+					if (!isset($query)) {
+						$query = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
 					} else {
-						$packageVersionsQuery = $packageVersionsQuery->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
+						$query = $query->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
 					}
 
 					// add filters
 					//
-					$packageVersionsQuery = DateFilter::apply($packageVersionsQuery);
-					$packageVersionsQuery = LimitFilter::apply($packageVersionsQuery);
+					$query = DateFilter::apply($request, $query);
+					$query = LimitFilter::apply($request, $query);
 				} elseif ($packageVersion->isProtected()) {
 					foreach (PackageVersionSharing::where('package_version_uuid', '=', $packageVersion->package_version_uuid)->get() as $packageVersionSharing) {
 						foreach ($projectUuids as $projectUuid) {
@@ -556,16 +525,16 @@ class PackagesController extends BaseController
 
 								// add to package versions query
 								//
-								if (!isset($packageVersionsQuery)) {
-									$packageVersionsQuery = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
+								if (!isset($query)) {
+									$query = PackageVersion::where('package_version_uuid', '=', $packageVersion->package_version_uuid);
 								} else {
-									$packageVersionsQuery = $packageVersionsQuery->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
+									$query = $query->orWhere('package_version_uuid', '=', $packageVersion->package_version_uuid);
 								}
 
 								// add filters
 								//
-								$packageVersionsQuery = DateFilter::apply($packageVersionsQuery);
-								$packageVersionsQuery = LimitFilter::apply($packageVersionsQuery);
+								$query = DateFilter::apply($request, $query);
+								$query = LimitFilter::apply($request, $query);
 								break 2;
 							}
 						}
@@ -576,32 +545,20 @@ class PackagesController extends BaseController
 
 		// perform query
 		//
-		if (isset($packageVersionsQuery)) {
-			return $packageVersionsQuery->get();
+		if (isset($query)) {
+			return $query->get();
 		} else {
-			return [];
+			return collect();
 		}
-	}
-
-
-	// get sharing
-	//
-	public function getSharing($packageUuid) {
-		$packageSharing = PackageSharing::where('package_uuid', '=', $packageUuid)->get();
-		$projectUuids = [];
-		for ($i = 0; $i < sizeof($packageSharing); $i++) {
-			array_push($projectUuids, $packageSharing[$i]->project_uuid);
-		}
-		return $projectUuids;
 	}
 
 	// get platforms / platlform versions
 	//
-	public function getPackagePlatforms($packageUuid) {
+	public function getPackagePlatforms(Request $request, string $packageUuid): Collection {
 
 		// parse parameters
 		//
-		$packageVersionUuid = Input::get('package_version_uuid');
+		$packageVersionUuid = $request->input('package_version_uuid');
 
 		// get platforms
 		//
@@ -611,17 +568,18 @@ class PackagesController extends BaseController
 
 	// update by index
 	//
-	public function updateIndex($packageUuid) {
+	public function updateIndex(Request $request, string $packageUuid) {
 
 		// parse parameters
 		//
-		$name = Input::get('name');
-		$description = Input::get('description');
-		$externalUrl = Input::get('external_url');
-		$secretToken = Input::get('secret_token');
-		$packageTypeId = Input::get('package_type_id');
-		$packageOwnerUuid = Input::get('package_owner_uuid', null);
-		$packageSharingStatus = Input::get('package_sharing_status');
+		$name = $request->input('name');
+		$description = $request->input('description');
+		$externalUrl = $request->input('external_url');
+		$externalUrlType = $request->input('external_url_type');
+		$secretToken = $request->input('secret_token');
+		$packageTypeId = $request->input('package_type_id');
+		$packageOwnerUuid = $request->input('package_owner_uuid', null);
+		$packageSharingStatus = $request->input('package_sharing_status');
 
 		// get model
 		//
@@ -646,6 +604,7 @@ class PackagesController extends BaseController
 		$package->name = $name;
 		$package->description = $description;
 		$package->external_url = $externalUrl;
+		$package->external_url_type = $externalUrlType;
 		$package->secret_token = $secretToken;
 		$package->package_type_id = $packageTypeId;
 		$package->package_owner_uuid = $packageOwnerUuid ? $packageOwnerUuid : $package->package_owner_uuid;
@@ -658,205 +617,29 @@ class PackagesController extends BaseController
 		return $changes;
 	}
 
-	// update sharing by index
-	//
-	public function updateSharing($packageUuid) {
-
-		// parse parameters
-		//
-		$projectUuids = Input::get('project_uuids');
-
-		// remove previous sharing
-		//
-		$packageSharings = PackageSharing::where('package_uuid', '=', $packageUuid)->get();
-		for ($i = 0; $i < sizeof($packageSharings); $i++) {
-			$packageSharing = $packageSharings[$i];
-			$packageSharing->delete();
-		}
-
-		// create new sharing
-		//
-		$packageSharings = new Collection;
-		foreach ($projectUuids as $projectUuid) {
-			$packageSharing = new PackageSharing([
-				'package_uuid' => $packageUuid,
-				'project_uuid' => $projectUuid
-			]);
-			$packageSharing->save();
-			$packageSharings[] = $packageSharing;
-		}
-
-		return $packageSharings;
-	}
-
-	public function applyToAll($packageUuid){
-
-		// get package
-		//
-		$package = $this->getIndex($packageUuid);
-
-		// get default project sharings for package
-		//
-		$packageSharings = PackageSharing::where('package_uuid', '=', $packageUuid)->get();
-
-		// get all package versions
-		//
-		$packageVersions = PackageVersion::where('package_uuid', '=', $packageUuid)->get();
-		foreach ($packageVersions as $packageVersion) {
-
-			// reset all package version sharings for current package version
-			//
-			$packageVersionSharings = PackageVersionSharing::where('package_version_uuid', '=', $packageVersion->package_version_uuid)->get();
-			foreach ($packageVersionSharings as $pvs) {
-				$pvs->delete();
-			}
-
-			// set all package version sharings for current package version
-			//
-			foreach ($packageSharings as $ps) {
-				$packageVersionSharing = new PackageVersionSharing([
-					'project_uuid' => $ps->project_uuid,
-					'package_version_uuid' => $packageVersion->package_version_uuid
-				]);
-				$packageVersionSharing->save();
-			}
-
-			// update sharing status
-			//
-			$packageVersion->version_sharing_status = $package->package_sharing_status;
-			$packageVersion->save();
-		}
-	}
-
 	// delete by index
 	//
-	public function deleteIndex($packageUuid) {
-		$package = Package::where('package_uuid', '=', $packageUuid)->first();
+	public function deleteIndex(string $packageUuid) {
+
+		// find package
+		//
+		$package = Package::find($packageUuid);
+		if (!$package) {
+			return response("Package not found.", 404);
+		}
+
+
 		$package->delete();
 		return $package;
 	}
 
 	// delete versions
 	//
-	public function deleteVersions($packageUuid) {
+	public function deleteVersions(string $packageUuid) {
 		$packageVersions = $this->getVersions($packageUuid);
 		for ($i = 0; $i < sizeof($packageVersions); $i++) {
 			$packageVersions[$i]->delete();
 		}
 		return $packageVersions;
-	}
-
-	//
-	// PDO methods
-	//
-
-	private static function PDOListPackagesByOwner($userUuid) {
-		$connection = DB::connection('package_store');
-		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL list_pkgs_by_owner(:userUuidIn, @returnString);");
-		$stmt->bindParam(':userUuidIn', $userUuid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-		$results = [];
-
-		// get results
-		//
-		do {
-			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-				$results[] = $row;
-			}
-		} while ($stmt->nextRowset());
-
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll(PDO::FETCH_ASSOC)[0]['@returnString'];
-		$select->nextRowset();
-
-		if ($returnString == 'SUCCESS') {
-			return $results;
-		} else {
-			return response( $returnString, 500 );
-		}
-	}
-
-	private static function PDOListPackagesByUser($userUuid) {
-		$connection = DB::connection('package_store');
-		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL list_pkgs_by_user(:userUuidIn, @returnString);");
-		$stmt->bindParam(':userUuidIn', $userUuid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-		$results = [];
-
-		// get results
-		//
-		do {
-			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-				$results[] = $row;
-			}
-		} while ($stmt->nextRowset());
-
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
-
-		if ($returnString == 'SUCCESS') {
-			return $results;
-		} else {
-			return response( $returnString, 500 );
-		}
-	}
-
-	private static function PDOListPackagesByProjectUser($projectUuid) {
-		$userUid = session('user_uid');
-		$connection = DB::connection('package_store');
-		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL list_pkgs_by_project_user(:userUuidIn, :projectUuidIn, @returnString);");
-		$stmt->bindParam(':userUuidIn', $userUid, PDO::PARAM_STR, 45);
-		$stmt->bindParam(':projectUuidIn', $projectUuid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-		$results = [];
-
-		do {
-			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-				$results[] =  $row;
-			}
-		} while ($stmt->nextRowset());
-
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
-
-		if ($returnString == 'SUCCESS') {
-			return $results;
-		} else {
-			return response( $returnString, 500 );
-		}
-	}
-
-	private static function PDOListProtectedPkgsByProjectUser($projectUuid) {
-		$userUid = session('user_uid');
-		$connection = DB::connection('package_store');
-		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL list_protected_pkgs_by_project_user(:userUuidIn, :projectUuidIn, @returnString);");
-		$stmt->bindParam(':userUuidIn', $userUid, PDO::PARAM_STR, 45);
-		$stmt->bindParam(':projectUuidIn', $projectUuid, PDO::PARAM_STR, 45);
-		$stmt->execute();
-		$results = [];
-
-		// get results
-		//
-		do {
-			foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-				$results[] = $row;
-			}
-		} while ($stmt->nextRowset());
-
-		$select = $pdo->query('SELECT @returnString;');
-		$returnString = $select->fetchAll( PDO::FETCH_ASSOC )[0]['@returnString'];
-		$select->nextRowset();
-
-		if ($returnString == 'SUCCESS') {
-			return $results;
-		} else {
-			return response( $returnString, 500 );
-		}
 	}
 }

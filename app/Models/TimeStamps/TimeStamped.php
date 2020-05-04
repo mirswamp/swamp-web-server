@@ -14,7 +14,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\TimeStamps;
@@ -33,8 +33,11 @@ class TimeStamped extends CreateStamped
 	const UPDATED_AT = 'update_date';
 	const DELETED_AT = 'delete_date';
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 
 		// timestamp attributes
@@ -44,8 +47,11 @@ class TimeStamped extends CreateStamped
 		'delete_date'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'create_date' => 'datetime',
 		'update_date' => 'datetime',

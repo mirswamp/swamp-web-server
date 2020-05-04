@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Admin;
@@ -25,13 +25,39 @@ use App\Models\Users\User;
 
 class AdminInvitation extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'admin_invitation';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'admin_invitation_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
+	public $incrementing = false;
+
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'invitation_key',
 		'inviter_uid',
@@ -40,8 +66,11 @@ class AdminInvitation extends CreateStamped
 		'decline_date'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'invitation_key',
 		'inviter_uid',
@@ -52,8 +81,11 @@ class AdminInvitation extends CreateStamped
 		'invitee'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'inviter',
 		'invitee'
@@ -81,12 +113,12 @@ class AdminInvitation extends CreateStamped
 	// invitation sending / emailing method
 	//
 	
-	public function send($inviteeName, $confirmRoute) {
+	public function send(string $inviteeName, string $confirmRoute) {
 
-		// return an error if email has not been enabled
+		// check to see that mail is enabled
 		//
 		if (!config('mail.enabled')) {
-			return response('Email has not been enabled.', 400);
+			return;
 		}
 
 		if ($this->invitee && $this->invitee['email']) {
@@ -123,19 +155,19 @@ class AdminInvitation extends CreateStamped
 	// querying methods
 	//
 
-	public function isAccepted() {
+	public function isAccepted(): bool {
 		return $this->accept_date != null;
 	}
 
-	public function isDeclined() {
+	public function isDeclined(): bool {
 		return $this->decline_date != null;
 	}
 
-	public function getInviter() {
+	public function getInviter(): ?User {
 		return User::getIndex($this->inviter_uid);
 	}
 
-	public function getInvitee() {
+	public function getInvitee(): ?User {
 		return User::getIndex($this->invitee_uid);
 	}
 }

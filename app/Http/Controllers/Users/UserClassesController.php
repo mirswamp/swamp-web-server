@@ -13,11 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use App\Models\Users\UserClass;
 use App\Models\Users\UserClassMembership;
 use App\Http\Controllers\BaseController;
@@ -29,11 +31,17 @@ class UserClassesController extends BaseController
 	// get methods
 	//
 
-	public function getAll() {
-		return UserClass::all();
+	public function getAll(Request $request): Collection {
+		return UserClass::where(function($query) {
+			$now = date('Y-m-d H:i:s');
+			$query->where('start_date', '<', $now)->orWhereNull('start_date');
+		})->where(function($query) {
+			$now = date('Y-m-d H:i:s');
+			$query->where('end_date', '>', $now)->orWhereNull('end_date');
+		})->get();
 	}
 
-	public function getByUser($userUid) {
+	public function getByUser(Request $request, string $userUid): array {
 
 		// get current user
 		//
@@ -53,7 +61,7 @@ class UserClassesController extends BaseController
 		return $classes;
 	}
 
-	public function postByUser($userUid, $classCode) {
+	public function postByUser(Request $request, string $userUid, string $classCode) {
 
 		// check if membership has already been created
 		//
@@ -78,7 +86,7 @@ class UserClassesController extends BaseController
 		return $membership;
 	}
 
-	public function deleteByUser($userUid, $classCode) {
+	public function deleteByUser(Request $request, string $userUid, string $classCode) {
 		$membership = UserClassMembership::where('user_uid', '=', $userUid)
 			->where('class_code', '=', $classCode)->first();
 

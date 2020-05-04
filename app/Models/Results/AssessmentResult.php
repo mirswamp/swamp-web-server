@@ -13,7 +13,7 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Results;
@@ -21,7 +21,8 @@ namespace App\Models\Results;
 use PDO;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\TimeStamps\UserStamped;
+use App\Models\Users\User;
+use App\Models\TimeStamps\TimeStamped;
 use App\Models\Users\UserPolicy;
 use App\Models\Users\Permission;
 use App\Models\Projects\Project;
@@ -30,21 +31,52 @@ use App\Models\Tools\ToolVersion;
 use App\Models\Results\ExecutionRecord;
 use App\Models\Viewers\Viewer;
 
-class AssessmentResult extends UserStamped
+class AssessmentResult extends TimeStamped
 {
 	// enable soft delete
 	//
 	use SoftDeletes;
 
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'assessment';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'assessment_result';
-	protected $primaryKey = 'assessment_results_uuid';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
+	protected $primaryKey = 'assessment_result_uuid';
+
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
 	public $incrementing = false;
 
-	// mass assignment policy
-	//
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'assessment_result_uuid',
 		'execution_record_uuid',
@@ -62,8 +94,11 @@ class AssessmentResult extends UserStamped
 		'package_version'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'assessment_result_uuid',
 		'project_uuid',
@@ -77,14 +112,20 @@ class AssessmentResult extends UserStamped
 		'package_version'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'weakness_cnt' => 'integer'
 	];
 
+	//
+	// methods
+	//
 
-	public function checkPermissions($user) {
+	public function checkPermissions(User $user) {
 
 		// check for no project
 		//
@@ -128,7 +169,7 @@ class AssessmentResult extends UserStamped
 		return true;
 	}
 
-	public function launchViewer($viewer) {
+	public function launchViewer(Viewer $viewer) {
 
 		// get latest version of viewer
 		//
@@ -170,14 +211,14 @@ class AssessmentResult extends UserStamped
 		return $select->fetchAll();
 	}
 
-	public function getNativeResultsData() {
+	public function getNativeResultsData(): string {
 
 		// find path for cached results
 		//
 		if (config('app.sample_results')) {
 			$resultsPath = config('app.sample_results');
 		} else {
-			$resultsPath = config('app.outgoing').'/'.$this->assessment_result_uuid.'/nativereport.json';	
+			$resultsPath = rtrim(config('app.outgoing'), '/') . '/' .$this->assessment_result_uuid.'/nativereport.json';	
 		}
 
 		// check for cached results in storage directory

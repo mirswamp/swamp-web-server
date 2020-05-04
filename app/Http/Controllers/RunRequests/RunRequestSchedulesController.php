@@ -13,13 +13,13 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\RunRequests;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Input;
 use App\Utilities\Uuids\Guid;
 use App\Models\RunRequests\RunRequestSchedule;
 use App\Http\Controllers\BaseController;
@@ -28,12 +28,12 @@ class RunRequestSchedulesController extends BaseController
 {
 	// create
 	//
-	public function postCreate() {
+	public function postCreate(Request $request) {
 
 		// parse parameters
 		//
-		$runRequestUuid = Input::get('run_request_uuid', null);
-		$recurranceType = Input::get('recurrence_type', null);
+		$runRequestUuid = $request->input('run_request_uuid', null);
+		$recurranceType = $request->input('recurrence_type', null);
 
 		// create new schedule
 		//
@@ -62,8 +62,8 @@ class RunRequestSchedulesController extends BaseController
 
 			// create an array of models
 			//
-			$inputs = Input::all();
-			$runRequestSchedules = new Collection;
+			$inputs = $request->all();
+			$runRequestSchedules = collect();
 			for ($i = 0; $i < sizeOf($inputs); $i++) {
 				$input = $inputs[$i];
 				$runRequestSchedule = new RunRequestSchedule([
@@ -90,25 +90,26 @@ class RunRequestSchedulesController extends BaseController
 	
 	// get by index
 	//
-	public function getIndex($runRequestScheduleUuid) {
-		$runRequest = RunRequestSchedule::where('run_request_schedule_uuid', '=', $runRequestScheduleUuid)->first();
-		return $runRequest;
+	public function getIndex(string $runRequestScheduleUuid): ?RunRequestSchedule {
+		return RunRequestSchedule::find($runRequestScheduleUuid);
 	}
 
 	// get by run request
 	//
-	public function getByRunRequest($runRequestUuid) {
-		$runRequestSchedules = RunRequestSchedule::where('run_request_uuid', '=', $runRequestUuid)->get();
-		return $runRequestSchedules;
+	public function getByRunRequest(string $runRequestUuid): Collection {
+		return RunRequestSchedule::where('run_request_uuid', '=', $runRequestUuid)->get();
 	}
 
 	// update by index
 	//
-	public function updateIndex($runRequestScheduleUuid) {
+	public function updateIndex(Request $request, string $runRequestScheduleUuid) {
 
 		// parse parameters
 		//
-		$runRequestUuid = Input::get('run_request_uuid');
+		$runRequestUuid = $request->input('run_request_uuid');
+		$recurrenceType = $request->input('recurrence_type');
+		$recurrenceDay = $request->input('recurrence_day');
+		$timeOfDay = $request->input('time_of_day');
 
 		// get model
 		//
@@ -117,15 +118,9 @@ class RunRequestSchedulesController extends BaseController
 		// update attributes
 		//
 		$runRequestSchedule->run_request_uuid = $runRequestUuid;
-
-		// set optional attributes
-		//
-		if (array_key_exists('recurrence_day', $input)) {
-			$runRequestSchedule->recurrence_day = $input['recurrence_day'];
-		}
-		if (array_key_exists('time_of_day', $input)) {
-			$runRequestSchedule->time_of_day = $input['time_of_day'];
-		}
+		$runRequestSchedule->recurrence_type = $recurrenceType;
+		$runRequestSchedule->recurrence_day = $recurrenceDay;
+		$runRequestSchedule->time_of_day = $timeOfDay;
 
 		// save and return changes
 		//
@@ -136,15 +131,15 @@ class RunRequestSchedulesController extends BaseController
 
 	// update multiple
 	//
-	public function updateMultiple() {
+	public function updateMultiple(Request $request) {
 
 		// parse parameters
 		//
-		$inputs = Input::all();
+		$inputs = $request->all();
 
 		// update schedules
 		//
-		$collection = new Collection;
+		$collection = collect();
 		for ($i = 0; $i < sizeOf($inputs); $i++) {
 
 			// get input item
@@ -188,7 +183,7 @@ class RunRequestSchedulesController extends BaseController
 
 	// delete by index
 	//
-	public function deleteIndex($runRequestScheduleUuid) {
+	public function deleteIndex(string $runRequestScheduleUuid) {
 		$runRequestSchedule = RunRequestSchedule::where('run_request_schedule_uuid', '=', $runRequestScheduleUuid)->first();
 		$runRequestSchedule->delete();
 		return $runRequestSchedule;

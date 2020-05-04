@@ -13,11 +13,12 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Users;
 
+use Illuminate\Http\Request;
 use App\Models\Users\Policy;
 use App\Http\Controllers\BaseController;
 
@@ -27,7 +28,7 @@ class PoliciesController extends BaseController
 	// get methods
 	//
 
-	public function getByCode($policyCode) {
+	public function getByCode(Request $request, string $policyCode) {
 		return Policy::where('policy_code','=', $policyCode)->first();
 	}
 }

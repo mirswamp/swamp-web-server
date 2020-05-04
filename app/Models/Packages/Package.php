@@ -13,13 +13,14 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Packages;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
-use App\Models\TimeStamps\UserStamped;
+use App\Models\TimeStamps\TimeStamped;
 use App\Models\Users\User;
 use App\Models\Users\Owner;
 use App\Models\Packages\PackageType;
@@ -29,26 +30,54 @@ use App\Models\Platforms\Platform;
 use App\Models\Platforms\PlatformVersion;
 use App\Models\Assessments\SystemSetting;
 
-class Package extends UserStamped
+class Package extends TimeStamped
 {
-	// attributes
-	//
-	private $maxVersions = 5;	// max size of version_strings
-
-	// database attributes
-	//
+	/**
+	 * The database connection to use.
+	 *
+	 * @var string
+	 */
 	protected $connection = 'package_store';
+
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'package';
+
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
 	protected $primaryKey = 'package_uuid';
+
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
 	public $incrementing = false;
 
-	// mass assignment policy
-	//
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'package_uuid',
 		'name',
 		'description',
 		'external_url',
+		'external_url_type',
 		'secret_token',
 		'package_type_id',
 		'package_language',
@@ -56,13 +85,17 @@ class Package extends UserStamped
 		'package_sharing_status'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'package_uuid',
 		'name',
 		'description',
 		'external_url',
+		'external_url_type',
 		'secret_token',
 		'package_type_id',
 		'package_language',
@@ -74,8 +107,11 @@ class Package extends UserStamped
 		'platform_user_selectable'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	public $appends = [
 		'is_owned',
 		'external_url',
@@ -86,54 +122,64 @@ class Package extends UserStamped
 		'platform_user_selectable'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'is_owned' => 'boolean',
 		'platform_user_selectable' => 'boolean'
 	];
 
+	/**
+	 * The max size of version_strings.
+	 *
+	 * @var int
+	 */
+	private $maxVersions = 5;
+
 	//
 	// accessor methods
 	//
 
-	public function getIsOwnedAttribute() {
+	public function getIsOwnedAttribute(): bool {
 		return session('user_uid') == $this->package_owner_uuid;
 	}
 
-	public function getExternalUrlAttribute() {
+	public function getExternalUrlAttribute(): ?string {
 
 		// if external URL is empty string, then return null
 		//
 		return $this->getOriginal('external_url') != ''? $this->getOriginal('external_url') : null;
 	}
 
-	public function getSecretTokenAttribute() {
-		$currentUser = User::getIndex(session('user_uid'));
-		return $this->isOwnedBy($currentUser)? $this->getOriginal('secret_token') : null;
+	public function getSecretTokenAttribute(): ?string {
+		$currentUser = User::current();
+		return $currentUser && $this->isOwnedBy($currentUser)? $this->getOriginal('secret_token') : null;
 	}
 
-	public function getPackageTypeAttribute() {
+	public function getPackageTypeAttribute(): ?string {
 		return $this->getPackageType();
 	}
 
-	public function getNumVersionsAttribute() {
+	public function getNumVersionsAttribute(): int {
 		return PackageVersion::where('package_uuid', '=', $this->package_uuid)->count();
 	}
 
-	public function getVersionStringsAttribute() {
+	public function getVersionStringsAttribute(): array {
 		return $this->getVersionStrings($this->maxVersions);
 	}
 
-	public function getPlatformUserSelectableAttribute() {
-		return $this->getPlatformUserSelectable();
+	public function getPlatformUserSelectableAttribute(): bool {
+		return $this->isPlatformUserSelectable();
 	}
 
 	//
 	// querying methods
 	//
 
-	public function getPackageType() {
+	public function getPackageType(): ?string {
 
 		// get package type name
 		//
@@ -145,7 +191,7 @@ class Package extends UserStamped
 		}
 	}
 
-	public function getVersionStrings($limit = 5) {
+	public function getVersionStrings(int $limit = 5): array {
 		$versionStrings = [];
 		$packageVersions = PackageVersion::where('package_uuid', '=', $this->package_uuid)->limit($limit)->get();
 		for ($i = 0; $i < sizeOf($packageVersions); $i++) {
@@ -158,22 +204,22 @@ class Package extends UserStamped
 		return $versionStrings;
 	}
 
-	public function getVersions() {
+	public function getVersions(): Collection {
 		return PackageVersion::where('package_uuid', '=', $this->package_uuid)->get();
 	}
 
-	public function getLatestVersion($projectUuid) {
+	public function getLatestVersion(?string $projectUuid): ?PackageVersion {
 		if (!$projectUuid) {
 
 			// get package version associated with any project
 			//
-			$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid);
+			$query = PackageVersion::where('package_uuid', '=', $this->package_uuid);
 		} else {
 			if (!strpos($projectUuid, '+')) {
 
 				// get by a single project
 				//
-				$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid)
+				$query = PackageVersion::where('package_uuid', '=', $this->package_uuid)
 					->where(function($query0) use ($projectUuid) {
 						$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
 						->orWhere(function($query1) use ($projectUuid) {
@@ -191,8 +237,8 @@ class Package extends UserStamped
 				//
 				$projectUuids = explode('+', $projectUuid);
 				foreach ($projectUuids as $projectUuid) {
-					if (!isset($assessmentRunsQuery)) {
-						$packageVersionQuery = PackageVersion::where('package_uuid', '=', $this->package_uuid)
+					if (!isset($query)) {
+						$query = PackageVersion::where('package_uuid', '=', $this->package_uuid)
 							->where(function($query0) use ($projectUuid) {
 								$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
 								->orWhere(function($query1) use ($projectUuid) {
@@ -205,7 +251,7 @@ class Package extends UserStamped
 								});
 							});
 					} else {
-						$packageVersionQuery = $packageVersionQuery->orWhere('package_uuid', '=', $this->package_uuid)
+						$query = $query->orWhere('package_uuid', '=', $this->package_uuid)
 							->where(function($query0) use ($projectUuid) {
 								$query0->whereRaw("upper(version_sharing_status)='PUBLIC'")
 								->orWhere(function($query1) use ($projectUuid) {
@@ -224,10 +270,10 @@ class Package extends UserStamped
 
 		// perform query
 		//
-		return $packageVersionQuery->orderBy('version_no', 'DESC')->first();
+		return $query->orderBy('version_no', 'DESC')->first();
 	}
 
-	public function getPlatformUserSelectable() {
+	public function isPlatformUserSelectable(): bool {
 		
 		// get platform user selectable from package type
 		//
@@ -239,7 +285,7 @@ class Package extends UserStamped
 		}
 	}
 
-	public function getDefaultPlatform(&$platformVersion) {
+	public function getDefaultPlatform(?PlatformVersion &$platformVersion): ?Platform {
 		$platform = null;
 		$platformVersion = null;
 
@@ -266,7 +312,7 @@ class Package extends UserStamped
 		return $platform;
 	}
 
-	public function getDefaultPlatformBySystemSetting(&$platformVersion) {
+	public function getDefaultPlatformBySystemSetting(?PlatformVersion &$platformVersion): ?Platform {
 		$platform = null;
 		$platformVersion = null;
 
@@ -288,7 +334,7 @@ class Package extends UserStamped
 		return $platform;
 	}
 
-	public function getDefaultPlatformByName(&$platformVersion) {
+	public function getDefaultPlatformByName(?PlatformVersion &$platformVersion): ?Platform {
 		$platform = null;
 		$platformName = null;
 		$platformVersion = null;
@@ -344,23 +390,23 @@ class Package extends UserStamped
 	// sharing methods
 	//
 
-	public function isPublic() {
+	public function isPublic(): bool {
 		return $this->getSharingStatus() == 'public';
 	}
 
-	public function isProtected() {
+	public function isProtected(): bool {
 		return $this->getSharingStatus() == 'protected';
 	}
 
-	public function isPrivate() {
+	public function isPrivate(): bool {
 		return $this->getSharingStatus() == 'private';
 	}
 
-	public function getSharingStatus() {
+	public function getSharingStatus(): string {
 		return strtolower($this->package_sharing_status);
 	}
 
-	public function isSharedBy($user) {
+	public function isSharedBy(User $user): bool {
 		$versions = $this->getVersions();
 		foreach ($versions as $version) {
 			if ($version->isSharedBy($user)) {
@@ -370,12 +416,12 @@ class Package extends UserStamped
 		return false;
 	}
 
-	public function getProjectNames($user = null) {
+	public function getProjectNames(?User $user = null): array {
 
 		// assume current user if not specified
 		//
 		if (!$user) {
-			$user = User::getIndex(session('user_uid'));
+			$user = User::current();
 		}
 
 		$versions = $this->getVersions();
@@ -392,12 +438,12 @@ class Package extends UserStamped
 		return $names;
 	}
 
-	public function getProjectUuids($user = null) {
+	public function getProjectUuids(?User $user = null): array {
 
 		// assume current user if not specified
 		//
 		if (!$user) {
-			$user = User::getIndex(session('user_uid'));
+			$user = User::current();
 		}
 
 		$versions = $this->getVersions($user);
@@ -414,22 +460,22 @@ class Package extends UserStamped
 		return $uuids;
 	}
 
-	public function getProjects($user = null) {
+	public function getProjects(?User $user = null): Collection {
 
 		// assume current user if not specified
 		//
 		if (!$user) {
-			$user = User::getIndex(session('user_uid'));
+			$user = User::current();
 		}
 
 		$versions = $this->getVersions();
 		$uuids = [];
-		$projects = [];
+		$projects = collect();
 		foreach ($versions as $version) {
 			$versionProjects = $version->getProjects($user);
 			foreach ($versionProjects as $project) {
 				if (!in_array($project->project_uid, $uuids)) {
-					array_push($projects, $project);
+					$projects->push($project);
 					array_push($uuids, $project->project_uid);
 				}
 			}
@@ -441,34 +487,31 @@ class Package extends UserStamped
 	// compatibility methods
 	//
 
-	public function getPlatformCompatibility($platform) {
+	public function getPlatformCompatibility(Platform $platform): ?bool {
 		$compatibility = PackagePlatform::where('package_uuid', '=', $this->package_uuid)->
 			whereNull('package_version_uuid')->
 			where('platform_uuid', '=', $platform->platform_uuid)->
 			whereNull('platform_version_uuid')->first();
-		if ($compatibility) {
-			return $compatibility->compatible_flag;
-		}
+		return $compatibility? $compatibility->compatible_flag : null;
 	}
 
-	public function getPlatformVersionCompatibility($platformVersion) {
+	public function getPlatformVersionCompatibility(PlatformVersion $platformVersion): ?bool {
 		$compatibility = PackagePlatform::where('package_uuid', '=', $this->package_uuid)->
 			whereNull('package_version_uuid')->
 			where('platform_version_uuid', '=', $platformVersion->platform_version_uuid)->first();
-		if ($compatibility) {
-			return $compatibility->compatible_flag;
-		}
+		return $compatibility? $compatibility->compatible_flag : null;
+
 	}
 
 	//
 	// access control methods
 	//
 
-	public function isOwnedBy($user) {
+	public function isOwnedBy(?User $user): bool {
 		return $user && ($this->package_owner_uuid == $user->user_uid);
 	}
 
-	public function isReadableBy($user) {
+	public function isReadableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isPublic()) {
@@ -482,7 +525,7 @@ class Package extends UserStamped
 		}
 	}
 
-	public function isWriteableBy($user) {
+	public function isWriteableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isOwnedBy($user)) {

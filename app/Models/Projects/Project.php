@@ -13,14 +13,16 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Models\Projects;
 
+use Illuminate\Support\Collection;
 use App\Models\TimeStamps\CreateStamped;
 use App\Models\Events\ProjectEvent;
 use App\Models\Events\UserProjectEvent;
+use App\Models\Users\User;
 use App\Models\Users\Owner;
 use App\Models\Users\UserPolicy;
 use App\Models\Users\Permission;
@@ -31,13 +33,39 @@ use App\Models\Projects\ProjectInvitation;
 
 class Project extends CreateStamped
 {
-	// database attributes
-	//
+	/**
+	 * The table associated with the model.
+	 *
+	 * @var string
+	 */
 	protected $table = 'project';
-	protected $primaryKey = 'project_id';
 
-	// mass assignment policy
-	//
+	/**
+	 * The primary key associated with the table.
+	 *
+	 * @var string
+	 */
+	protected $primaryKey = 'project_uid';
+
+	/**
+	 * Indicates if the IDs are auto-incrementing.
+	 *
+	 * @var bool
+	 */
+	public $incrementing = false;
+
+	/**
+	 * The "type" of the auto-incrementing ID.
+	 *
+	 * @var string
+	 */
+	protected $keyType = 'string';
+	
+	/**
+	 * The attributes that are mass assignable.
+	 *
+	 * @var array
+	 */
 	protected $fillable = [
 		'project_uid', 
 		'project_owner_uid', 
@@ -50,8 +78,11 @@ class Project extends CreateStamped
 		'deactivation_date'
 	];
 
-	// array / json conversion whitelist
-	//
+	/**
+	 * The attributes that should be visible in serialization.
+	 *
+	 * @var array
+	 */
 	protected $visible = [
 		'project_uid', 
 		'project_owner_uid', 
@@ -65,14 +96,20 @@ class Project extends CreateStamped
 		'owner'
 	];
 
-	// array / json appended model attributes
-	//
+	/**
+	 * The accessors to append to the model's array form.
+	 *
+	 * @var array
+	 */
 	protected $appends = [
 		'owner'
 	];
 
-	// attribute types
-	//
+	/**
+	 * The attributes that should be cast to native types.
+	 *
+	 * @var array
+	 */
 	protected $casts = [
 		'trial_project_flag' => 'boolean',
 		'exclude_public_tools_flag' => 'boolean',
@@ -94,7 +131,7 @@ class Project extends CreateStamped
 	// querying methods
 	//
 
-	public function getEvents() {
+	public function getEvents(): Collection {
 		return $this->getEventsQuery()->get();
 	}
 
@@ -102,7 +139,7 @@ class Project extends CreateStamped
 		return ProjectEvent::where('project_uid', '=', $this->project_uid);
 	}
 
-	public function getUserEvents() {
+	public function getUserEvents(): Collection {
 		return $this->getUserEventsQuery()->get();
 	}
 
@@ -110,30 +147,30 @@ class Project extends CreateStamped
 		return UserProjectEvent::where('project_uid', '=', $this->project_uid);
 	}
 
-	public function isActive() {
+	public function isActive(): bool {
 		return $this->deactivation_date == null;
 	}
 
-	public function getMembership($user) {
+	public function getMembership(User $user): ?ProjectMembership {
 		return ProjectMembership::where('user_uid', '=', $user->user_uid)->where('project_uid', '=', $this->project_uid)->first();
 	}
 	
-	public function getMemberships() {
+	public function getMemberships(): Collection {
 		return ProjectMembership::where('project_uid', '=', $this->project_uid)->get();
 	}
 
-	public function getInvitations() {
+	public function getInvitations(): Collection {
 		return ProjectInvitation::where('project_uid', '=', $this->project_uid)->get();
 	}
 
-	public function hasMember($user) {
+	public function hasMember(User $user): bool {
 		return ProjectMembership::where('user_uid', '=', $user->user_uid)
 			->where('project_uid', '=', $this->project_uid)
 			->where('delete_date', '=', null)
 			->exists();
 	}
 
-	public function isTrialProject() {
+	public function isTrialProject(): bool {
 		return $this->trial_project_flag;
 	}
 
@@ -141,11 +178,11 @@ class Project extends CreateStamped
 	// permission methods
 	//
 
-	public function getOwnerPermission($permissionCode) {
+	public function getOwnerPermission(string $permissionCode): ?UserPermission {
 		return UserPermission::where('user_uid', '=', $this->owner['user_uid'])->where('permission_code', '=', $permissionCode)->first();
 	}
 
-	public function getUserPermissionProject($userPermission) {
+	public function getUserPermissionProject(UserPermission $userPermission): ?UserPermissionProject {
 		return UserPermissionProject::where('user_permission_uid', '=', $userPermission->user_permission_uid)->where('project_uid', '=', $this->project_uid)->first();
 	}
 
@@ -153,11 +190,11 @@ class Project extends CreateStamped
 	// access control methods
 	//
 
-	public function isOwnedBy($user) {
+	public function isOwnedBy(User $user): bool {
 		return $user && $this->project_owner_uid == $user->user_uid;
 	}
 
-	public function isReadableBy($user) {
+	public function isReadableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isOwnedBy($user)) {
@@ -169,7 +206,7 @@ class Project extends CreateStamped
 		}
 	}
 	
-	public function isWriteableBy($user) {
+	public function isWriteableBy(User $user): bool {
 		if ($user->isAdmin()) {
 			return true;
 		} else if ($this->isOwnedBy($user)) {

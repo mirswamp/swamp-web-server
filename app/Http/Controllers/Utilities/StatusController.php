@@ -13,12 +13,12 @@
 |        'LICENSE.txt', which is part of this source code distribution.        |
 |                                                                              |
 |******************************************************************************|
-|        Copyright (C) 2012-2019 Software Assurance Marketplace (SWAMP)        |
+|        Copyright (C) 2012-2020 Software Assurance Marketplace (SWAMP)        |
 \******************************************************************************/
 
 namespace App\Http\Controllers\Utilities;
 
-use Illuminate\Support\Facades\Input;
+use Illuminate\Http\Request;
 use App\Http\Controllers\BaseController;
 use App\Services\SWAMPStatus;
 
@@ -33,11 +33,11 @@ class StatusController extends BaseController
 	// querying methods
 	//
 
-	public function getCurrent() {
+	public function getCurrent(Request $request) {
 
 		// parse parameters
 		//
-		$interval = Input::get('database-record-interval');
+		$interval = $request->input('database-record-interval');
 
 		// read from local JSON file (testing)
 		//
