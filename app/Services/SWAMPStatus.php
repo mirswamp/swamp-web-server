@@ -439,12 +439,10 @@ class SWAMPStatus
 				// start_new_job on empty line
 				//
 				if (empty($output[$i])) {
-					if ($runtype != 'unknown') {
-						$summary[$runtype][strtolower($status)] += 1;
-						$summary[$runtype]['jobs'] += 1;
-						$summary['total'][strtolower($status)] += 1;
-						$summary['total']['jobs'] += 1;
-					}
+					$summary[$runtype][strtolower($status)] += 1;
+					$summary[$runtype]['jobs'] += 1;
+					$summary['total'][strtolower($status)] += 1;
+					$summary['total']['jobs'] += 1;
 					if (! empty($owner) && ! empty($uid_domain)) {
 						$job['VM'] = $owner . '_' . $uid_domain . '_' . $clusterid . '_' . $procid;
 					}
@@ -480,16 +478,19 @@ class SWAMPStatus
 						if (preg_match("/^M-/", $execrunuid)) {
 							$execrunuid = preg_replace('/^M-/', '', $execrunuid);
 							$job['type'] = 'mrun';
+							$runtype = 'mruns';
 						}
 						elseif (preg_match("/^vrun_/", $execrunuid)) {
 							$execrunuid = preg_replace('/^vrun_/', '', $execrunuid);
 							$execrunuid = preg_replace('/_.*$/', '', $execrunuid);
 							$execrunuid = '{projectuid}' . $execrunuid;
 							$job['type'] = 'vrun';
+							$runtype = 'vruns';
 						}
 						else {
 							$execrunuid = '{execrunuid}' . $execrunuid;
 							$job['type'] = 'arun';
+							$runtype = 'aruns';
 						}
 						$job['EXECRUNUID'] = $execrunuid;
 					}
@@ -507,18 +508,6 @@ class SWAMPStatus
 					//
 					elseif ($name == 'Cmd') {
 						$job['CMD'] = $value;
-						if (preg_match("/^aswamp/", $value)) {
-							$runtype = 'aruns';
-						}
-						elseif (preg_match("/^mswamp/", $value)) {
-							$runtype = 'mruns';
-						}
-						elseif (preg_match("/^vswamp/", $value)) {
-							$runtype = 'vruns';
-						}
-						else {
-							$runtype = 'unknown';
-						}
 					}
 
 					// submitted

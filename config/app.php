@@ -153,7 +153,6 @@ return [
 
     'htcondorroot' => env('HTCONDOR_ROOT'),
 
-
     /*  
     |--------------------------------------------------------------------------
     | HTCondor Collector Hostname
@@ -230,7 +229,7 @@ return [
     */
 
     'sample_results' => env('APP_SAMPLE_RESULTS', null),
-    
+    'sample_warnings' => env('APP_SAMPLE_WARNINGS', null),
     'sample_errors' => env('APP_SAMPLE_ERRORS', null),
 
     /*
@@ -281,6 +280,17 @@ return [
 
     'contact_form_enabled' => env('APP_CONTACT_FORM', false),
     
+   /*
+    |--------------------------------------------------------------------------
+    | System Email Enabled
+    |--------------------------------------------------------------------------
+    |
+    | This setting determines whether or not to send system emails. 
+    |
+    */
+
+    'system_email_enabled' => env('APP_SYSTEM_EMAIL_ENABLED', true),
+
     /*
     |--------------------------------------------------------------------------
     | Default Viewer

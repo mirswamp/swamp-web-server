@@ -232,6 +232,33 @@ class Tool extends TimeStamped
 	}
 
 	//
+	// query scope methods
+	//
+
+	public function scopePublic($query) {
+		return $query->where('tool_sharing_status', '=', 'public')
+			->orWhere('tool_sharing_status', '=', 'PUBLIC');
+	}
+
+	public function scopePrivate($query) {
+		return $query->where('tool_sharing_status', '=', 'private')
+			->orWhere('tool_sharing_status', '=', 'PRIVATE');
+	}
+
+	public function scopeProtected($query) {
+		return $query->where('tool_sharing_status', '=', 'protected')
+			->orWhere('tool_sharing_status', '=', 'PROTECTED');
+	}
+
+	public function scopeOpen($query) {
+		return $query->whereNull('policy_code');
+	}
+
+	public function scopeRestricted($query) {
+		return $query->whereNotNull('policy_code');
+	}
+
+	//
 	// querying methods
 	//
 

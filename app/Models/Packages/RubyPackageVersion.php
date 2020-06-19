@@ -321,7 +321,7 @@ class RubyPackageVersion extends PackageVersion
 		//
 		} else if ($string[0] == '"') {
 			return [
-				'strlit2' => trim($string, '"')
+				'strlit' => trim($string, '"')
 			];
 
 		// symbols

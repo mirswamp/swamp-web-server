@@ -312,7 +312,12 @@ class User extends TimeStamped
 
 	public function isEnabled(): bool {
 		$userAccount = $this->getUserAccount();
-		return $userAccount && $userAccount->enabled_flag;
+		return $userAccount && $userAccount->isEnabled();
+	}
+
+	public function isHibernating(): bool {
+		$userAccount = $this->getUserAccount();
+		return $userAccount && $userAccount->isHibernating();
 	}
 
 	public function isSignedIn(): bool {

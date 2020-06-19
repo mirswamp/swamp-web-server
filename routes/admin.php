@@ -65,7 +65,8 @@ Route::group(['middleware' => 'auth'], function () {
 
 		// admin email
 		//
-		Route::post('admins_email', 'Admin\AdminsController@sendEmail');
+		Route::get('admin/users/email', 'Admin\AdminsController@getEmail');
+		Route::post('admin/users/email', 'Admin\AdminsController@sendEmail');
 	});
 
 	// admin invitation routes

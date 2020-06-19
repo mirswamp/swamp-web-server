@@ -472,7 +472,7 @@ class PermissionsController extends BaseController
 				'user_permission_uid' => $userPermissionUid,
 			]);
 
-			return response('The user permission has been deleted.', 204);
+			return $userPermission;
 		} else {
 			return response('Unable to revoke this permission.  Insufficient privileges.', 400);
 		}

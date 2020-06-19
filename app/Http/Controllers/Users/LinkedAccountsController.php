@@ -72,7 +72,7 @@ class LinkedAccountsController extends BaseController
 				'user_external_id' => $account->user_external_id,
 			]);
 
-			return response('The linked account has been deleted.', 204);
+			return $account;
 		} else {
 			return response('Unable to delete this linked account.  Insufficient privileges.', 400);
 		}

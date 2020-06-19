@@ -136,13 +136,13 @@ class ToolsController extends BaseController
 	// get by public scoping
 	//
 	public function getPublic(): Collection {
-		return Tool::where('tool_sharing_status', '=', 'public')->orderBy('name', 'ASC')->get();
+		return Tool::public()->open()->get();
 	}
 
 	// get by policy restriction
 	//
 	public function getRestricted(): Collection {
-		return Tool::whereNotNull('policy_code')->orderBy('name', 'ASC')->get();
+		return Tool::public()->restricted()->get();
 	}
 
 	// get by protected scoping

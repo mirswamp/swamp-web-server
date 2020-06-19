@@ -86,7 +86,7 @@ class AssessmentResultsController extends BaseController
 		return $query->get();
 	}
 
-	public static function launchViewer(string $assessmentResultsUuid, string $viewerUuid, string $projectUuid) {
+	public static function launchViewer(string $assessmentResultsUuid, string $viewerUuid, string $projectUuid, string $resultsType = 'results') {
 
 		// get latest version of viewer
 		//
@@ -98,7 +98,7 @@ class AssessmentResultsController extends BaseController
 		//
 		$connection = DB::connection('assessment');
 		$pdo = $connection->getPdo();
-		$stmt = $pdo->prepare("CALL launch_viewer(:assessmentResultsUuid, :userUuidIn, :viewerVersionUuid, :projectUuid, :destinationBasePath, @returnPath, @returnString, @viewerInstanceUuid);");
+		$stmt = $pdo->prepare("CALL launch_viewer(:assessmentResultsUuid, :userUuidIn, :viewerVersionUuid, :projectUuid, :destinationBasePath, :resultsType, @returnPath, @returnString, @viewerInstanceUuid);");
 		$resultsDestination = config('app.outgoing');
 
 		// bind params
@@ -108,6 +108,7 @@ class AssessmentResultsController extends BaseController
 		$stmt->bindParam(":viewerVersionUuid", $viewerVersionUuid, PDO::PARAM_STR, 45);
 		$stmt->bindParam(":projectUuid", $projectUuid, PDO::PARAM_STR, 45);
 		$stmt->bindParam(":destinationBasePath", $resultsDestination, PDO::PARAM_STR, 45);
+		$stmt->bindParam(":resultsType", $resultsType, PDO::PARAM_STR, 45);
 
 		$userUuidIn = session('user_uid');
 		$returnString = null;
@@ -128,6 +129,10 @@ class AssessmentResultsController extends BaseController
 	// get results for viewer
 	//
 	public function getResults(Request $request, string $assessmentResultsUuid, string $viewerUuid, string $projectUuid) {
+
+		// parse optional parameters
+		//
+		$resultsType = $request->input('type', 'results');
 
 		// check project permissions
 		//
@@ -157,54 +162,82 @@ class AssessmentResultsController extends BaseController
 
 		// check for sample test results
 		//
-		if (config('app.sample_results')) {
-			$results = json_decode(file_get_contents(config('app.sample_results')), true);
-			$results = $this->selectResults($request, $results);
-			$results = $this->filterResults($request, $results);
-			$results = $this->limitResults($request, $results);
-			$results = $this->annotateResults($results, $assessmentResultsUuid);
+		switch ($resultsType) {
 
-			// return results
+			// return sample warnings
 			//
-			return [
-				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results" => $results,
-				"results_status" => 'SUCCESS'
-			];
-		}
+			case 'warnings':
+				if (config('app.sample_warnings')) {
+					$info = $this->getAssessmentResultsInfo($assessmentResultsUuid);
+					$contents = file_get_contents(config('app.sample_warnings'));
+					$results = json_decode($contents, true);
+					return [
+						"assessment_results_uuid" => $assessmentResultsUuid,
+						"results" => array_merge($info, $results),
+						"results_status" => 'SUCCESS'
+					];
+				}
+				break;
 
-		// check for sample error results
-		//
-		if (config('app.sample_errors')) {
-
-			// return results
+			// return sample errors
 			//
-			return [
-				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results" => $this->getJSONErrors(file_get_contents(config('app.sample_errors')), $assessmentResultsUuid),
-				"results_status" => 'FAILED'
-			];
+			case 'errors':
+				if (config('app.sample_errors')) {
+					$info = $this->getAssessmentResultsInfo($assessmentResultsUuid);
+					$contents = file_get_contents(config('app.sample_errors'));
+					$results = $this->getJSONErrors($contents);
+					return [
+						"assessment_results_uuid" => $assessmentResultsUuid,
+						"results" => array_merge($info, $results),
+						"results_status" => 'SUCCESS'
+					];
+				}
+				break;
+
+			// return sample results
+			//
+			case 'results':
+			default:
+				if (config('app.sample_results')) {
+					$info = $this->getAssessmentResultsInfo($assessmentResultsUuid);
+					$contents = file_get_contents(config('app.sample_results'));
+					$results = json_decode($contents, true);
+					$results = $this->selectResults($request, $results);
+					$results = $this->filterResults($request, $results);
+					$results = $this->limitResults($request, $results);
+					return [
+						"assessment_results_uuid" => $assessmentResultsUuid,
+						"results" => array_merge($info, $results),
+						"results_status" => 'SUCCESS'
+					];
+				}
+				break;
 		}
 
 		// fetch results
 		//
-		$viewer = Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
+		if ($viewerUuid != 'errors' && $viewerUuid != 'warnings') {
+			$viewer = Viewer::where('viewer_uuid', '=', $viewerUuid)->first();
+		} else {
+			$viewer = null;
+		}
 
 		// check for cached results in storage directory
 		//
-		if (strtolower($viewer->name) == 'native') {
+		if (!$viewer || strtolower($viewer->name) == 'native') {
 			$resultsPath = rtrim(config('app.outgoing'), '/') . '/' . $assessmentResultsUuid . '/nativereport.json';
-			if (file_exists($resultsPath)) {
-
-				// read results from file
-				//
-				$results = file_get_contents($resultsPath, $assessmentResultsUuid);
+	
+			if (0) {
+			// if (file_exists($resultsPath)) {
+				$info = $this->getAssessmentResultsInfo($assessmentResultsUuid);
+				$contents = file_get_contents($resultsPath, $assessmentResultsUuid);
+				$results = $this->getJSONResults($request, $results);
 
 				// return results
 				//
 				return [
 					"assessment_results_uuid" => $assessmentResultsUuid,
-					"results" => $this->getJSONResults($request, $results, $assessmentResultsUuid),
+					"results" => array_merge($info, $results),
 					"results_status" => 'SUCCESS'
 				];
 			}
@@ -253,7 +286,7 @@ class AssessmentResultsController extends BaseController
 
 		// call stored procedure
 		//
-		$results = self::launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid);
+		$results = self::launchViewer($assessmentResultsUuid, $viewerUuid, $projectUuid, $resultsType);
 
 		// set param values
 		//
@@ -394,27 +427,31 @@ class AssessmentResultsController extends BaseController
 			$results = $this->getJSONResults($request, $results, $assessmentResultsUuid);
 		}
 
+		$info = $this->getAssessmentResultsInfo($assessmentResultsUuid);
+
 		if ($results) {
 
 			// return results
 			//
 			return [
 				"assessment_results_uuid" => $assessmentResultsUuid,
-				"results" => $results,
+				"results" => array_merge($info, $results),
 				"results_status" => $returnString
 			];
 		} else {
 			return response('Could not return results from '.$returnPath, 500);
 		}
 		
+		$results = file_get_contents($returnUrl);
+
 		return [
 			"assessment_results_uuid" => $assessmentResultsUuid,
-			"results" => file_get_contents($returnUrl),
+			"results" => array_merge($info, $results),
 			"results_status" => $returnString
 		];
 	}
 
-	public function getViewerResults(string $assessmentResultsUuid, string $viewerInstanceUuid, ?string $returnPath, ?string $returnString) {
+	public function getViewerResults(string $assessmentResultsUuid, ?string $viewerInstanceUuid, ?string $returnPath, ?string $returnString) {
 
 		// get url/status from viewer instance if present
 		// otherwise just use what database gave us.
@@ -662,25 +699,22 @@ class AssessmentResultsController extends BaseController
 		return $results;
 	}
 
-	public function annotateResults(array $results, string $assessmentResultUuid): array {
-		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
+	public function getAssessmentResultsInfo(string $assessmentResultUuid): array {
 
-		// append triplet info to results
+		// find execution record
 		//
+		$assessmentResult = AssessmentResult::where('assessment_result_uuid','=',$assessmentResultUuid)->first();
 		$executionRecord = ExecutionRecord::where('execution_record_uuid', '=', $assessmentResult->execution_record_uuid)->first();
 	
-		$results['AnalyzerReport']['package'] = $executionRecord->package;
-		$results['AnalyzerReport']['tool'] = $executionRecord->tool;
-		$results['AnalyzerReport']['platform'] = $executionRecord->platform;
-
-		// append create date
-		//
-		$results['AnalyzerReport']['create_date'] = $assessmentResult->create_date->format('Y/m/d H:i:s');
-
-		return $results;	
+		return [
+			'package' => $executionRecord->package,
+			'tool' => $executionRecord->tool,
+			'platform' => $executionRecord->platform,
+			'create_date' => $assessmentResult->create_date->format('Y/m/d H:i:s')
+		];	
 	}
 
-	public function getJSONResults(Request $request, string $results, string $assessmentResultUuid) {
+	public function getJSONResults(Request $request, string $results) {
 
 		// parse results
 		//
@@ -690,7 +724,6 @@ class AssessmentResultsController extends BaseController
 		//
 		$results = $this->filterResults($request, $results);
 		$results = $this->limitResults($request, $results);
-		$results = $this->annotateResults($results, $assessmentResultUuid);
 
 		return $results;
 	}
